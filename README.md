@@ -12,12 +12,15 @@ compte, aucun serveur : tes données restent sur ton téléphone.
 
 **Les articles**
 - Ajouter depuis le champ en bas de l'écran
-- Cocher / décocher d'un appui
+- **Toucher le cercle** pour cocher / décocher
+- **Toucher le nom** pour ouvrir la fiche et modifier l'article
+- Donner une **variante** à un article : la précision qui distingue deux
+  exemplaires du même produit — taille, modèle, coloris, référence.
+  *Article :* Maillot équipe de France — *variante :* domicile 2026 aero fit
 - Supprimer un article, ou tous les articles cochés d'un coup
 - Tout décocher (pratique pour réutiliser une liste de courses)
 - Masquer les articles cochés
 - Réorganiser en glissant la poignée `≡`
-- Appui long sur un article pour le modifier
 
 Toute suppression peut être annulée pendant 5 secondes via la notification qui apparaît.
 

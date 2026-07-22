@@ -210,7 +210,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
    même si le reste de la ligne sert désormais à ouvrir la fiche. */
 .check-hit {
   display: grid; place-items: center;
-  width: 54px; align-self: stretch; flex: none;
+  width: 48px; align-self: stretch; flex: none;
   padding: 0;
   background: none; border: 0;
   cursor: pointer;
@@ -218,7 +218,16 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .check-hit:active { background: var(--surface-2); }
 
 .item .row-main { padding-left: 0; }
-.item .row-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Un nom d'article peut être long : mieux vaut le laisser passer à la ligne
+   que le tronquer — sur 375 px la zone de texte est étroite. */
+.item .row-title,
+.item .row-sub {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.item .handle { width: 38px; }
+.item .row-btn { width: 40px; }
 
 /* ===== Vide ===== */
 .empty {
