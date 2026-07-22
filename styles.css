@@ -204,8 +204,21 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .item.done .check { border-color: transparent; }
 .item.done .check svg { opacity: 1; }
 .item.done .row-title { color: var(--text-dim); text-decoration: line-through; }
+.item.done .row-sub { text-decoration: line-through; }
 
-.item .row-main { padding-left: 14px; }
+/* Zone tactile généreuse autour du cercle : cocher reste un geste facile
+   même si le reste de la ligne sert désormais à ouvrir la fiche. */
+.check-hit {
+  display: grid; place-items: center;
+  width: 54px; align-self: stretch; flex: none;
+  padding: 0;
+  background: none; border: 0;
+  cursor: pointer;
+}
+.check-hit:active { background: var(--surface-2); }
+
+.item .row-main { padding-left: 0; }
+.item .row-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ===== Vide ===== */
 .empty {
@@ -354,6 +367,15 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 @keyframes pop { from { transform: scale(.9); opacity: 0; } }
 
 .modal h2 { margin: 0 0 14px; font-size: 17px; text-align: center; }
+.modal-label {
+  display: block;
+  margin: 0 0 6px 4px;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: .4px; text-transform: uppercase;
+  color: var(--text-dim);
+}
+.modal-label + input { margin-bottom: 14px; }
+#modal-input2 { margin-bottom: 0; }
 .modal input {
   width: 100%;
   padding: 11px 14px;

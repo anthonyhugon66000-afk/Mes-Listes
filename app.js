@@ -134,7 +134,7 @@ function duplicateList(id) {
     id: uid(),
     name: `${list.name} (copie)`,
     color: list.color,
-    items: list.items.map(i => ({ id: uid(), text: i.text, done: i.done }))
+    items: list.items.map(i => ({ id: uid(), text: i.text, variant: i.variant, done: i.done }))
   };
   state.lists.splice(state.lists.indexOf(list) + 1, 0, copy);
   save();
@@ -200,9 +200,15 @@ function renderItems() {
 
   elItems.innerHTML = visible.map(item => `
     <li class="row item ${item.done ? 'done' : ''}" data-id="${item.id}">
-      <button class="row-main" data-toggle>
+      <button class="check-hit" data-toggle
+              aria-label="${item.done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
         <span class="check" style="background:${item.done ? list.color : 'transparent'}">${ICON.check}</span>
-        <span class="row-text"><span class="row-title">${esc(item.text)}</span></span>
+      </button>
+      <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
+        <span class="row-text">
+          <span class="row-title">${esc(item.text)}</span>
+          ${item.variant ? `<span class="row-sub">${esc(item.variant)}</span>` : ''}
+        </span>
       </button>
       <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
       <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
@@ -225,6 +231,8 @@ elItems.addEventListener('click', e => {
     item.done = !item.done;
     save();
     renderItems();
+  } else if (e.target.closest('[data-edit]')) {
+    editItem(item);
   } else if (e.target.closest('[data-del]')) {
     snapshot();
     list.items = list.items.filter(i => i.id !== item.id);
@@ -234,27 +242,22 @@ elItems.addEventListener('click', e => {
   }
 });
 
-/* Appui long sur un article → renommer */
-elItems.addEventListener('contextmenu', e => {
-  const row = e.target.closest('[data-id]');
-  if (!row) return;
-  e.preventDefault();
-  const list = getList(currentListId);
-  const item = list.items.find(i => i.id === row.dataset.id);
-  if (!item) return;
-  askText("Modifier l'article", item.text, text => {
+/* Fiche d'un article : son nom et sa variante (taille, modèle, référence…). */
+function editItem(item) {
+  askItem("Modifier l'article", item, ({ text, variant }) => {
     item.text = text;
+    item.variant = variant;
     save();
     renderItems();
   });
-});
+}
 
 $('form-add-item').addEventListener('submit', e => {
   e.preventDefault();
   const input = $('input-item');
   const text = input.value.trim();
   if (!text) return;
-  getList(currentListId).items.push({ id: uid(), text, done: false });
+  getList(currentListId).items.push({ id: uid(), text, variant: '', done: false });
   save();
   input.value = '';
   renderItems();
@@ -444,12 +447,33 @@ $('sheet-cancel').addEventListener('click', closeSheet);
 
 const modalBackdrop = $('modal-backdrop');
 const modalInput = $('modal-input');
+const modalInput2 = $('modal-input2');
 let modalCallback = null;
+let modalDeuxChamps = false;
 
+/* Un seul champ — pour un nom de liste. Le rappel reçoit une chaîne. */
 function askText(title, value, callback) {
-  $('modal-title').textContent = title;
-  modalInput.value = value;
+  ouvrirModale(title, value, '', false, callback);
+}
+
+/* Deux champs — l'article et sa variante. Le rappel reçoit { text, variant }. */
+function askItem(title, item, callback) {
+  ouvrirModale(title, item.text, item.variant || '', true, callback);
+}
+
+function ouvrirModale(title, valeur1, valeur2, deuxChamps, callback) {
+  modalDeuxChamps = deuxChamps;
   modalCallback = callback;
+  $('modal-title').textContent = title;
+
+  modalInput.value = valeur1;
+  modalInput2.value = valeur2;
+
+  // Les libellés n'apparaissent que quand il y a deux champs à distinguer.
+  $('modal-label1').hidden = !deuxChamps;
+  $('modal-label2').hidden = !deuxChamps;
+  modalInput2.hidden = !deuxChamps;
+
   modalBackdrop.hidden = false;
   setTimeout(() => { modalInput.focus(); modalInput.select(); }, 50);
 }
@@ -457,17 +481,26 @@ function askText(title, value, callback) {
 function closeModal() { modalBackdrop.hidden = true; modalCallback = null; }
 
 function confirmModal() {
-  const value = modalInput.value.trim();
-  if (!value) return closeModal();
+  const texte = modalInput.value.trim();
+  if (!texte) return closeModal();          // un article sans nom n'a pas de sens
   const cb = modalCallback;
+  const deuxChamps = modalDeuxChamps;
+  const variante = modalInput2.value.trim();
   closeModal();
-  cb(value);
+  cb(deuxChamps ? { text: texte, variant: variante } : texte);
 }
 
 $('modal-ok').addEventListener('click', confirmModal);
 $('modal-cancel').addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
-modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); });
+
+// Entrée passe au champ suivant s'il y en a un, sinon valide.
+modalInput.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (modalDeuxChamps) modalInput2.focus();
+  else confirmModal();
+});
+modalInput2.addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); });
 
 /* ---------- Notification avec annulation ---------- */
 

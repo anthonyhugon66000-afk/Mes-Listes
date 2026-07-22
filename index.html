@@ -68,7 +68,8 @@
 
     <p id="empty-items" class="empty">
       Cette liste est vide.<br>
-      Ajoute un article ci-dessous.
+      Ajoute un article ci-dessous, puis touche son nom
+      pour lui ajouter une variante.
     </p>
   </main>
 
@@ -95,7 +96,11 @@
 <div class="modal-backdrop" id="modal-backdrop" hidden>
   <div class="modal" role="dialog" aria-modal="true">
     <h2 id="modal-title"></h2>
-    <input type="text" id="modal-input" autocomplete="off" enterkeyhint="done">
+    <label class="modal-label" id="modal-label1" for="modal-input" hidden>Article</label>
+    <input type="text" id="modal-input" autocomplete="off" enterkeyhint="next">
+    <label class="modal-label" id="modal-label2" for="modal-input2" hidden>Variante</label>
+    <input type="text" id="modal-input2" autocomplete="off" enterkeyhint="done"
+           placeholder="taille, modèle, référence…" hidden>
     <div class="modal-buttons">
       <button class="modal-btn" id="modal-cancel">Annuler</button>
       <button class="modal-btn primary" id="modal-ok">OK</button>
