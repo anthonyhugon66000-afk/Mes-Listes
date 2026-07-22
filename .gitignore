@@ -1,0 +1,7 @@
+# Configuration locale de l'outillage (ports, chemins de la machine)
+.claude/
+
+# Fichiers générés par le système
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,17 @@
+{
+  "name": "Mes Listes",
+  "short_name": "Mes Listes",
+  "description": "Gère tes listes d'articles : créer, cocher, réorganiser, colorer.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
+  "lang": "fr",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Mes Listes</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mes Listes">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ========== ÉCRAN 1 : LES LISTES ========== -->
+<section id="screen-home" class="screen is-active">
+  <header class="topbar">
+    <h1>Mes listes</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-settings" aria-label="Réglages">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="scroll">
+    <ul id="lists" class="lists"></ul>
+
+    <p id="empty-lists" class="empty">
+      Aucune liste pour l'instant.<br>
+      Appuie sur <strong>+</strong> pour en créer une.
+    </p>
+  </main>
+
+  <button class="fab" id="btn-new-list" aria-label="Nouvelle liste">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</section>
+
+<!-- ========== ÉCRAN 2 : LES ARTICLES ========== -->
+<section id="screen-list" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-back" aria-label="Retour">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h1 id="list-title">Liste</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-list-menu" aria-label="Options de la liste">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="subbar">
+    <span id="list-progress">0 sur 0</span>
+    <button class="link-btn" id="btn-toggle-done">Masquer les cochés</button>
+  </div>
+
+  <main class="scroll">
+    <ul id="items" class="items"></ul>
+
+    <p id="empty-items" class="empty">
+      Cette liste est vide.<br>
+      Ajoute un article ci-dessous.
+    </p>
+  </main>
+
+  <form class="composer" id="form-add-item">
+    <input type="text" id="input-item" placeholder="Ajouter un article…"
+           autocomplete="off" autocapitalize="sentences" enterkeyhint="done">
+    <button type="submit" class="composer-btn" aria-label="Ajouter">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </form>
+</section>
+
+<!-- ========== FEUILLE D'ACTIONS ========== -->
+<div class="sheet-backdrop" id="sheet-backdrop" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-grabber"></div>
+    <h2 class="sheet-title" id="sheet-title"></h2>
+    <div id="sheet-body"></div>
+    <button class="sheet-action sheet-cancel" id="sheet-cancel">Annuler</button>
+  </div>
+</div>
+
+<!-- ========== BOÎTE DE SAISIE ========== -->
+<div class="modal-backdrop" id="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2 id="modal-title"></h2>
+    <input type="text" id="modal-input" autocomplete="off" enterkeyhint="done">
+    <div class="modal-buttons">
+      <button class="modal-btn" id="modal-cancel">Annuler</button>
+      <button class="modal-btn primary" id="modal-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== NOTIFICATION ========== -->
+<div class="toast" id="toast" hidden>
+  <span id="toast-text"></span>
+  <button id="toast-undo">Annuler</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
