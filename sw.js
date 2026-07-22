@@ -1,6 +1,6 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v3';
+const CACHE = 'meslistes-v4';
 
 const ASSETS = [
   './',
@@ -10,7 +10,8 @@ const ASSETS = [
   './manifest.json',
   './icons/icon-180.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/icon-512-maskable.png'
 ];
 
 self.addEventListener('install', e => {
