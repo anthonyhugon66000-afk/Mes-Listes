@@ -14,13 +14,22 @@ compte, aucun serveur : tes données restent sur ton téléphone.
 - Ajouter depuis le champ en bas de l'écran
 - **Toucher le cercle** pour cocher / décocher
 - **Toucher le nom** pour ouvrir la fiche et modifier l'article
-- Donner une **variante** à un article : la précision qui distingue deux
-  exemplaires du même produit — taille, modèle, coloris, référence.
-  *Article :* Maillot équipe de France — *variante :* domicile 2026 aero fit
+- Choisir une **quantité** : le nombre d'exemplaires voulus, affiché en `×3`
+  au bout de la ligne
+- Donner des **variantes** à un article : la précision qui distingue deux
+  exemplaires du même produit — taille, modèle, coloris, référence — chacune
+  avec sa propre quantité.
+  *Article :* Maillot équipe de France — *variantes :* domicile ×2, extérieur ×1
 - Supprimer un article, ou tous les articles cochés d'un coup
 - Tout décocher (pratique pour réutiliser une liste de courses)
 - Masquer les articles cochés
 - Réorganiser en glissant la poignée `≡`
+
+Dès qu'un article a plusieurs variantes, chacune se coche séparément : l'article
+n'est terminé que lorsque toutes le sont. Cocher l'article coche tout d'un coup.
+Le compteur en haut de la liste indique les articles faits puis, quand les
+quantités s'en écartent, le nombre total d'exemplaires à rapporter :
+`2 sur 5 · 12 au total`.
 
 Toute suppression peut être annulée pendant 5 secondes via la notification qui apparaît.
 

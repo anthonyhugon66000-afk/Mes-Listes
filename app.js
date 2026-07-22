@@ -17,6 +17,25 @@ const ICON = {
   trash:   '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>'
 };
 
+/* ---------- Outils ---------- */
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const getList = id => state.lists.find(l => l.id === id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Une quantité vaut 1 au minimum ; la saisie au clavier reste libre, on la borne. */
+const clampQty = v => {
+  const n = parseInt(String(v).replace(/[^\d]/g, ''), 10);
+  return Math.min(999, Math.max(1, n || 1));
+};
+
+/* Dès qu'un article a des variantes, ce sont elles qui portent la quantité et
+   l'état coché : l'article suit. Sans variante, il se gère lui-même. */
+const itemDone = item => item.variants.length ? item.variants.every(v => v.done) : item.done;
+const itemQty  = item => item.variants.length
+  ? item.variants.reduce((n, v) => n + v.qty, 0)
+  : item.qty;
+
 /* ---------- État ---------- */
 
 let state = load();
@@ -29,12 +48,40 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      if (Array.isArray(data.lists)) return data;
+      if (Array.isArray(data.lists)) return migrate(data);
     }
   } catch (e) {
     console.warn('Données illisibles, réinitialisation.', e);
   }
   return { lists: [], hideDone: false };
+}
+
+/* Les données d'avant les quantités n'ont ni `qty` ni `variants`, et rangent la
+   variante unique dans une chaîne `variant`. On les convertit au chargement — y
+   compris les sauvegardes importées, qui peuvent dater. */
+function migrate(data) {
+  data.lists.forEach(list => {
+    if (!Array.isArray(list.items)) list.items = [];
+    list.items.forEach(item => {
+      item.done = !!item.done;
+      item.qty = clampQty(item.qty);
+
+      if (!Array.isArray(item.variants)) {
+        item.variants = item.variant
+          ? [{ id: uid(), name: String(item.variant), qty: 1, done: item.done }]
+          : [];
+      }
+      delete item.variant;
+
+      item.variants.forEach(v => {
+        if (!v.id) v.id = uid();
+        v.name = String(v.name || '');
+        v.qty = clampQty(v.qty);
+        v.done = !!v.done;
+      });
+    });
+  });
+  return data;
 }
 
 function save() {
@@ -44,10 +91,6 @@ function save() {
     alert("Impossible d'enregistrer : la mémoire du navigateur est pleine.");
   }
 }
-
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const getList = id => state.lists.find(l => l.id === id);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 /* ---------- Raccourcis DOM ---------- */
 
@@ -64,7 +107,7 @@ const elItems = $('items');
 function renderHome() {
   elLists.innerHTML = state.lists.map(list => {
     const total = list.items.length;
-    const done = list.items.filter(i => i.done).length;
+    const done = list.items.filter(itemDone).length;
     const sub = total === 0
       ? 'Vide'
       : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`;
@@ -134,7 +177,11 @@ function duplicateList(id) {
     id: uid(),
     name: `${list.name} (copie)`,
     color: list.color,
-    items: list.items.map(i => ({ id: uid(), text: i.text, variant: i.variant, done: i.done }))
+    items: list.items.map(i => ({
+      ...i,
+      id: uid(),
+      variants: i.variants.map(v => ({ ...v, id: uid() }))
+    }))
   };
   state.lists.splice(state.lists.indexOf(list) + 1, 0, copy);
   save();
@@ -196,26 +243,51 @@ function renderItems() {
   const list = getList(currentListId);
   if (!list) return goHome();
 
-  const visible = state.hideDone ? list.items.filter(i => !i.done) : list.items;
+  const visible = state.hideDone ? list.items.filter(i => !itemDone(i)) : list.items;
 
-  elItems.innerHTML = visible.map(item => `
-    <li class="row item ${item.done ? 'done' : ''}" data-id="${item.id}">
-      <button class="check-hit" data-toggle
-              aria-label="${item.done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
-        <span class="check" style="background:${item.done ? list.color : 'transparent'}">${ICON.check}</span>
-      </button>
-      <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
-        <span class="row-text">
-          <span class="row-title">${esc(item.text)}</span>
-          ${item.variant ? `<span class="row-sub">${esc(item.variant)}</span>` : ''}
-        </span>
-      </button>
-      <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
-      <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
-    </li>`).join('');
+  elItems.innerHTML = visible.map(item => {
+    const done = itemDone(item);
+    const total = itemQty(item);
+    // Une variante seule tient sur la ligne du dessous, comme un sous-titre : lui
+    // donner sa propre case à cocher ferait doublon avec celle de l'article.
+    const seule = item.variants.length === 1 ? item.variants[0] : null;
 
-  const done = list.items.filter(i => i.done).length;
-  $('list-progress').textContent = `${done} sur ${list.items.length}`;
+    return `
+    <li class="row item ${done ? 'done' : ''}" data-id="${item.id}">
+      <div class="item-head">
+        <button class="check-hit" data-toggle
+                aria-label="${done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
+          <span class="check" style="background:${done ? list.color : 'transparent'}">${ICON.check}</span>
+        </button>
+        <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
+          <span class="row-text">
+            <span class="row-title">${esc(item.text)}</span>
+            ${seule ? `<span class="row-sub">${esc(seule.name)}</span>` : ''}
+          </span>
+        </button>
+        ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
+        <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
+        <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
+      </div>
+      ${item.variants.length > 1 ? `
+      <ul class="variants">
+        ${item.variants.map(v => `
+        <li class="variant ${v.done ? 'done' : ''}" data-vid="${v.id}">
+          <button class="variant-hit" data-vtoggle
+                  aria-label="${v.done ? 'Décocher' : 'Cocher'} ${esc(v.name)}">
+            <span class="check check-sm" style="background:${v.done ? list.color : 'transparent'}">${ICON.check}</span>
+          </button>
+          <span class="variant-name">${esc(v.name)}</span>
+          ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
+        </li>`).join('')}
+      </ul>` : ''}
+    </li>`;
+  }).join('');
+
+  const done = list.items.filter(itemDone).length;
+  const pieces = list.items.reduce((n, i) => n + itemQty(i), 0);
+  $('list-progress').textContent = `${done} sur ${list.items.length}`
+    + (pieces !== list.items.length ? ` · ${pieces} au total` : '');
   $('btn-toggle-done').textContent = state.hideDone ? 'Afficher les cochés' : 'Masquer les cochés';
   $('empty-items').classList.toggle('is-visible', visible.length === 0);
 }
@@ -227,8 +299,23 @@ elItems.addEventListener('click', e => {
   const item = list.items.find(i => i.id === row.dataset.id);
   if (!item) return;
 
+  const ligneVariante = e.target.closest('[data-vid]');
+  if (ligneVariante && e.target.closest('[data-vtoggle]')) {
+    const v = item.variants.find(x => x.id === ligneVariante.dataset.vid);
+    if (v) {
+      v.done = !v.done;
+      item.done = item.variants.every(x => x.done);
+      save();
+      renderItems();
+    }
+    return;
+  }
+
   if (e.target.closest('[data-toggle]')) {
-    item.done = !item.done;
+    // Cocher l'article coche d'un coup toutes ses variantes, et inversement.
+    const etat = !itemDone(item);
+    item.done = etat;
+    item.variants.forEach(v => v.done = etat);
     save();
     renderItems();
   } else if (e.target.closest('[data-edit]')) {
@@ -242,22 +329,136 @@ elItems.addEventListener('click', e => {
   }
 });
 
-/* Fiche d'un article : son nom et sa variante (taille, modèle, référence…). */
+/* ============================================================
+   Fiche d'un article — nom, quantité, variantes
+   ============================================================ */
+
+const itemBackdrop = $('item-backdrop');
+const elVariantsEdit = $('item-variants');
+
+/* Brouillon de travail : la fiche modifie une copie, l'article n'est touché
+   qu'à la validation. Annuler ne laisse donc aucune trace. */
+let draft = null;
+let draftApply = null;
+
 function editItem(item) {
-  askItem("Modifier l'article", item, ({ text, variant }) => {
-    item.text = text;
-    item.variant = variant;
+  draft = {
+    text: item.text,
+    qty: item.qty,
+    baseDone: itemDone(item),
+    variants: item.variants.map(v => ({ ...v }))
+  };
+
+  draftApply = d => {
+    item.text = d.text;
+    item.qty = d.qty;
+    item.variants = d.variants;
+    if (d.variants.length) item.done = d.variants.every(v => v.done);
     save();
     renderItems();
+  };
+
+  $('item-name').value = draft.text;
+  renderDraft();
+  itemBackdrop.hidden = false;
+  setTimeout(() => { $('item-name').focus(); $('item-name').select(); }, 50);
+}
+
+function stepper(cls, valeur) {
+  return `
+    <div class="stepper">
+      <button type="button" class="step" data-step="-1" aria-label="Diminuer">−</button>
+      <input type="text" class="step-value ${cls}" inputmode="numeric"
+             value="${valeur}" aria-label="Quantité">
+      <button type="button" class="step" data-step="1" aria-label="Augmenter">+</button>
+    </div>`;
+}
+
+function renderDraft() {
+  // Avec des variantes, la quantité de l'article est la somme des leurs :
+  // afficher les deux réglages inviterait à se contredire.
+  $('item-qty-block').hidden = draft.variants.length > 0;
+  $('item-qty').value = draft.qty;
+
+  elVariantsEdit.innerHTML = draft.variants.map(v => `
+    <li class="variant-edit" data-vid="${v.id}">
+      <input type="text" class="v-name" value="${esc(v.name)}" autocomplete="off"
+             placeholder="taille, modèle, coloris…" aria-label="Nom de la variante">
+      <div class="variant-edit-row">
+        ${stepper('v-qty', v.qty)}
+        <button type="button" class="row-btn danger" data-vdel
+                aria-label="Supprimer la variante">${ICON.trash}</button>
+      </div>
+    </li>`).join('');
+}
+
+/* Les champs de la fiche sont la source de vérité tant qu'elle est ouverte :
+   on les relit avant tout réaffichage, sinon une saisie en cours serait perdue. */
+function syncDraft() {
+  draft.text = $('item-name').value;
+  draft.qty = clampQty($('item-qty').value);
+  elVariantsEdit.querySelectorAll('[data-vid]').forEach(li => {
+    const v = draft.variants.find(x => x.id === li.dataset.vid);
+    if (!v) return;
+    v.name = li.querySelector('.v-name').value;
+    v.qty = clampQty(li.querySelector('.v-qty').value);
   });
 }
+
+$('item-editor').addEventListener('click', e => {
+  const pas = e.target.closest('[data-step]');
+  if (pas) {
+    const champ = pas.parentElement.querySelector('.step-value');
+    champ.value = clampQty(clampQty(champ.value) + Number(pas.dataset.step));
+    return;
+  }
+
+  const suppr = e.target.closest('[data-vdel]');
+  if (suppr) {
+    syncDraft();
+    const id = suppr.closest('[data-vid]').dataset.vid;
+    draft.variants = draft.variants.filter(v => v.id !== id);
+    renderDraft();
+  }
+});
+
+$('btn-add-variant').addEventListener('click', () => {
+  syncDraft();
+  // La première variante reprend l'état de l'article : cocher puis détailler ne
+  // doit pas décocher ce qui était déjà fait.
+  const done = draft.variants.length === 0 ? draft.baseDone : false;
+  draft.variants.push({ id: uid(), name: '', qty: 1, done });
+  renderDraft();
+  elVariantsEdit.lastElementChild?.querySelector('.v-name').focus();
+});
+
+function closeItemEditor() {
+  itemBackdrop.hidden = true;
+  draft = null;
+  draftApply = null;
+}
+
+$('item-ok').addEventListener('click', () => {
+  syncDraft();
+  const d = draft, apply = draftApply;
+  d.text = d.text.trim();
+  if (!d.text) return closeItemEditor();      // un article sans nom n'a pas de sens
+  // Une variante sans nom non plus : on la laisse tomber silencieusement.
+  d.variants = d.variants.filter(v => v.name.trim()).map(v => ({ ...v, name: v.name.trim() }));
+  closeItemEditor();
+  apply(d);
+});
+
+$('item-cancel').addEventListener('click', closeItemEditor);
+itemBackdrop.addEventListener('click', e => { if (e.target === itemBackdrop) closeItemEditor(); });
+$('item-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('item-ok').click(); });
 
 $('form-add-item').addEventListener('submit', e => {
   e.preventDefault();
   const input = $('input-item');
   const text = input.value.trim();
   if (!text) return;
-  getList(currentListId).items.push({ id: uid(), text, variant: '', done: false });
+  getList(currentListId).items.push({ id: uid(), text, qty: 1, done: false, variants: [] });
   save();
   input.value = '';
   renderItems();
@@ -275,20 +476,20 @@ $('btn-toggle-done').addEventListener('click', () => {
 
 $('btn-list-menu').addEventListener('click', () => {
   const list = getList(currentListId);
-  const doneCount = list.items.filter(i => i.done).length;
+  const doneCount = list.items.filter(itemDone).length;
 
   openSheet(list.name, [
     { label: 'Renommer la liste', icon: '✏️', run: () => renameList(currentListId) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
         snapshot();
-        list.items.forEach(i => i.done = false);
+        list.items.forEach(i => { i.done = false; i.variants.forEach(v => v.done = false); });
         save(); renderItems();
       } },
     { label: `Supprimer les articles cochés (${doneCount})`, icon: '🧹', danger: true, run: () => {
         if (!doneCount) return;
         snapshot();
-        list.items = list.items.filter(i => !i.done);
+        list.items = list.items.filter(i => !itemDone(i));
         save(); renderItems();
         toast(`${doneCount} article${doneCount > 1 ? 's' : ''} supprimé${doneCount > 1 ? 's' : ''}`);
       } },
@@ -400,7 +601,7 @@ enableDragSort(elItems, ids => {
   if (state.hideDone) {
     // seuls les non-cochés sont affichés : on réinsère les cochés à la fin
     const shown = reorderBy(list.items, ids);
-    list.items = [...shown, ...list.items.filter(i => i.done)];
+    list.items = [...shown, ...list.items.filter(itemDone)];
   } else {
     list.items = reorderBy(list.items, ids);
   }
@@ -447,33 +648,13 @@ $('sheet-cancel').addEventListener('click', closeSheet);
 
 const modalBackdrop = $('modal-backdrop');
 const modalInput = $('modal-input');
-const modalInput2 = $('modal-input2');
 let modalCallback = null;
-let modalDeuxChamps = false;
 
-/* Un seul champ — pour un nom de liste. Le rappel reçoit une chaîne. */
+/* Un champ unique — pour un nom de liste. Le rappel reçoit une chaîne. */
 function askText(title, value, callback) {
-  ouvrirModale(title, value, '', false, callback);
-}
-
-/* Deux champs — l'article et sa variante. Le rappel reçoit { text, variant }. */
-function askItem(title, item, callback) {
-  ouvrirModale(title, item.text, item.variant || '', true, callback);
-}
-
-function ouvrirModale(title, valeur1, valeur2, deuxChamps, callback) {
-  modalDeuxChamps = deuxChamps;
   modalCallback = callback;
   $('modal-title').textContent = title;
-
-  modalInput.value = valeur1;
-  modalInput2.value = valeur2;
-
-  // Les libellés n'apparaissent que quand il y a deux champs à distinguer.
-  $('modal-label1').hidden = !deuxChamps;
-  $('modal-label2').hidden = !deuxChamps;
-  modalInput2.hidden = !deuxChamps;
-
+  modalInput.value = value;
   modalBackdrop.hidden = false;
   setTimeout(() => { modalInput.focus(); modalInput.select(); }, 50);
 }
@@ -482,25 +663,16 @@ function closeModal() { modalBackdrop.hidden = true; modalCallback = null; }
 
 function confirmModal() {
   const texte = modalInput.value.trim();
-  if (!texte) return closeModal();          // un article sans nom n'a pas de sens
+  if (!texte) return closeModal();          // une liste sans nom n'a pas de sens
   const cb = modalCallback;
-  const deuxChamps = modalDeuxChamps;
-  const variante = modalInput2.value.trim();
   closeModal();
-  cb(deuxChamps ? { text: texte, variant: variante } : texte);
+  cb(texte);
 }
 
 $('modal-ok').addEventListener('click', confirmModal);
 $('modal-cancel').addEventListener('click', closeModal);
 modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
-
-// Entrée passe au champ suivant s'il y en a un, sinon valide.
-modalInput.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  if (modalDeuxChamps) modalInput2.focus();
-  else confirmModal();
-});
-modalInput2.addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); });
+modalInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmModal(); });
 
 /* ---------- Notification avec annulation ---------- */
 
@@ -559,7 +731,7 @@ function importData() {
         const data = JSON.parse(reader.result);
         if (!Array.isArray(data.lists)) throw new Error('format');
         snapshot();
-        state = data;
+        state = migrate(data);
         save();
         goHome();
         toast('Sauvegarde importée');

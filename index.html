@@ -68,8 +68,8 @@
 
     <p id="empty-items" class="empty">
       Cette liste est vide.<br>
-      Ajoute un article ci-dessous, puis touche son nom
-      pour lui ajouter une variante.
+      Ajoute un article ci-dessous, puis touche son nom pour choisir
+      la quantité ou lui ajouter des variantes.
     </p>
   </main>
 
@@ -92,18 +92,44 @@
   </div>
 </div>
 
-<!-- ========== BOÎTE DE SAISIE ========== -->
+<!-- ========== BOÎTE DE SAISIE (nom d'une liste) ========== -->
 <div class="modal-backdrop" id="modal-backdrop" hidden>
   <div class="modal" role="dialog" aria-modal="true">
     <h2 id="modal-title"></h2>
-    <label class="modal-label" id="modal-label1" for="modal-input" hidden>Article</label>
-    <input type="text" id="modal-input" autocomplete="off" enterkeyhint="next">
-    <label class="modal-label" id="modal-label2" for="modal-input2" hidden>Variante</label>
-    <input type="text" id="modal-input2" autocomplete="off" enterkeyhint="done"
-           placeholder="taille, modèle, référence…" hidden>
+    <input type="text" id="modal-input" autocomplete="off" enterkeyhint="done">
     <div class="modal-buttons">
       <button class="modal-btn" id="modal-cancel">Annuler</button>
       <button class="modal-btn primary" id="modal-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== FICHE D'UN ARTICLE ========== -->
+<div class="modal-backdrop" id="item-backdrop" hidden>
+  <div class="modal modal-item" id="item-editor" role="dialog" aria-modal="true">
+    <h2>Modifier l'article</h2>
+
+    <div class="modal-scroll">
+      <label class="modal-label" for="item-name">Article</label>
+      <input type="text" id="item-name" autocomplete="off" enterkeyhint="done">
+
+      <div id="item-qty-block">
+        <label class="modal-label" for="item-qty">Quantité</label>
+        <div class="stepper">
+          <button type="button" class="step" data-step="-1" aria-label="Diminuer">−</button>
+          <input type="text" id="item-qty" class="step-value" inputmode="numeric" aria-label="Quantité">
+          <button type="button" class="step" data-step="1" aria-label="Augmenter">+</button>
+        </div>
+      </div>
+
+      <label class="modal-label">Variantes</label>
+      <ul class="variants-edit" id="item-variants"></ul>
+      <button type="button" class="add-variant" id="btn-add-variant">+ Ajouter une variante</button>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="modal-btn" id="item-cancel">Annuler</button>
+      <button class="modal-btn primary" id="item-ok">OK</button>
     </div>
   </div>
 </div>
