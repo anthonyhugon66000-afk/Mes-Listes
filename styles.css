@@ -409,6 +409,128 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 }
 .form-msg.erreur { color: var(--danger); }
 
+/* ===== Connexion et inscription ===== */
+.modal-auth {
+  position: relative;
+  max-width: 400px;
+  padding: 22px 24px 24px;
+}
+/* Le formulaire est plus haut que les autres fenêtres, et son bouton principal
+   est tout en bas : lui laisser la place évite d'avoir à faire défiler pour
+   atteindre l'action même qu'on est venu faire. */
+.modal-auth .modal-scroll { max-height: min(78vh, 640px); }
+.modal-x {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  padding: 0;
+  background: var(--surface-2);
+  border: 0; border-radius: 50%;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.modal-x svg { width: 18px; stroke-width: 2.4; }
+.modal-x:active { opacity: .6; }
+
+.auth-title {
+  margin: 6px 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  text-align: center;
+}
+.auth-intro {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-align: center;
+}
+.auth-intro.small { margin: 10px 0 0; font-size: 12px; text-align: left; }
+
+/* Boutons de fournisseur : pastilles à bord fin, icône calée à gauche et
+   libellé centré — l'icône ne doit pas décaler le texte. */
+.auth-provider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 13px 44px;
+  margin-bottom: 10px;
+  background: none;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.auth-provider:active { background: var(--surface-2); }
+.auth-provider svg {
+  position: absolute;
+  left: 16px;
+  width: 20px; height: 20px;
+}
+.logo-g { stroke: none; }
+
+.auth-field {
+  width: 100%;
+  padding: 15px 16px;
+  margin-bottom: 12px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 16px;   /* évite le zoom auto sur iOS */
+  outline: none;
+}
+.auth-field::placeholder { color: var(--text-dim); }
+.auth-field:focus { border-color: var(--accent); }
+
+.auth-field-wrap { position: relative; }
+.auth-field-wrap .auth-field { padding-right: 48px; }
+.auth-eye {
+  position: absolute;
+  top: 50%; right: 6px;
+  transform: translateY(-50%);
+  margin-top: -6px;
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  padding: 0;
+  background: none; border: 0;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.auth-eye svg { width: 20px; }
+.auth-eye.actif { color: var(--accent); }
+
+.link-inline {
+  padding: 0;
+  background: none; border: 0;
+  color: var(--accent);
+  font-size: 13px;
+  cursor: pointer;
+}
+.auth-switch { margin: 12px 0 0; font-size: 13px; color: var(--text-dim); }
+
+.auth-submit {
+  width: 100%;
+  padding: 15px;
+  margin-top: 18px;
+  background: var(--accent);
+  color: #fff;
+  border: 0; border-radius: 999px;
+  font-size: 16px; font-weight: 600;
+  cursor: pointer;
+}
+.auth-submit:active { opacity: .85; }
+/* Grisé tant que les champs ne permettent pas d'agir : le bouton dit d'avance
+   ce qu'il ferait, plutôt que d'échouer une fois pressé. */
+.auth-submit:disabled {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: default;
+}
+
 /* ===== Partage : personnes sur une liste ===== */
 .people { list-style: none; margin: 0; padding: 0; }
 .person {

@@ -8,7 +8,7 @@ const STORE_KEY = 'meslistes.v1';
 /* Affichée en bas à gauche de l'écran d'accueil. À garder en phase avec le nom
    du cache dans `sw.js` : c'est ce couple qui permet de dire, en regardant un
    téléphone, si l'app a bien reçu la dernière version. */
-const VERSION = 'v13';
+const VERSION = 'v14';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -930,12 +930,84 @@ const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
 const compteBackdrop = $('account-backdrop');
 
+/* Le message s'affiche dans le volet visible : le glisser sous un formulaire
+   caché reviendrait à ne rien dire. */
 function messageCompte(texte, type) {
-  const el = $('account-msg');
-  el.textContent = texte || '';
-  el.hidden = !texte;
-  el.classList.toggle('erreur', type === 'erreur');
+  // Effacer vide les deux volets : un message resté dans celui qu'on vient de
+  // quitter réapparaîtrait à la prochaine bascule.
+  ['account-msg', 'account-msg-in'].forEach(id => {
+    const el = $(id);
+    const concerne = texte && id === (Sync.user ? 'account-msg-in' : 'account-msg');
+    el.textContent = concerne ? texte : '';
+    el.hidden = !concerne;
+    el.classList.toggle('erreur', !!concerne && type === 'erreur');
+  });
 }
+
+/* ---------- Les deux modes du formulaire ---------- */
+
+let modeAuth = 'connexion';   // connexion | inscription
+
+const TEXTES_AUTH = {
+  connexion: {
+    titre: 'Se connecter',
+    intro: 'Tes listes te suivront sur tous tes appareils, et survivront à la perte de celui-ci.',
+    valider: 'Se connecter',
+    bascule: 'Première fois ici ?',
+    lienBascule: 'Inscris-toi'
+  },
+  inscription: {
+    titre: 'Créer un compte',
+    intro: 'Une adresse et un mot de passe suffisent. Aucune vérification, aucun courriel de bienvenue.',
+    valider: 'Créer mon compte',
+    bascule: 'Tu as déjà un compte ?',
+    lienBascule: 'Connecte-toi'
+  }
+};
+
+function renderAuthMode() {
+  const t = TEXTES_AUTH[modeAuth];
+  $('auth-title').textContent = t.titre;
+  $('auth-intro').textContent = t.intro;
+  $('btn-submit').textContent = t.valider;
+  $('switch-text').textContent = t.bascule;
+  $('btn-switch').textContent = t.lienBascule;
+
+  // Réinitialiser un mot de passe qu'on n'a pas encore choisi n'a pas de sens.
+  $('btn-reset').hidden = modeAuth === 'inscription';
+  $('account-pass').setAttribute('autocomplete',
+    modeAuth === 'inscription' ? 'new-password' : 'current-password');
+  $('account-pass').placeholder =
+    modeAuth === 'inscription' ? 'Mot de passe — six caractères minimum' : 'Mot de passe';
+
+  majBoutonAuth();
+}
+
+/* Le bouton reste gris tant que la saisie ne permet rien : il annonce ce qu'il
+   ferait au lieu d'échouer une fois pressé. */
+function majBoutonAuth() {
+  const { email, mdp } = identifiants();
+  const assezLong = modeAuth === 'inscription' ? mdp.length >= 6 : mdp.length > 0;
+  $('btn-submit').disabled = !(email.includes('@') && assezLong);
+}
+
+$('btn-switch').addEventListener('click', () => {
+  modeAuth = modeAuth === 'connexion' ? 'inscription' : 'connexion';
+  messageCompte('');
+  renderAuthMode();
+  $('account-email').focus();
+});
+
+['account-email', 'account-pass'].forEach(id =>
+  $(id).addEventListener('input', majBoutonAuth));
+
+$('btn-eye').addEventListener('click', () => {
+  const champ = $('account-pass');
+  const cache = champ.type === 'password';
+  champ.type = cache ? 'text' : 'password';
+  $('btn-eye').classList.toggle('actif', cache);
+  $('btn-eye').setAttribute('aria-label', cache ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+});
 
 function renderAccount() {
   const connecte = !!Sync.user;
@@ -955,9 +1027,10 @@ const iOS = /iP(hone|ad|od)/.test(navigator.userAgent)
 const installee = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 
 function accountModal() {
-  messageCompte('');
   $('note-ios').hidden = !(iOS && installee());
   renderAccount();
+  messageCompte('');
+  renderAuthMode();
   compteBackdrop.hidden = false;
 }
 
@@ -987,17 +1060,13 @@ const identifiants = () => ({
 $('btn-google').addEventListener('click', () =>
   tenter('Connexion…', async () => { await Sync.init(); await Sync.signInGoogle(); }));
 
-$('btn-signin').addEventListener('click', () => {
+$('btn-submit').addEventListener('click', () => {
   const { email, mdp } = identifiants();
-  if (!email) return messageCompte('Saisis ton adresse e-mail.', 'erreur');
-  tenter('Connexion…', async () => { await Sync.init(); await Sync.signInEmail(email, mdp); });
-});
-
-$('btn-signup').addEventListener('click', () => {
-  const { email, mdp } = identifiants();
-  if (!email) return messageCompte('Saisis une adresse e-mail.', 'erreur');
-  if (mdp.length < 6) return messageCompte('Choisis un mot de passe d\'au moins six caractères.', 'erreur');
-  tenter('Création du compte…', async () => { await Sync.init(); await Sync.signUpEmail(email, mdp); });
+  if (modeAuth === 'inscription') {
+    tenter('Création du compte…', async () => { await Sync.init(); await Sync.signUpEmail(email, mdp); });
+  } else {
+    tenter('Connexion…', async () => { await Sync.init(); await Sync.signInEmail(email, mdp); });
+  }
 });
 
 $('btn-lien').addEventListener('click', () => {
@@ -1033,7 +1102,9 @@ $('account-newpass').addEventListener('keydown', e => { if (e.key === 'Enter') $
 $('btn-signout').addEventListener('click', () =>
   tenter('Déconnexion…', () => Sync.signOut()));
 
-$('account-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-signin').click(); });
+$('account-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !$('btn-submit').disabled) $('btn-submit').click();
+});
 
 /* ---------- Apparence ---------- */
 
