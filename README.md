@@ -33,11 +33,52 @@ quantités s'en écartent, le nombre total d'exemplaires à rapporter :
 
 Toute suppression peut être annulée pendant 5 secondes via la notification qui apparaît.
 
+## Compte et synchronisation
+
+Facultatif. Sans compte, l'app se comporte exactement comme avant : tout reste
+sur l'appareil, et le SDK Firebase n'est même pas téléchargé.
+
+Une carte sur l'écran d'accueil explique ce qu'un compte apporte, dès qu'il y a
+au moins une liste à protéger. Elle s'écarte d'un toucher et ne revient pas avant
+un mois. Tant qu'elle est là, le rappel de sauvegarde ci-dessous s'efface : les
+deux visent le même problème, en afficher deux serait du harcèlement.
+
+Menu **⋯** → **Se connecter** : par Google, ou par e-mail et mot de passe. Une
+fois connecté, les listes sont tenues à jour dans Firestore et arrivent d'elles-
+mêmes sur les autres appareils. Le hors-connexion continue de fonctionner :
+les modifications sont mises en file et partent au retour du réseau.
+
+À la première connexion, les listes déjà présentes sur l'appareil sont versées
+dans le compte. Elles sont reconnues à leur identifiant, donc se reconnecter
+ne duplique rien.
+
+### Mise en place côté Firebase
+
+1. Projet créé sur [console.firebase.google.com](https://console.firebase.google.com)
+2. **Authentication** : méthodes **E-mail/Mot de passe** et **Google** activées
+3. **Authentication → Paramètres → Domaines autorisés** : ajouter le domaine où
+   l'app est servie, sans quoi toute connexion est refusée
+4. **Firestore Database** créée, en mode production
+5. **Firestore → Règles** : coller le contenu de [`firestore.rules`](firestore.rules),
+   puis **Publier**. Sans ça la base refuse tout et l'app affiche « Accès refusé »
+6. Les identifiants du projet vont dans [`firebase-config.js`](firebase-config.js).
+   Ces valeurs sont publiques par nature : elles désignent le projet, elles
+   n'autorisent rien. Ce sont les règles qui protègent les données.
+
 ## Apparence
 
-Menu **⋯** → **Apparence** : mode **Automatique**, **Clair** ou **Sombre**, et la
-couleur des boutons parmi dix. En automatique l'app suit le réglage du téléphone
-en direct, sans avoir besoin d'être rouverte.
+**Réservée aux comptes.** Menu **⋯** → **Apparence** : mode **Automatique**,
+**Clair** ou **Sombre**, et la couleur des boutons parmi dix. En automatique
+l'app suit le réglage du téléphone en direct, sans avoir besoin d'être rouverte.
+
+L'apparence **suit le compte** : le violet choisi sur le téléphone se retrouve
+sur l'ordinateur. Elle est rangée dans `users/{uid}`, à part des listes, parce
+que c'est un réglage personnel et non un contenu partageable.
+
+Sans compte, l'app suit le réglage clair ou sombre du téléphone, et la feuille
+Apparence explique pourquoi elle est fermée plutôt que d'afficher des options
+mortes. Les préférences déjà choisies sont conservées, pas effacées : elles
+reprennent effet à la reconnexion.
 
 ## Installer sur l'iPhone
 
@@ -117,4 +158,7 @@ désignes toi-même.
 | `app.js` | Logique : données, affichage, glisser-déposer |
 | `manifest.json` | Nom, icônes et mode plein écran de l'app installée |
 | `sw.js` | Service worker — fonctionnement hors connexion |
+| `sync.js` | Compte Firebase et synchronisation des listes |
+| `firebase-config.js` | Identifiants du projet Firebase |
+| `firestore.rules` | Règles d'accès à coller dans la console Firebase |
 | `icons/` | Icônes de l'app |

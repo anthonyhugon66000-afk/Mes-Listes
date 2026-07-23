@@ -1,0 +1,46 @@
+rules_version = '2';
+
+/* Règles d'accès à Firestore — à coller dans la console Firebase :
+   Firestore Database -> onglet Règles -> Publier.
+
+   Sans elles, la base refuse tout (mode production) et l'app affichera
+   « Accès refusé par les règles de la base ».
+
+   Le principe tient en une phrase : on ne voit que les listes dont on est
+   membre. La liste des membres est elle-même protégée, sinon n'importe qui
+   pourrait s'ajouter à la liste de courses d'un inconnu. */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Réglages personnels : thème et couleur d'accent. Chacun chez soi.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /lists/{listId} {
+
+      function connecte() {
+        return request.auth != null;
+      }
+
+      function membre() {
+        return connecte() && request.auth.uid in resource.data.members;
+      }
+
+      // À la création, on ne peut se déclarer propriétaire que de soi-même,
+      // et seul soi-même peut figurer parmi les membres.
+      allow create: if connecte()
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.members.hasOnly([request.auth.uid]);
+
+      allow read, delete: if membre();
+
+      // Une modification ne doit pas pouvoir changer le propriétaire ni servir
+      // à se greffer sur la liste de quelqu'un d'autre.
+      allow update: if membre()
+        && request.resource.data.owner == resource.data.owner
+        && request.resource.data.members == resource.data.members;
+    }
+  }
+}

@@ -21,12 +21,15 @@
 <script>
   try {
     var reglages = JSON.parse(localStorage.getItem('meslistes.v1') || '{}');
-    var choix = reglages.theme || 'auto';
+    // L'apparence est un réglage de compte. Firebase n'a pas encore répondu à
+    // cet instant : on se fie à la trace laissée par la dernière session.
+    var compte = !!localStorage.getItem('meslistes.compte');
+    var choix = (compte && reglages.theme) || 'auto';
     if (choix === 'auto') {
       choix = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     document.documentElement.dataset.theme = choix;
-    if (reglages.accent) {
+    if (compte && reglages.accent) {
       document.documentElement.style.setProperty('--accent', reglages.accent);
     }
     document.querySelector('#meta-theme').content = choix === 'dark' ? '#000000' : '#f2f2f7';
@@ -45,6 +48,19 @@
       </button>
     </div>
   </header>
+
+  <div class="invite" id="sync-invite" hidden>
+    <button class="notice-close" id="sync-invite-close" aria-label="Plus tard">×</button>
+    <h2>Mets tes listes à l'abri</h2>
+    <ul>
+      <li>Les mêmes listes sur ton téléphone et ton ordinateur</li>
+      <li>Rien de perdu si tu changes ou casses ton téléphone</li>
+      <li>Plus de sauvegarde à penser : tout se fait tout seul</li>
+      <li>Choisir le thème et la couleur de l'app</li>
+    </ul>
+    <p>L'app continue de marcher sans compte, et sans réseau.</p>
+    <button type="button" class="modal-btn primary wide" id="sync-invite-go">Créer un compte</button>
+  </div>
 
   <div class="notice" id="backup-notice" hidden>
     <span id="backup-notice-text"></span>
@@ -159,12 +175,63 @@
   </div>
 </div>
 
+<!-- ========== COMPTE ========== -->
+<div class="modal-backdrop" id="account-backdrop" hidden>
+  <div class="modal modal-item" id="account-modal" role="dialog" aria-modal="true">
+    <h2>Compte</h2>
+
+    <div class="modal-scroll">
+      <!-- Déconnecté -->
+      <div id="account-out">
+        <p class="sheet-note left">
+          Tes listes vivent sur cet appareil. Avec un compte, elles te suivent
+          partout et survivent à sa perte.
+        </p>
+
+        <button type="button" class="ghost-btn wide" id="btn-google">Continuer avec Google</button>
+        <p class="sep"><span>ou</span></p>
+
+        <label class="modal-label" for="account-email">Adresse e-mail</label>
+        <input type="email" id="account-email" autocomplete="username"
+               inputmode="email" autocapitalize="none" enterkeyhint="next">
+
+        <label class="modal-label" for="account-pass">Mot de passe</label>
+        <input type="password" id="account-pass" autocomplete="current-password" enterkeyhint="done">
+
+        <button type="button" class="modal-btn primary wide" id="btn-signin">Se connecter</button>
+        <button type="button" class="link-btn wide" id="btn-signup">Je n'ai pas encore de compte</button>
+        <button type="button" class="link-btn wide" id="btn-reset">Mot de passe oublié</button>
+      </div>
+
+      <!-- Connecté -->
+      <div id="account-in" hidden>
+        <p class="sheet-note left" id="account-who"></p>
+        <button type="button" class="ghost-btn wide" id="btn-signout">Se déconnecter</button>
+        <p class="sheet-note left">
+          Se déconnecter laisse les listes sur cet appareil ; elles restent
+          aussi dans ton compte.
+        </p>
+      </div>
+
+      <p class="form-msg" id="account-msg" hidden></p>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="modal-btn" id="account-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ========== NOTIFICATION ========== -->
 <div class="toast" id="toast" hidden>
   <span id="toast-text"></span>
   <button id="toast-undo">Annuler</button>
 </div>
 
+<!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
+     d'affichage dès son évaluation. -->
+<script src="firebase-config.js"></script>
+<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

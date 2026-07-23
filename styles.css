@@ -298,6 +298,37 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 }
 .ghost-btn:active { background: var(--surface-2); }
 
+/* ===== Invitation à créer un compte ===== */
+.invite {
+  position: relative;
+  margin: 10px 16px 0;
+  padding: 16px 18px 14px;
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.invite h2 {
+  margin: 0 0 10px;
+  padding-right: 28px;
+  font-size: 16px;
+}
+.invite ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.invite li { margin-bottom: 3px; }
+.invite li::marker { color: var(--accent); }
+.invite p {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.invite .notice-close { position: absolute; top: 8px; right: 8px; }
+
 /* ===== Rappel de sauvegarde ===== */
 .notice {
   display: flex;
@@ -329,6 +360,39 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   color: var(--text-dim);
   text-align: center;
 }
+.sheet-note.left { text-align: left; line-height: 1.5; }
+
+/* ===== Compte ===== */
+.wide { display: block; width: 100%; }
+.ghost-btn.wide, .modal-btn.wide { margin-bottom: 10px; }
+.link-btn.wide { padding: 8px; margin-bottom: 2px; }
+
+/* Séparateur « ou » : un trait de chaque côté du mot. */
+.sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 2px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.sep::before, .sep::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--separator);
+}
+
+.form-msg {
+  margin: 12px 2px 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.form-msg.erreur { color: var(--danger); }
 
 /* ===== Bouton flottant ===== */
 .fab {

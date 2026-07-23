@@ -84,12 +84,19 @@ function migrate(data) {
   return data;
 }
 
-function save() {
+function sauverLocalement() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
   } catch (e) {
     alert("Impossible d'enregistrer : la mémoire du navigateur est pleine.");
   }
+}
+
+/* L'appareil d'abord, le compte ensuite : l'enregistrement local ne dépend
+   jamais du réseau, et la synchro n'est qu'un envoi de plus quand il y en a. */
+function save() {
+  sauverLocalement();
+  Sync.push();
 }
 
 /* ---------- Raccourcis DOM ---------- */
@@ -130,7 +137,11 @@ function renderHome() {
   }).join('');
 
   $('empty-lists').classList.toggle('is-visible', state.lists.length === 0);
-  renderBackupNotice();
+
+  // Les deux messages visent le même problème — des listes qui n'existent qu'ici.
+  // En afficher deux d'un coup serait du harcèlement : l'invitation passe devant,
+  // c'est la solution durable.
+  renderBackupNotice(renderSyncInvite());
 }
 
 elLists.addEventListener('click', e => {
@@ -714,11 +725,111 @@ $('btn-settings').addEventListener('click', () => {
     : 'Aucune sauvegarde enregistrée';
 
   openSheet(`${count} liste${count > 1 ? 's' : ''}`, [
+    { label: Sync.user ? 'Compte et synchronisation' : 'Se connecter', icon: '☁️', run: accountModal },
     { label: 'Apparence', icon: '🎨', run: themePicker },
     { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
     { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
   ], { html: `<p class="sheet-note">${esc(info)}</p>` });
 });
+
+/* ---------- Compte et synchronisation ---------- */
+
+/* Les codes de Firebase sont clairs pour un développeur, opaques pour tout le
+   monde : on les traduit en phrases qui disent quoi faire. */
+const ERREURS = {
+  'auth/invalid-email':          'Cette adresse e-mail ne semble pas valide.',
+  'auth/missing-password':       'Saisis un mot de passe.',
+  'auth/weak-password':          'Mot de passe trop court : six caractères au minimum.',
+  'auth/email-already-in-use':   'Un compte existe déjà avec cette adresse. Connecte-toi plutôt.',
+  'auth/invalid-credential':     'Adresse ou mot de passe incorrect.',
+  'auth/wrong-password':         'Mot de passe incorrect.',
+  'auth/user-not-found':         "Aucun compte avec cette adresse. Utilise « Je n'ai pas encore de compte ».",
+  'auth/too-many-requests':      'Trop de tentatives. Réessaie dans quelques minutes.',
+  'auth/network-request-failed': 'Pas de réseau. Tes listes restent utilisables hors connexion.',
+  'auth/popup-closed-by-user':   'Connexion annulée.',
+  'auth/popup-blocked':          'La fenêtre de connexion a été bloquée par le navigateur.',
+  'auth/unauthorized-domain':    "Ce domaine n'est pas autorisé dans la console Firebase.",
+  'auth/operation-not-allowed':  "Cette méthode de connexion n'est pas activée dans la console Firebase.",
+  'permission-denied':           "Accès refusé : les règles de la base ne sont pas encore publiées.",
+  'unavailable':                 'Serveur injoignable. Les modifications partiront au retour du réseau.'
+};
+const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
+
+const compteBackdrop = $('account-backdrop');
+
+function messageCompte(texte, type) {
+  const el = $('account-msg');
+  el.textContent = texte || '';
+  el.hidden = !texte;
+  el.classList.toggle('erreur', type === 'erreur');
+}
+
+function renderAccount() {
+  const connecte = !!Sync.user;
+  $('account-out').hidden = connecte;
+  $('account-in').hidden = !connecte;
+  if (connecte) {
+    $('account-who').textContent =
+      `Connecté en tant que ${Sync.user.email || 'compte Google'}. Tes listes se synchronisent.`;
+  }
+  if (Sync.erreur) messageCompte(messageErreur(Sync.erreur), 'erreur');
+}
+
+function accountModal() {
+  messageCompte('');
+  renderAccount();
+  compteBackdrop.hidden = false;
+}
+
+function closeAccount() { compteBackdrop.hidden = true; }
+
+$('account-close').addEventListener('click', closeAccount);
+compteBackdrop.addEventListener('click', e => { if (e.target === compteBackdrop) closeAccount(); });
+
+async function tenter(attente, action, succes) {
+  messageCompte(attente);
+  try {
+    await action();
+    Sync.erreur = null;
+    messageCompte(succes || '');
+  } catch (e) {
+    messageCompte(messageErreur(e?.code || String(e)), 'erreur');
+  }
+}
+
+/* Toute connexion passe par `init` : c'est lui qui met en place l'écoute de
+   l'état du compte, sans laquelle rien ne se synchroniserait ensuite. */
+const identifiants = () => ({
+  email: $('account-email').value.trim(),
+  mdp: $('account-pass').value
+});
+
+$('btn-google').addEventListener('click', () =>
+  tenter('Connexion…', async () => { await Sync.init(); await Sync.signInGoogle(); }));
+
+$('btn-signin').addEventListener('click', () => {
+  const { email, mdp } = identifiants();
+  if (!email) return messageCompte('Saisis ton adresse e-mail.', 'erreur');
+  tenter('Connexion…', async () => { await Sync.init(); await Sync.signInEmail(email, mdp); });
+});
+
+$('btn-signup').addEventListener('click', () => {
+  const { email, mdp } = identifiants();
+  if (!email) return messageCompte('Saisis une adresse e-mail.', 'erreur');
+  if (mdp.length < 6) return messageCompte('Choisis un mot de passe d\'au moins six caractères.', 'erreur');
+  tenter('Création du compte…', async () => { await Sync.init(); await Sync.signUpEmail(email, mdp); });
+});
+
+$('btn-reset').addEventListener('click', () => {
+  const { email } = identifiants();
+  if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
+  tenter('Envoi…', () => Sync.resetEmail(email), `Lien envoyé à ${email}. Regarde ta boîte mail.`);
+});
+
+$('btn-signout').addEventListener('click', () =>
+  tenter('Déconnexion…', () => Sync.signOut()));
+
+$('account-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-signin').click(); });
 
 /* ---------- Apparence ---------- */
 
@@ -726,12 +837,20 @@ const MODES = [['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']];
 const ACCENT_DEFAUT = '#007aff';
 const nuitPreferee = matchMedia('(prefers-color-scheme: dark)');
 
+/* L'apparence est réservée aux comptes. Avant que Firebase ait répondu, on se
+   fie à la trace de la dernière session — comme le script du <head> — sinon le
+   thème choisi clignoterait à chaque ouverture. */
+const themePersonnalisable = () =>
+  !!Sync.user || !!localStorage.getItem('meslistes.compte');
+
 function applyTheme() {
-  const choix = state.theme || 'auto';
+  const perso = themePersonnalisable();
+  const choix = (perso && state.theme) || 'auto';
+  const accent = perso ? state.accent : null;
   const sombre = choix === 'dark' || (choix === 'auto' && nuitPreferee.matches);
 
   document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
-  if (state.accent) document.documentElement.style.setProperty('--accent', state.accent);
+  if (accent) document.documentElement.style.setProperty('--accent', accent);
   else document.documentElement.style.removeProperty('--accent');
   $('meta-theme').content = sombre ? '#000000' : '#f2f2f7';
 }
@@ -743,6 +862,18 @@ nuitPreferee.addEventListener('change', () => {
 });
 
 function themePicker() {
+  // Dire pourquoi c'est fermé, et où aller. Une option grisée sans explication
+  // laisse juste croire à une panne.
+  if (!themePersonnalisable()) {
+    return openSheet('Apparence', [
+      { label: 'Se connecter', icon: '☁️', run: accountModal }
+    ], {
+      html: `<p class="sheet-note left">Choisir le thème et la couleur des boutons
+             demande un compte. Sans compte, l'app suit le réglage clair ou sombre
+             du téléphone.</p>`
+    });
+  }
+
   const html = `
     <div class="seg">
       ${MODES.map(([valeur, libelle]) => `
@@ -807,11 +938,33 @@ async function exportData() {
   markBackup();
 }
 
-/* Bandeau de rappel : discret, et seulement quand il y a quelque chose à perdre. */
-function renderBackupNotice() {
+/* Invitation à créer un compte : seulement s'il y a des listes à protéger, et
+   jamais plus d'une fois par mois si elle a été écartée. Renvoie son état pour
+   que le rappel de sauvegarde s'efface derrière elle. */
+function renderSyncInvite() {
+  const montrer = !Sync.user
+    && state.lists.length > 0
+    && Date.now() - (state.syncInviteSnooze || 0) > 30 * JOUR;
+  $('sync-invite').hidden = !montrer;
+  return montrer;
+}
+
+$('sync-invite-go').addEventListener('click', accountModal);
+$('sync-invite-close').addEventListener('click', () => {
+  state.syncInviteSnooze = Date.now();
+  save();
+  renderHome();
+});
+
+/* Bandeau de rappel : discret, et seulement quand il y a quelque chose à perdre.
+   Inutile quand les listes sont déjà synchronisées, ou quand l'invitation
+   ci-dessus occupe déjà la place. */
+function renderBackupNotice(cache) {
   const el = $('backup-notice');
   const derniere = state.lastBackup || 0;
-  const montrer = state.lists.length > 0
+  const montrer = !cache
+    && !Sync.user
+    && state.lists.length > 0
     && Date.now() - derniere > 14 * JOUR
     && Date.now() - (state.noticeSnooze || 0) > 7 * JOUR;
 
@@ -863,6 +1016,16 @@ function importData() {
 /* ============================================================
    Démarrage
    ============================================================ */
+
+/* La synchro prévient l'app quand le compte ou les listes changent — au retour
+   du réseau, une modification faite sur l'ordinateur arrive ici toute seule. */
+Sync.onChange = () => {
+  renderAccount();
+  applyTheme();          // se connecter rend l'apparence choisie, se déconnecter la retire
+  if (currentListId && !getList(currentListId)) return goHome();
+  renderHome();
+  if (currentListId) renderItems();
+};
 
 applyTheme();
 renderHome();

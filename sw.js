@@ -1,12 +1,14 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v6';
+const CACHE = 'meslistes-v7';
 
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './sync.js',
+  './firebase-config.js',
   './manifest.json',
   './icons/icon-180.png',
   './icons/icon-192.png',
@@ -35,6 +37,15 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
 
+  // On ne s'occupe que de l'app elle-même et du SDK Firebase, qu'il faut avoir
+  // en cache pour se connecter hors ligne. Les échanges avec Firestore, eux,
+  // gèrent déjà leur propre mode hors connexion : les mettre en cache ici
+  // reviendrait à lui servir des réponses périmées à sa place.
+  const url = new URL(e.request.url);
+  const local = url.origin === self.location.origin;
+  const sdk = url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/');
+  if (!local && !sdk) return;
+
   // `fetch` passe par le cache HTTP du navigateur, qui peut renvoyer une vieille
   // copie sans même contacter le serveur. On force une revalidation pour que les
   // mises à jour de l'app soient réellement prises en compte.
@@ -50,6 +61,10 @@ self.addEventListener('fetch', e => {
         caches.open(CACHE).then(c => c.put(e.request, copy));
         return res;
       })
-      .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
+      // Hors connexion : le cache, et pour une navigation seulement, l'app à
+      // défaut. Renvoyer index.html à la place d'un script produirait une erreur
+      // bien plus difficile à comprendre qu'un échec franc.
+      .catch(() => caches.match(e.request).then(r =>
+        r || (e.request.mode === 'navigate' ? caches.match('./index.html') : undefined)))
   );
 });
