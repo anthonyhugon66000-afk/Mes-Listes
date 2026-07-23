@@ -1,6 +1,6 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v7';
+const CACHE = 'meslistes-v8';
 
 const ASSETS = [
   './',
@@ -49,10 +49,18 @@ self.addEventListener('fetch', e => {
   // `fetch` passe par le cache HTTP du navigateur, qui peut renvoyer une vieille
   // copie sans même contacter le serveur. On force une revalidation pour que les
   // mises à jour de l'app soient réellement prises en compte.
+  //
+  // Une requête de navigation ne peut pas être recopiée — `new Request(req, …)`
+  // refuse le mode `navigate` — d'où une requête neuve bâtie sur son URL. Sans
+  // ça `index.html` restait la seule ressource servie depuis le cache HTTP,
+  // et c'est justement elle qui désigne les scripts : l'app entière restait
+  // figée à la version précédente le temps de son `max-age`.
   let req = e.request;
-  if (req.mode !== 'navigate') {
-    try { req = new Request(req, { cache: 'no-cache' }); } catch {}
-  }
+  try {
+    req = req.mode === 'navigate'
+      ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' })
+      : new Request(req, { cache: 'no-cache' });
+  } catch {}
 
   e.respondWith(
     fetch(req)
