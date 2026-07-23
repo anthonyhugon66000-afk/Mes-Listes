@@ -182,6 +182,44 @@ Sur l'iPhone, **avec Safari** (Chrome ne sait pas installer les apps web) :
 L'app apparaît avec son icône, s'ouvre en plein écran sans barre d'adresse, et
 fonctionne sans connexion.
 
+## Les tests
+
+Double-clique sur **`Lancer les tests.bat`** : il démarre le serveur local et
+ouvre la page. Puis un bouton **Lancer les tests**, et c'est tout. Rien ne
+démarre tout seul.
+
+**Ouvrir `tests.html` directement depuis le disque ne marche pas** : le
+navigateur traite alors chaque fichier comme un site étranger aux autres, et
+interdit à la page de lire dans l'application. Elle le détecte et l'explique
+plutôt que d'échouer sur un message obscur.
+
+La page charge la véritable application dans un cadre invisible et exerce son
+code réel — le même `app.js`, le même `sync.js`, le même HTML. Un test ne peut
+donc pas passer sur une copie pendant que l'app, elle, serait cassée.
+
+**Tes listes sont mises de côté avant et remises à l'identique après**, y compris
+si un test échoue : la page partage le stockage de l'app, et les tests ont besoin
+d'y écrire.
+
+L'app est chargée avec le paramètre `?tests=1`, qui lui fait sauter
+l'enregistrement du service worker. Sans ça, lancer les tests juste après une
+mise à jour rechargeait le cadre en pleine séance — au pire moment, donc.
+
+Le bouton **Copier les résultats** met un compte rendu dans le presse-papier,
+prêt à être collé — bilan, échecs détaillés avec l'attendu et l'obtenu, puis un
+résumé par groupe.
+
+Les tests couvrent la migration des anciennes données, les quantités et
+variantes, le cochage en cascade, l'échappement des caractères, le rendu des
+deux écrans, le thème et son verrou, les bandeaux, les signatures et la
+convergence de la synchronisation, les écritures vers Firestore, les
+invitations, le formulaire de connexion, les messages d'erreur, le partage,
+l'aller-retour export/import, la fiche d'un article et l'annulation.
+
+Ce qu'ils **ne peuvent pas** couvrir, et que la page indique elle-même : tout ce
+qui demande un vrai compte Firebase, la feuille de partage iOS, les
+notifications, le service worker, et l'apparence.
+
 ## Tester sur l'ordinateur
 
 ```bash
@@ -228,4 +266,5 @@ désignes toi-même.
 | `sync.js` | Compte Firebase et synchronisation des listes |
 | `firebase-config.js` | Identifiants du projet Firebase |
 | `firestore.rules` | Règles d'accès à coller dans la console Firebase |
+| `tests.html` | Tests — à ouvrir via `Lancer les tests.bat` |
 | `icons/` | Icônes de l'app |

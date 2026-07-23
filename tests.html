@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes Listes — tests</title>
+
+<style>
+  :root {
+    --bg: #f2f2f7; --surface: #fff; --surface-2: #e9e9ee;
+    --text: #000; --text-dim: #6b6b70; --separator: rgba(60,60,67,.16);
+    --ok: #1a7f37; --ko: #cf222e; --accent: #007aff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000; --surface: #1c1c1e; --surface-2: #2c2c2e;
+      --text: #fff; --text-dim: #98989f; --separator: rgba(84,84,88,.5);
+      --ok: #3fb950; --ko: #ff7b72; --accent: #0a84ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 60px;
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .page { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.4px; }
+  .sous-titre { color: var(--text-dim); margin: 0 0 20px; font-size: 14px; }
+
+  .avertissement {
+    padding: 14px 16px; margin-bottom: 20px;
+    background: var(--surface); border: 1px solid var(--separator);
+    border-left: 4px solid var(--accent); border-radius: 10px;
+    font-size: 14px; line-height: 1.55;
+  }
+  .avertissement strong { display: block; margin-bottom: 4px; }
+  .avertissement.bloquant { border-left-color: var(--ko); }
+  .avertissement code {
+    padding: 2px 6px; border-radius: 5px; background: var(--surface-2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px;
+  }
+
+  .barre { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+  button {
+    padding: 12px 20px; font: inherit; font-weight: 600;
+    border: 0; border-radius: 10px; cursor: pointer;
+    background: var(--accent); color: #fff;
+  }
+  button.secondaire { background: var(--surface-2); color: var(--text); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  #bilan { font-size: 16px; font-weight: 600; margin-bottom: 16px; min-height: 24px; }
+  #bilan .ok { color: var(--ok); }
+  #bilan .ko { color: var(--ko); }
+
+  .groupe {
+    background: var(--surface); border: 1px solid var(--separator);
+    border-radius: 12px; margin-bottom: 12px; overflow: hidden;
+  }
+  .groupe > h2 {
+    margin: 0; padding: 11px 16px;
+    background: var(--surface-2);
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--text-dim);
+  }
+  .ligne {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 9px 16px; border-top: 1px solid var(--separator);
+    font-size: 14px;
+  }
+  .ligne .marque { flex: none; width: 16px; font-weight: 700; }
+  .ligne.reussi .marque { color: var(--ok); }
+  .ligne.echoue { background: rgba(207,34,46,.06); }
+  .ligne.echoue .marque { color: var(--ko); }
+  .ligne .nom { flex: 1; }
+  .detail {
+    margin: 6px 0 0; padding: 8px 10px;
+    background: var(--bg); border-radius: 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+    color: var(--text-dim);
+  }
+  .non-couvert { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .non-couvert li { margin-bottom: 3px; }
+  iframe { position: absolute; width: 420px; height: 760px; left: -9999px; top: 0; border: 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Mes Listes — tests</h1>
+  <p class="sous-titre">
+    Ces tests chargent la véritable application dans un cadre invisible et
+    exercent son code réel — pas une copie qui pourrait diverger.
+  </p>
+
+  <div class="avertissement">
+    <strong>Tes listes sont mises à l'abri.</strong>
+    Les tests ont besoin d'écrire dans le stockage de l'app. Son contenu est
+    sauvegardé avant de commencer et remis à l'identique à la fin, même si un
+    test échoue. Rien ne démarre tant que tu n'as pas appuyé sur le bouton.
+  </div>
+
+  <div class="avertissement bloquant" id="hors-serveur" hidden>
+    <strong>Ouvre cette page depuis le serveur local.</strong>
+    Là, elle a été ouverte directement depuis le disque. Le navigateur traite
+    alors chaque fichier comme un site étranger aux autres, et interdit à cette
+    page de lire dans l'application — les tests ne peuvent pas s'exécuter.
+    <br><br>
+    Double-clique sur <code>Lancer les tests.bat</code> dans le dossier de
+    l'application : il démarre le serveur et rouvre cette page au bon endroit.
+  </div>
+
+  <div class="barre">
+    <button id="lancer">Lancer les tests</button>
+    <button id="copier" class="secondaire" disabled>Copier les résultats</button>
+  </div>
+
+  <div id="bilan"></div>
+  <div id="resultats"></div>
+
+  <div class="groupe" id="bloc-non-couvert" hidden>
+    <h2>Hors de portée de ces tests</h2>
+    <div class="ligne">
+      <ul class="non-couvert">
+        <li>Tout ce qui demande un vrai compte Firebase : connexion, règles d'accès, synchronisation réelle entre appareils.</li>
+        <li>La feuille de partage iOS, donc la sauvegarde vers iCloud.</li>
+        <li>Les notifications, et le comportement du service worker hors connexion.</li>
+        <li>Le rendu visuel : ces tests vérifient la structure et les valeurs, pas l'apparence.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Tests de « Mes Listes »
+
+   L'application est chargée dans un cadre invisible, et pilotée par `eval`
+   exécuté dans son contexte. Ce détour est nécessaire : ses variables sont
+   déclarées en `const` et `let`, qui ne deviennent pas des propriétés de
+   `window` et resteraient donc invisibles de l'extérieur.
+   ============================================================ */
+
+const $ = s => document.querySelector(s);
+const CLES = ['meslistes.v1', 'meslistes.compte', 'meslistes.lien', 'meslistes.redirection'];
+
+let W = null;                 // fenêtre de l'application
+let versionApp = '?';
+let resultats = [];
+let groupeCourant = '';
+
+const ev = code => W.eval(code);
+const poser = etat => { ev('state = ' + JSON.stringify(etat) + '; void 0'); };
+
+/* ---------- Vérifications ---------- */
+
+function groupe(nom) { groupeCourant = nom; }
+
+function verifier(nom, obtenu, attendu) {
+  const o = JSON.stringify(obtenu), a = JSON.stringify(attendu);
+  resultats.push({ groupe: groupeCourant, nom, ok: o === a, obtenu: o, attendu: a });
+}
+
+function verifierVrai(nom, valeur) { verifier(nom, !!valeur, true); }
+
+/* `await` est indispensable : les fonctions de synchro sont asynchrones et
+   rejettent leur promesse au lieu de lever sur place. */
+async function verifierLeve(nom, fn, codeAttendu) {
+  try { await fn(); verifier(nom, 'aucune erreur', codeAttendu); }
+  catch (e) { verifier(nom, e && e.code ? e.code : String(e), codeAttendu); }
+}
+
+/* ---------- Jeux de données ---------- */
+
+const listeSimple = (items = []) => ({
+  id: 'L1', name: 'Courses', color: '#34c759', items
+});
+
+const article = (id, texte, options = {}) => Object.assign({
+  id, text: texte, qty: 1, done: false, variants: []
+}, options);
+
+/* ============================================================
+   Les tests
+   ============================================================ */
+
+const SUITES = [];
+const suite = (nom, fn) => SUITES.push({ nom, fn });
+
+/* ---------- Migration des anciennes données ---------- */
+
+suite('Migration des anciennes données', () => {
+  const ancien = {
+    hideDone: false,
+    lists: [{
+      id: 'L', name: 'Vieille', color: '#000',
+      items: [
+        { id: 'a', text: 'Pommes', variant: '', done: false },
+        { id: 'b', text: 'Maillot', variant: 'domicile', done: true },
+        { id: 'c', text: 'Lait', variant: 'demi', done: false, qty: 7 }
+      ]
+    }]
+  };
+  const apres = ev('migrate(' + JSON.stringify(ancien) + ')');
+  const items = apres.lists[0].items;
+
+  verifier('article sans variante n\'en reçoit aucune', items[0].variants.length, 0);
+  verifier('quantité absente vaut 1', items[0].qty, 1);
+  verifier('la chaîne `variant` devient une vraie variante', items[1].variants.length, 1);
+  verifier('le nom de la variante est conservé', items[1].variants[0].name, 'domicile');
+  verifier('la variante hérite de l\'état coché', items[1].variants[0].done, true);
+  verifier('la variante reçoit une quantité de 1', items[1].variants[0].qty, 1);
+  verifierVrai('la variante reçoit un identifiant', items[1].variants[0].id);
+  verifier('l\'ancien champ `variant` est supprimé', 'variant' in items[1], false);
+  verifier('une quantité déjà présente est conservée', items[2].qty, 7);
+
+  const bancal = ev('migrate(' + JSON.stringify({
+    lists: [{ id: 'X', name: 'Bancale', color: '#000' }]
+  }) + ')');
+  verifier('une liste sans tableau d\'articles en reçoit un vide', bancal.lists[0].items, []);
+
+  const sale = ev('migrate(' + JSON.stringify({
+    lists: [{ id: 'Y', name: 'Sale', color: '#000', items: [
+      { id: 'd', text: 'Truc', done: 'oui', qty: -4, variants: [{ name: 'sans id', qty: 0 }] }
+    ] }]
+  }) + ')');
+  const d = sale.lists[0].items[0];
+  verifier('un état coché non booléen est normalisé', d.done, true);
+  verifier('une quantité négative ne garde que ses chiffres', d.qty, 4);
+  verifierVrai('une variante sans identifiant en reçoit un', d.variants[0].id);
+  verifier('une quantité de variante nulle est ramenée à 1', d.variants[0].qty, 1);
+  verifier('un état coché de variante absent devient faux', d.variants[0].done, false);
+});
+
+/* ---------- Quantités ---------- */
+
+suite('Quantités', () => {
+  // « -5 » donne 5 : seuls les chiffres sont retenus, le signe est ignoré.
+  // Une quantité négative n'a pas de sens, garder le nombre saisi est le plus
+  // proche de l'intention.
+  const cas = [['3', 3], ['0', 1], ['', 1], ['abc', 1], ['9999', 999], [-5, 5],
+               ['2,5', 25], [null, 1], [12, 12]];
+  cas.forEach(([entree, attendu]) =>
+    verifier('clampQty(' + JSON.stringify(entree) + ')', ev('clampQty(' + JSON.stringify(entree) + ')'), attendu));
+
+  const sansVariante = article('a', 'Pommes', { qty: 5 });
+  const avecVariantes = article('b', 'Maillot', { qty: 1, variants: [
+    { id: 'v1', name: 'domicile', qty: 2, done: true },
+    { id: 'v2', name: 'extérieur', qty: 3, done: false }
+  ] });
+
+  verifier('sans variante, le total est la quantité',
+    ev('itemQty(' + JSON.stringify(sansVariante) + ')'), 5);
+  verifier('avec variantes, le total est leur somme',
+    ev('itemQty(' + JSON.stringify(avecVariantes) + ')'), 5);
+  verifier('sans variante, l\'état coché est celui de l\'article',
+    ev('itemDone(' + JSON.stringify(article('a', 'x', { done: true })) + ')'), true);
+  verifier('avec variantes, coché seulement si toutes le sont',
+    ev('itemDone(' + JSON.stringify(avecVariantes) + ')'), false);
+  avecVariantes.variants[1].done = true;
+  verifier('toutes les variantes cochées cochent l\'article',
+    ev('itemDone(' + JSON.stringify(avecVariantes) + ')'), true);
+});
+
+/* ---------- Échappement ---------- */
+
+suite('Échappement des caractères', () => {
+  verifier('les chevrons sont échappés', ev('esc("<b>")'), '&lt;b&gt;');
+  verifier('les guillemets sont échappés', ev('esc(\'a"b\')'), 'a&quot;b');
+  verifier('l\'esperluette est échappée', ev('esc("a&b")'), 'a&amp;b');
+
+  poser({ hideDone: false, lists: [
+    { id: 'L1', name: '<img src=x onerror="window.__pirate=1">', color: '#000', items: [] }
+  ] });
+  ev('renderHome()');
+  verifier('un nom de liste malveillant n\'exécute rien', ev('typeof window.__pirate'), 'undefined');
+  verifier('aucune balise image n\'est créée', ev('document.querySelectorAll("#lists img").length'), 0);
+  verifierVrai('le nom est affiché tel quel',
+    ev('document.querySelector("#lists .row-title").textContent').includes('<img'));
+});
+
+/* ---------- Réordonnancement ---------- */
+
+suite('Réordonnancement', () => {
+  const tableau = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  verifier('l\'ordre demandé est respecté',
+    ev('reorderBy(' + JSON.stringify(tableau) + ', ["c","a","b"]).map(o => o.id)'), ['c', 'a', 'b']);
+  verifier('un identifiant inconnu est ignoré',
+    ev('reorderBy(' + JSON.stringify(tableau) + ', ["c","zzz","a"]).map(o => o.id)'), ['c', 'a']);
+  verifier('une liste vide ne casse rien',
+    ev('reorderBy(' + JSON.stringify(tableau) + ', []).length'), 0);
+});
+
+/* ---------- Écran d'accueil ---------- */
+
+suite('Écran d\'accueil', () => {
+  ev('Sync.user = null; localStorage.setItem("meslistes.compte","")');
+
+  poser({ hideDone: false, lists: [] });
+  ev('renderHome()');
+  verifier('aucune liste : le bloc vide apparaît',
+    ev('document.getElementById("empty-lists").classList.contains("is-visible")'), true);
+
+  poser({ hideDone: false, lists: [
+    listeSimple([]),
+    { id: 'L2', name: 'Faite', color: '#000', items: [
+      article('a', 'un', { done: true }), article('b', 'deux', { done: false })
+    ] },
+    { id: 'L3', name: 'Partagée', color: '#000', items: [], members: ['moi', 'toi'] }
+  ] });
+  ev('renderHome()');
+
+  verifier('une ligne par liste', ev('document.querySelectorAll("#lists [data-id]").length'), 3);
+  verifier('liste vide : « Vide »',
+    ev('document.querySelector(\'[data-id="L1"] .row-sub\').textContent'), 'Vide');
+  verifier('liste remplie : le décompte',
+    ev('document.querySelector(\'[data-id="L2"] .row-sub\').textContent'), '1 sur 2 articles');
+  verifier('liste partagée : la mention',
+    ev('document.querySelector(\'[data-id="L3"] .row-sub\').textContent'), 'Vide · partagée');
+  verifier('liste non partagée : pas de mention',
+    ev('document.querySelector(\'[data-id="L1"] .row-sub\').textContent').includes('partagée'), false);
+});
+
+/* ---------- Écran des articles ---------- */
+
+suite('Écran des articles', () => {
+  ev('Sync.user = { uid: "moi", email: "moi@example.com" }; localStorage.setItem("meslistes.compte","1")');
+  poser({ hideDone: false, lists: [{
+    id: 'L1', name: 'Courses', color: '#34c759',
+    members: ['moi', 'ami'], memberEmails: ['moi@example.com', 'ami@example.com'],
+    items: [
+      article('a', 'Pommes', { qty: 12 }),
+      article('b', 'Lait', { variants: [{ id: 'v', name: 'demi-écrémé', qty: 2, done: false }] }),
+      article('c', 'Maillot', { variants: [
+        { id: 'v1', name: 'domicile', qty: 2, done: true, doneBy: 'ami@example.com' },
+        { id: 'v2', name: 'extérieur', qty: 3, done: false }
+      ] }),
+      article('d', 'Sel')
+    ]
+  }] });
+  ev('currentListId = "L1"; renderItems()');
+
+  verifier('un bloc par article', ev('document.querySelectorAll("#items > [data-id]").length'), 4);
+  verifier('badge de quantité quand elle dépasse 1',
+    ev('document.querySelector(\'[data-id="a"] .item-head .qty\').textContent'), '×12');
+  verifier('pas de badge quand la quantité vaut 1',
+    ev('!!document.querySelector(\'[data-id="d"] .item-head .qty\')'), false);
+  verifier('variante unique affichée en sous-titre',
+    ev('document.querySelector(\'[data-id="b"] .row-sub\').textContent'), 'demi-écrémé');
+  verifier('variante unique : aucune sous-ligne',
+    ev('document.querySelectorAll(\'[data-id="b"] .variant\').length'), 0);
+  verifier('variante unique : le badge porte son total',
+    ev('document.querySelector(\'[data-id="b"] .item-head .qty\').textContent'), '×2');
+  verifier('deux variantes : deux sous-lignes',
+    ev('document.querySelectorAll(\'[data-id="c"] .variant\').length'), 2);
+  verifier('le badge de l\'article somme ses variantes',
+    ev('document.querySelector(\'[data-id="c"] .item-head .qty\').textContent'), '×5');
+  verifier('étiquette de qui a coché, sur liste partagée',
+    ev('document.querySelector(\'[data-id="c"] .variant .par-qui\').textContent'), 'ami');
+  // 12 (Pommes) + 2 (Lait) + 5 (Maillot) + 1 (Sel)
+  verifier('progression avec total en pièces',
+    ev('document.getElementById("list-progress").textContent'), '0 sur 4 · 20 au total');
+
+  // Ce que j'ai coché moi-même ne porte pas mon nom.
+  ev('document.querySelector(\'[data-id="a"] [data-toggle]\').click()');
+  verifier('cocher enregistre qui a coché',
+    ev('state.lists[0].items[0].doneBy'), 'moi@example.com');
+  verifier('aucune étiquette pour ses propres cases',
+    ev('!!document.querySelector(\'[data-id="a"] .par-qui\')'), false);
+  ev('document.querySelector(\'[data-id="a"] [data-toggle]\').click()');
+  verifier('décocher efface la signature',
+    ev('"doneBy" in state.lists[0].items[0]'), false);
+
+  // Liste non partagée : la mention n'apprendrait rien.
+  ev('state.lists[0].members = ["moi"]; state.lists[0].items[2].variants[0].doneBy = "ami@example.com"; renderItems()');
+  verifier('pas d\'étiquette sur une liste non partagée',
+    ev('!!document.querySelector(".par-qui")'), false);
+});
+
+/* ---------- Cochage en cascade ---------- */
+
+suite('Cochage en cascade', () => {
+  poser({ hideDone: false, lists: [{
+    id: 'L1', name: 'Courses', color: '#000', items: [
+      article('c', 'Maillot', { variants: [
+        { id: 'v1', name: 'domicile', qty: 1, done: false },
+        { id: 'v2', name: 'extérieur', qty: 1, done: false }
+      ] })
+    ]
+  }] });
+  ev('currentListId = "L1"; renderItems()');
+
+  ev('document.querySelector(\'[data-id="c"] [data-toggle]\').click()');
+  verifier('cocher l\'article coche toutes ses variantes',
+    ev('state.lists[0].items[0].variants.map(v => v.done)'), [true, true]);
+
+  ev('document.querySelector(\'[data-vid="v1"] [data-vtoggle]\').click()');
+  verifier('décocher une variante décoche l\'article',
+    ev('state.lists[0].items[0].done'), false);
+  verifier('l\'autre variante reste cochée',
+    ev('state.lists[0].items[0].variants[1].done'), true);
+
+  ev('document.querySelector(\'[data-vid="v1"] [data-vtoggle]\').click()');
+  verifier('recocher la dernière variante recoche l\'article',
+    ev('state.lists[0].items[0].done'), true);
+
+  // Masquer les cochés ne doit pas escamoter un article à moitié fait.
+  ev('state.hideDone = true; state.lists[0].items[0].variants[0].done = false; state.lists[0].items[0].done = false; renderItems()');
+  verifier('un article partiellement coché reste visible',
+    ev('!!document.querySelector(\'[data-id="c"]\')'), true);
+  ev('state.lists[0].items[0].variants[0].done = true; state.lists[0].items[0].done = true; renderItems()');
+  verifier('un article entièrement coché disparaît',
+    ev('!!document.querySelector(\'[data-id="c"]\')'), false);
+  ev('state.hideDone = false');
+});
+
+/* ---------- Duplication ---------- */
+
+suite('Duplication d\'une liste', () => {
+  poser({ hideDone: false, lists: [{
+    id: 'L1', name: 'Courses', color: '#34c759', items: [
+      article('c', 'Maillot', { variants: [{ id: 'v1', name: 'domicile', qty: 2, done: false }] })
+    ]
+  }] });
+  ev('duplicateList("L1")');
+
+  verifier('la copie est insérée juste après', ev('state.lists.length'), 2);
+  verifier('le nom signale la copie', ev('state.lists[1].name'), 'Courses (copie)');
+  verifierVrai('la copie a un autre identifiant', ev('state.lists[0].id !== state.lists[1].id'));
+  verifierVrai('les articles aussi', ev('state.lists[0].items[0].id !== state.lists[1].items[0].id'));
+  verifierVrai('les variantes aussi',
+    ev('state.lists[0].items[0].variants[0].id !== state.lists[1].items[0].variants[0].id'));
+
+  ev('state.lists[1].items[0].variants[0].name = "MODIFIÉ"');
+  verifier('modifier la copie ne touche pas l\'originale',
+    ev('state.lists[0].items[0].variants[0].name'), 'domicile');
+});
+
+/* ---------- Thème ---------- */
+
+suite('Thème et son verrou', () => {
+  const lire = () => ev('({ theme: document.documentElement.dataset.theme,' +
+    ' accent: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() })');
+
+  ev('Sync.user = null; localStorage.setItem("meslistes.compte","")');
+  poser({ hideDone: false, theme: 'dark', accent: '#af52de', lists: [] });
+  ev('applyTheme()');
+  const sans = lire();
+  const systemeSombre = ev('matchMedia("(prefers-color-scheme: dark)").matches');
+  verifier('sans compte, le thème enregistré est ignoré',
+    sans.theme, systemeSombre ? 'dark' : 'light');
+  verifier('sans compte, l\'accent revient au défaut',
+    sans.accent, systemeSombre ? '#0a84ff' : '#007aff');
+
+  ev('Sync.user = { uid: "u", email: "x@y.z" }; localStorage.setItem("meslistes.compte","1"); applyTheme()');
+  const avec = lire();
+  verifier('avec compte, le thème choisi s\'applique', avec.theme, 'dark');
+  verifier('avec compte, l\'accent choisi s\'applique', avec.accent, '#af52de');
+
+  ev('state.theme = "light"; applyTheme()');
+  verifier('le mode clair force le clair', lire().theme, 'light');
+  ev('state.theme = "auto"; applyTheme()');
+  verifier('le mode automatique suit le système',
+    lire().theme, systemeSombre ? 'dark' : 'light');
+
+  verifier('la préférence survit à la déconnexion',
+    ev('Sync.user = null; localStorage.setItem("meslistes.compte",""); applyTheme(); state.accent'), '#af52de');
+
+  ev('themePicker()');
+  verifier('sans compte, la feuille Apparence est verrouillée',
+    ev('!!document.querySelector("#sheet-body .seg")'), false);
+  verifier('elle propose de se connecter',
+    ev('document.querySelectorAll("#sheet-body [data-i]").length'), 1);
+  ev('closeSheet(); Sync.user = { uid: "u", email: "x@y.z" }; localStorage.setItem("meslistes.compte","1"); themePicker()');
+  verifier('avec compte, le sélecteur de mode est là',
+    ev('!!document.querySelector("#sheet-body .seg")'), true);
+  verifier('les dix couleurs sont proposées',
+    ev('document.querySelectorAll("#sheet-body [data-accent]").length'), 10);
+  ev('closeSheet()');
+});
+
+/* ---------- Bandeaux ---------- */
+
+suite('Bandeaux de l\'écran d\'accueil', () => {
+  const etat = () => ev('({ invite: !document.getElementById("sync-invite").hidden,' +
+    ' sauvegarde: !document.getElementById("backup-notice").hidden })');
+
+  ev('Sync.user = null; localStorage.setItem("meslistes.compte","")');
+  poser({ hideDone: false, lists: [] });
+  ev('renderHome()');
+  verifier('sans liste, aucun bandeau', etat(), { invite: false, sauvegarde: false });
+
+  poser({ hideDone: false, lists: [listeSimple()], lastBackup: Date.now() - 60 * 86400000 });
+  ev('renderHome()');
+  verifier('avec des listes, l\'invitation seule', etat(), { invite: true, sauvegarde: false });
+
+  ev('document.getElementById("sync-invite-close").click()');
+  verifier('écartée, elle laisse place au rappel de sauvegarde',
+    etat(), { invite: false, sauvegarde: true });
+  verifierVrai('la mise en sourdine est enregistrée', ev('!!state.syncInviteSnooze'));
+
+  ev('state.syncInviteSnooze = Date.now() - 31 * 86400000; renderHome()');
+  verifier('elle revient après un mois', etat().invite, true);
+
+  ev('Sync.user = { uid: "u", email: "x@y.z" }; renderHome()');
+  verifier('une fois connecté, aucun des deux', etat(), { invite: false, sauvegarde: false });
+  ev('Sync.user = null');
+
+  poser({ hideDone: false, lists: [listeSimple()], lastBackup: Date.now() - 3 * 86400000,
+          syncInviteSnooze: Date.now() });
+  ev('renderHome()');
+  verifier('sauvegarde récente : pas de rappel', etat().sauvegarde, false);
+});
+
+/* ---------- Signatures de synchro ---------- */
+
+suite('Signatures de synchronisation', () => {
+  const l = { id: 'L1', name: 'Courses', color: '#34c759', items: [] };
+  const sig = (liste, i) => ev('signature(' + JSON.stringify(liste) + ', ' + i + ')');
+
+  verifierVrai('deux appels identiques donnent la même signature', sig(l, 0) === sig(l, 0));
+  verifierVrai('changer le nom la change', sig(l, 0) !== sig(Object.assign({}, l, { name: 'Autre' }), 0));
+  verifierVrai('changer la couleur la change', sig(l, 0) !== sig(Object.assign({}, l, { color: '#000' }), 0));
+  verifierVrai('changer les articles la change',
+    sig(l, 0) !== sig(Object.assign({}, l, { items: [article('a', 'x')] }), 0));
+  verifierVrai('changer la position la change', sig(l, 0) !== sig(l, 1));
+  verifierVrai('les membres n\'entrent pas dans la signature',
+    sig(l, 0) === sig(Object.assign({}, l, { members: ['a', 'b'] }), 0));
+
+  poser({ hideDone: false, lists: [], theme: 'dark', accent: '#af52de' });
+  const r1 = ev('signatureReglages()');
+  ev('state.lists.push(' + JSON.stringify(listeSimple()) + ')');
+  verifier('ajouter une liste ne change pas la signature des réglages',
+    ev('signatureReglages()'), r1);
+  ev('state.theme = "light"');
+  verifierVrai('changer le thème la change', ev('signatureReglages()') !== r1);
+});
+
+/* ---------- Écritures vers Firestore, avec un faux serveur ---------- */
+
+suite('Écritures vers Firestore', () => {
+  ev(`
+    window.__journal = [];
+    Sync.user = { uid: 'moi', email: 'Moi@Example.com' };
+    fb = { s: {
+      collection: (db, nom) => ({ nom }),
+      doc: (col, id) => ({ col: col.nom || 'users', id }),
+      setDoc: (ref, data, opts) => {
+        window.__journal.push({ op: 'set', col: ref.col, id: ref.id,
+          fusion: !!(opts && opts.merge), champs: Object.keys(data).sort() });
+        return Promise.resolve();
+      },
+      updateDoc: (ref, data) => {
+        window.__journal.push({ op: 'update', col: ref.col, id: ref.id, champs: Object.keys(data).sort() });
+        return Promise.resolve();
+      },
+      deleteDoc: ref => { window.__journal.push({ op: 'delete', col: ref.col, id: ref.id }); return Promise.resolve(); },
+      arrayUnion: v => ({ union: v }), arrayRemove: v => ({ remove: v }),
+      serverTimestamp: () => 'TS', onSnapshot: () => () => {},
+      query: () => ({}), where: () => ({}), getDocs: () => Promise.resolve({ docs: [] })
+    }};
+    void 0
+  `);
+
+  poser({ hideDone: false, lists: [
+    { id: 'CONNUE', name: 'Courses', color: '#34c759', items: [], owner: 'moi',
+      members: ['moi', 'ami'], memberEmails: ['moi@example.com', 'ami@example.com'] },
+    { id: 'NEUVE', name: 'Neuve', color: '#007aff', items: [] }
+  ] });
+  ev('envoye = new Map([["CONNUE", "perimee"]]); envoyeReglages = signatureReglages(); window.__journal = []; Sync.push(); void 0');
+
+  const connue = ev('window.__journal.find(j => j.id === "CONNUE")');
+  const neuve = ev('window.__journal.find(j => j.id === "NEUVE")');
+
+  verifier('liste déjà en ligne : écriture fusionnée', connue.fusion, true);
+  verifier('liste déjà en ligne : le propriétaire n\'est pas réécrit',
+    connue.champs.includes('owner'), false);
+  verifier('liste déjà en ligne : les membres non plus',
+    connue.champs.includes('members'), false);
+  verifier('liste déjà en ligne : seul le contenu part',
+    connue.champs, ['color', 'items', 'majLe', 'name', 'ordre']);
+  verifier('liste neuve : document complet', neuve.fusion, false);
+  verifier('liste neuve : propriétaire et membres inclus',
+    ['owner', 'members', 'memberEmails'].every(c => neuve.champs.includes(c)), true);
+
+  ev('window.__journal = []; Sync.push(); void 0');
+  verifier('rien n\'a changé : aucune écriture', ev('window.__journal.length'), 0);
+
+  ev('state.lists.pop(); window.__journal = []; Sync.push(); void 0');
+  verifier('une liste retirée est supprimée en ligne',
+    ev('window.__journal.filter(j => j.op === "delete").length'), 1);
+});
+
+/* ---------- Convergence des réglages ---------- */
+
+suite('Convergence des réglages', () => {
+  ev(`
+    window.__ecritures = []; window.__abonne = null;
+    Sync.user = { uid: 'u1', email: 'moi@example.com' };
+    fb = { s: {
+      collection: () => ({}), doc: () => ({ ref: 'users/u1' }),
+      onSnapshot: (ref, cb) => { window.__abonne = cb; return () => {}; },
+      setDoc: (ref, data) => { window.__ecritures.push(JSON.parse(JSON.stringify(data))); return Promise.resolve(); },
+      deleteDoc: () => Promise.resolve(),
+      serverTimestamp: () => 'TS', query: () => ({}), where: () => ({})
+    }};
+    state = { hideDone: false, lists: [], theme: 'dark', accent: '#af52de' };
+    envoyeReglages = null;
+    ecouterReglages();
+    void 0
+  `);
+  verifierVrai('l\'abonnement est posé', ev('typeof window.__abonne === "function"'));
+
+  ev('window.__abonne({ data: () => undefined }); void 0');
+  verifier('rien en ligne : une écriture part', ev('window.__ecritures.length'), 1);
+  verifier('elle porte le thème de l\'appareil',
+    ev('window.__ecritures[0]'), { theme: 'dark', accent: '#af52de' });
+
+  ev('window.__abonne({ data: () => window.__ecritures[0] }); void 0');
+  verifier('l\'écho de sa propre écriture ne relance rien', ev('window.__ecritures.length'), 1);
+
+  ev('window.__abonne({ data: () => ({ theme: "light", accent: "#34c759" }) }); void 0');
+  verifier('un autre appareil : toujours aucune écriture', ev('window.__ecritures.length'), 1);
+  verifier('un autre appareil : le thème est adopté', ev('state.theme'), 'light');
+  verifier('un autre appareil : l\'accent aussi', ev('state.accent'), '#34c759');
+
+  ev('state.theme = "dark"; Sync.push(); void 0');
+  verifier('changement local : une écriture de plus', ev('window.__ecritures.length'), 2);
+  ev('window.__abonne({ data: () => window.__ecritures[1] }); Sync.push(); void 0');
+  verifier('puis le silence revient', ev('window.__ecritures.length'), 2);
+});
+
+/* ---------- Invitations ---------- */
+
+suite('Invitations', async () => {
+  ev(`
+    window.__journal = [];
+    Sync.user = { uid: 'moi', email: 'moi@example.com' };
+    fb = { s: {
+      collection: (db, nom) => ({ nom }),
+      doc: (col, id) => ({ col: col.nom || 'users', id }),
+      setDoc: (ref, data) => { window.__journal.push({ op: 'set', id: ref.id, champs: Object.keys(data).sort() }); return Promise.resolve(); },
+      deleteDoc: ref => { window.__journal.push({ op: 'delete', id: ref.id }); return Promise.resolve(); },
+      serverTimestamp: () => 'TS', query: () => ({}), where: () => ({}), onSnapshot: () => () => {}
+    }};
+    void 0
+  `);
+
+  ev('window.__journal = []; Sync.inviter("L1", "  AMI@Example.FR ", "Courses"); void 0');
+  verifier('l\'adresse est normalisée dans l\'identifiant',
+    ev('window.__journal[0].id'), 'L1__ami@example.fr');
+  verifier('l\'invitation porte les champs attendus',
+    ev('window.__journal[0].champs'),
+    ['creeLe', 'email', 'invitePar', 'inviteParEmail', 'listId', 'nomListe']);
+
+  ev('window.__journal = []; Sync.annulerInvitation("L1", "Ami@EXAMPLE.fr"); void 0');
+  verifier('l\'annulation retrouve la même invitation quelle que soit la casse',
+    ev('window.__journal[0]'), { op: 'delete', id: 'L1__ami@example.fr' });
+
+  await verifierLeve('s\'inviter soi-même est refusé',
+    () => ev('Sync.inviter("L1", "MOI@example.com", "Courses")'), 'deja-membre');
+  await verifierLeve('une adresse sans arobase est refusée',
+    () => ev('Sync.inviter("L1", "pas-une-adresse", "Courses")'), 'auth/invalid-email');
+});
+
+/* ---------- Formulaire de connexion ---------- */
+
+suite('Formulaire de connexion', () => {
+  ev('Sync.user = null; localStorage.setItem("meslistes.compte",""); accountModal()');
+
+  verifier('ouverture en mode connexion',
+    ev('document.getElementById("auth-title").textContent'), 'Se connecter');
+  verifier('le bouton est grisé sans saisie',
+    ev('document.getElementById("btn-submit").disabled'), true);
+
+  ev('document.getElementById("account-email").value = "a@b.c"; majBoutonAuth()');
+  verifier('adresse seule : encore grisé', ev('document.getElementById("btn-submit").disabled'), true);
+  ev('document.getElementById("account-pass").value = "x"; majBoutonAuth()');
+  verifier('adresse et mot de passe : actif', ev('document.getElementById("btn-submit").disabled'), false);
+
+  ev('document.getElementById("btn-switch").click()');
+  verifier('bascule vers l\'inscription',
+    ev('document.getElementById("auth-title").textContent'), 'Créer un compte');
+  verifier('le bouton change de libellé',
+    ev('document.getElementById("btn-submit").textContent'), 'Créer mon compte');
+  verifier('« mot de passe oublié » disparaît',
+    ev('document.getElementById("btn-reset").hidden'), true);
+  verifier('à l\'inscription, un mot de passe court ne suffit pas',
+    ev('document.getElementById("btn-submit").disabled'), true);
+  ev('document.getElementById("account-pass").value = "sixcar"; majBoutonAuth()');
+  verifier('six caractères débloquent l\'inscription',
+    ev('document.getElementById("btn-submit").disabled'), false);
+
+  ev('document.getElementById("btn-switch").click(); document.getElementById("btn-lien").click()');
+  verifier('le bouton de lien ouvre son étape',
+    ev('document.getElementById("auth-title").textContent'), 'Recevoir un lien');
+  verifier('le mot de passe est masqué',
+    ev('document.getElementById("account-pass").parentElement.hidden'), true);
+  verifier('Google est masqué', ev('document.getElementById("btn-google").hidden'), true);
+  verifier('une adresse seule suffit à activer l\'envoi',
+    ev('document.getElementById("btn-submit").disabled'), false);
+  ev('document.getElementById("btn-switch").click()');
+  verifier('le retour ramène à la connexion',
+    ev('document.getElementById("auth-title").textContent'), 'Se connecter');
+
+  ev('document.getElementById("btn-eye").click()');
+  verifier('l\'œil dévoile le mot de passe',
+    ev('document.getElementById("account-pass").type'), 'text');
+  ev('document.getElementById("btn-eye").click()');
+  verifier('et le remasque', ev('document.getElementById("account-pass").type'), 'password');
+
+  ev('closeAccount()');
+});
+
+/* ---------- Messages d'erreur ---------- */
+
+suite('Messages d\'erreur', () => {
+  const codes = ['auth/invalid-email', 'auth/weak-password', 'auth/email-already-in-use',
+                 'auth/invalid-credential', 'auth/network-request-failed', 'auth/unauthorized-domain',
+                 'auth/operation-not-allowed', 'permission-denied', 'unavailable', 'deja-membre'];
+  codes.forEach(c => {
+    const m = ev('messageErreur(' + JSON.stringify(c) + ')');
+    verifierVrai('« ' + c +' » est traduit', m && m.indexOf(c) === -1 && m.length > 10);
+  });
+  verifierVrai('un code inconnu reste lisible',
+    ev('messageErreur("zzz-inconnu")').indexOf('zzz-inconnu') !== -1);
+
+  ev('Sync.user = null; Sync.erreur = "permission-denied"; Sync.origine = "reglages"; renderAccount()');
+  verifierVrai('l\'origine de l\'erreur est indiquée',
+    ev('document.getElementById("account-msg").textContent').includes('apparence'));
+  ev('Sync.erreur = null; Sync.origine = null');
+});
+
+/* ---------- État de la synchro ---------- */
+
+suite('État de la synchronisation', () => {
+  ev('Sync.user = { uid: "u", email: "x@y.z" }');
+  ev('majEtat({ hasPendingWrites: true, fromCache: false })');
+  verifier('écriture en attente : « envoi »', ev('Sync.etat'), 'envoi');
+  ev('majEtat({ hasPendingWrites: false, fromCache: true })');
+  verifier('réponse du cache : « hors ligne »', ev('Sync.etat'), 'horsligne');
+  ev('majEtat({ hasPendingWrites: false, fromCache: false })');
+  verifier('à jour : « synchronisé »', ev('Sync.etat'), 'synchro');
+  ev('Sync.user = null; majEtat({ hasPendingWrites: false, fromCache: false })');
+  verifier('sans compte : « local »', ev('Sync.etat'), 'local');
+
+  ev('Sync.etat = "synchro"; renderEtatSync()');
+  verifierVrai('l\'indicateur affiche la version et l\'état',
+    ev('document.getElementById("app-version").textContent').includes('synchronis'));
+  ev('Sync.etat = "erreur"; renderEtatSync()');
+  verifier('une erreur colore l\'indicateur',
+    ev('document.getElementById("app-version").classList.contains("alerte")'), true);
+  ev('Sync.etat = "local"; renderEtatSync()');
+  verifier('sans compte, seule la version reste',
+    ev('document.getElementById("app-version").textContent'), ev('VERSION'));
+});
+
+/* ---------- Partage ---------- */
+
+suite('Fenêtre de partage', () => {
+  ev('Sync.user = { uid: "moi", email: "moi@example.com" }; Sync.ecouterInvitations = (id, cb) => { cb(["attente@example.com"]); return () => {}; }');
+  poser({ hideDone: false, lists: [{
+    id: 'L1', name: 'Courses', color: '#34c759', owner: 'moi',
+    members: ['moi', 'ami'], memberEmails: ['moi@example.com', 'ami@example.com'], items: []
+  }] });
+  ev('goHome(); shareModal("L1")');
+
+  verifier('le titre nomme la liste',
+    ev('document.getElementById("share-title").textContent'), 'Partager « Courses »');
+  verifier('propriétaire : il peut retirer quelqu\'un',
+    ev('document.querySelectorAll("#share-people [data-retirer]").length'), 1);
+  verifier('propriétaire : il peut annuler une invitation',
+    ev('document.querySelectorAll("#share-people [data-annuler]").length'), 1);
+  verifier('propriétaire : pas de bouton pour quitter',
+    ev('!!document.getElementById("btn-quitter")'), false);
+  verifierVrai('la mention « propriétaire » est affichée',
+    ev('document.getElementById("share-people").textContent').includes('propriétaire'));
+
+  ev('closeShare(); state.lists[0].owner = "ami"; shareModal("L1")');
+  verifier('invité : il ne peut retirer personne',
+    ev('document.querySelectorAll("#share-people [data-retirer]").length'), 0);
+  verifier('invité : il peut quitter la liste',
+    ev('!!document.getElementById("btn-quitter")'), true);
+  ev('closeShare()');
+
+  ev('Sync.user = null; shareModal("L1")');
+  verifier('sans compte, partager renvoie à la connexion',
+    ev('!document.getElementById("account-backdrop").hidden'), true);
+  ev('closeAccount()');
+});
+
+/* ---------- Sauvegarde et restauration ---------- */
+
+suite('Sauvegarde et restauration', () => {
+  const depart = {
+    hideDone: false, theme: 'dark', accent: '#af52de',
+    lists: [{ id: 'L1', name: 'Courses', color: '#34c759', items: [
+      article('a', 'Pommes', { qty: 12 }),
+      article('b', 'Maillot', { variants: [
+        { id: 'v1', name: 'domicile', qty: 2, done: true },
+        { id: 'v2', name: 'extérieur', qty: 3, done: false }
+      ] })
+    ] }]
+  };
+  poser(depart);
+  const exporte = ev('JSON.parse(JSON.stringify(state))');
+  const reimporte = ev('migrate(' + JSON.stringify(exporte) + ')');
+  verifier('un aller-retour export/import ne change rien',
+    JSON.stringify(reimporte.lists), JSON.stringify(exporte.lists));
+  verifier('les réglages traversent aussi', [reimporte.theme, reimporte.accent], ['dark', '#af52de']);
+
+  ev('markBackup()');
+  verifierVrai('sauvegarder horodate l\'opération', ev('!!state.lastBackup'));
+  verifier('et fait disparaître le rappel',
+    ev('document.getElementById("backup-notice").hidden'), true);
+});
+
+/* ---------- Fiche d'un article ---------- */
+
+suite('Fiche d\'un article', () => {
+  poser({ hideDone: false, lists: [{
+    id: 'L1', name: 'Courses', color: '#000', items: [article('a', 'Lait')]
+  }] });
+  ev('currentListId = "L1"; renderItems(); document.querySelector(\'[data-id="a"] [data-edit]\').click()');
+
+  verifier('sans variante, la quantité est réglable',
+    ev('document.getElementById("item-qty-block").hidden'), false);
+
+  ev('document.getElementById("btn-add-variant").click()');
+  verifier('dès une variante, la quantité de l\'article disparaît',
+    ev('document.getElementById("item-qty-block").hidden'), true);
+
+  ev('document.querySelector("#item-variants .v-name").value = ""; document.getElementById("item-ok").click()');
+  verifier('une variante laissée vide est abandonnée',
+    ev('state.lists[0].items[0].variants.length'), 0);
+
+  ev('document.querySelector(\'[data-id="a"] [data-edit]\').click(); document.getElementById("btn-add-variant").click()');
+  ev('document.querySelector("#item-variants .v-name").value = "demi-écrémé"');
+  ev('document.querySelector(\'#item-variants [data-step="1"]\').click()');
+  ev('document.getElementById("item-ok").click()');
+  verifier('une variante nommée est conservée',
+    ev('state.lists[0].items[0].variants.map(v => v.name + "×" + v.qty)'), ['demi-écrémé×2']);
+
+  ev('document.querySelector(\'[data-id="a"] [data-edit]\').click()');
+  ev('document.getElementById("item-name").value = ""; document.getElementById("item-ok").click()');
+  verifier('un article sans nom n\'est pas enregistré',
+    ev('state.lists[0].items[0].text'), 'Lait');
+
+  ev('document.querySelector(\'[data-id="a"] [data-edit]\').click()');
+  ev('document.getElementById("item-name").value = "Lait bio"; closeItemEditor()');
+  verifier('annuler ne laisse aucune trace',
+    ev('state.lists[0].items[0].text'), 'Lait');
+});
+
+/* ---------- Annulation ---------- */
+
+suite('Annulation d\'une suppression', () => {
+  poser({ hideDone: false, lists: [listeSimple([article('a', 'Pommes')]), { id: 'L2', name: 'Autre', color: '#000', items: [] }] });
+  ev('goHome(); deleteList("L1")');
+  verifier('la liste est supprimée', ev('state.lists.length'), 1);
+  ev('document.getElementById("toast-undo").click()');
+  verifier('l\'annulation la ramène', ev('state.lists.length'), 2);
+  verifier('avec son nom', ev('state.lists[0].name'), 'Courses');
+  verifier('et ses articles', ev('state.lists[0].items[0].text'), 'Pommes');
+});
+
+/* ============================================================
+   Exécution
+   ============================================================ */
+
+async function lancer() {
+  $('#lancer').disabled = true;
+  $('#copier').disabled = true;
+  $('#resultats').innerHTML = '';
+  $('#bilan').textContent = 'Chargement de l\'application…';
+  resultats = [];
+
+  // Le stockage est partagé avec l'app : on le met de côté avant d'écrire dedans.
+  const sauvegarde = {};
+  CLES.forEach(c => sauvegarde[c] = localStorage.getItem(c));
+
+  let cadre = null;
+  try {
+    cadre = document.createElement('iframe');
+    cadre.src = 'index.html?tests=1';
+    document.body.appendChild(cadre);
+    await new Promise((ok, ko) => {
+      cadre.onload = ok;
+      cadre.onerror = () => ko(new Error('index.html introuvable'));
+      setTimeout(() => ko(new Error('chargement trop long')), 15000);
+    });
+    W = cadre.contentWindow;
+    if (typeof W.renderHome !== 'function') throw new Error("l'application ne s'est pas initialisée");
+    versionApp = ev('VERSION');
+
+    $('#bilan').textContent = 'Tests en cours…';
+    for (const s of SUITES) {
+      groupe(s.nom);
+
+      // Le cadre a-t-il perdu l'application en route ? Un rechargement en
+      // pleine séance ne doit pas se traduire par un obscur « x is not defined ».
+      let vivante = false;
+      try { vivante = typeof W.renderHome === 'function' && ev('typeof migrate') === 'function'; }
+      catch { vivante = false; }
+      if (!vivante) {
+        resultats.push({ groupe: s.nom, nom: 'suite non exécutée', ok: false,
+                         attendu: 'application disponible',
+                         obtenu: 'l\'application s\'est rechargée en cours de séance — relance les tests' });
+        continue;
+      }
+
+      try { await s.fn(); }
+      catch (e) {
+        resultats.push({ groupe: s.nom, nom: 'la suite s\'est interrompue', ok: false,
+                         obtenu: String(e && e.message || e), attendu: 'aucune erreur' });
+      }
+      await new Promise(r => setTimeout(r, 0));
+    }
+  } catch (e) {
+    const brut = String(e && e.message || e);
+    const isolee = /cross-origin|Permission denied|SecurityError/i.test(brut);
+    if (isolee) $('#hors-serveur').hidden = false;
+    resultats.push({
+      groupe: 'Démarrage', nom: 'chargement de l\'application', ok: false, attendu: 'chargée',
+      obtenu: isolee
+        ? 'le navigateur isole cette page de l\'application — ouvre-la depuis le serveur local (' + brut + ')'
+        : brut
+    });
+  } finally {
+    if (cadre) cadre.remove();
+    // Remise à l'identique, réussite ou échec.
+    CLES.forEach(c => {
+      if (sauvegarde[c] === null) localStorage.removeItem(c);
+      else localStorage.setItem(c, sauvegarde[c]);
+    });
+  }
+
+  afficher();
+  $('#lancer').disabled = false;
+  $('#copier').disabled = false;
+  $('#bloc-non-couvert').hidden = false;
+}
+
+function afficher() {
+  const reussis = resultats.filter(r => r.ok).length;
+  const echoues = resultats.length - reussis;
+  $('#bilan').innerHTML = echoues === 0
+    ? `<span class="ok">✓ ${reussis} tests réussis</span> — rien à signaler.`
+    : `<span class="ko">✗ ${echoues} échec${echoues > 1 ? 's' : ''}</span> sur ${resultats.length} tests.`;
+
+  const parGroupe = new Map();
+  resultats.forEach(r => {
+    if (!parGroupe.has(r.groupe)) parGroupe.set(r.groupe, []);
+    parGroupe.get(r.groupe).push(r);
+  });
+
+  const html = [...parGroupe].map(([nom, lignes]) => {
+    const rate = lignes.filter(l => !l.ok).length;
+    return `<div class="groupe">
+      <h2>${echapper(nom)} — ${lignes.length - rate}/${lignes.length}</h2>
+      ${lignes.map(l => `
+        <div class="ligne ${l.ok ? 'reussi' : 'echoue'}">
+          <span class="marque">${l.ok ? '✓' : '✗'}</span>
+          <span class="nom">${echapper(l.nom)}${l.ok ? '' :
+            `<div class="detail">attendu : ${echapper(l.attendu)}\nobtenu  : ${echapper(l.obtenu)}</div>`}</span>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+
+  $('#resultats').innerHTML = html;
+}
+
+const echapper = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+/* Le texte copié est fait pour être collé tel quel dans une conversation :
+   le bilan d'abord, puis les échecs en détail, puis le reste en résumé. */
+function texteResultats() {
+  const reussis = resultats.filter(r => r.ok).length;
+  const echoues = resultats.filter(r => !r.ok);
+  const lignes = [
+    'Mes Listes — résultats des tests',
+    'Version de l\'app : ' + versionApp,
+    new Date().toLocaleString('fr-FR'),
+    '',
+    `${reussis} réussis, ${echoues.length} échoués, ${resultats.length} au total`,
+    ''
+  ];
+
+  if (echoues.length) {
+    lignes.push('ÉCHECS');
+    echoues.forEach(r => {
+      lignes.push(`✗ [${r.groupe}] ${r.nom}`);
+      lignes.push(`    attendu : ${r.attendu}`);
+      lignes.push(`    obtenu  : ${r.obtenu}`);
+    });
+    lignes.push('');
+  }
+
+  lignes.push('RÉSUMÉ PAR GROUPE');
+  const parGroupe = new Map();
+  resultats.forEach(r => {
+    const g = parGroupe.get(r.groupe) || { ok: 0, total: 0 };
+    g.total++; if (r.ok) g.ok++;
+    parGroupe.set(r.groupe, g);
+  });
+  [...parGroupe].forEach(([nom, g]) =>
+    lignes.push(`${g.ok === g.total ? '✓' : '✗'} ${nom} — ${g.ok}/${g.total}`));
+
+  return lignes.join('\n');
+}
+
+/* Ouverte depuis le disque, la page ne peut rien tester : le navigateur isole
+   chaque fichier dans sa propre origine. Autant le dire d'emblée, plutôt que de
+   laisser échouer sur un message incompréhensible. */
+if (location.protocol === 'file:') {
+  $('#hors-serveur').hidden = false;
+  $('#lancer').disabled = true;
+  $('#lancer').textContent = 'Serveur local requis';
+}
+
+$('#lancer').addEventListener('click', lancer);
+$('#copier').addEventListener('click', async () => {
+  const texte = texteResultats();
+  try {
+    await navigator.clipboard.writeText(texte);
+    $('#copier').textContent = 'Copié ✓';
+  } catch {
+    // Le presse-papier peut être refusé : on montre le texte à sélectionner.
+    const zone = document.createElement('textarea');
+    zone.value = texte;
+    zone.style.cssText = 'width:100%;height:220px;margin-top:12px;font-family:monospace;font-size:12px';
+    $('#resultats').prepend(zone);
+    zone.select();
+    $('#copier').textContent = 'Sélectionne et copie ci-dessus';
+  }
+  setTimeout(() => $('#copier').textContent = 'Copier les résultats', 3000);
+});
+</script>
+</body>
+</html>

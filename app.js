@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v15.3';
+const VERSION = 'v16.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1384,7 +1384,12 @@ if (location.href.includes('apiKey=') || location.href.includes('oobCode=')) {
     });
 }
 
-if ('serviceWorker' in navigator) {
+/* `tests.html` charge l'app avec ce paramètre. Le rechargement automatique
+   ci-dessous viderait alors le cadre en pleine séance : c'est exactement ce qui
+   arrive quand on teste juste après une mise à jour, donc au pire moment. */
+const sousTest = location.search.includes('tests=1');
+
+if ('serviceWorker' in navigator && !sousTest) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
