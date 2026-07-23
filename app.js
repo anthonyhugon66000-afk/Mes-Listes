@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.2';
+const VERSION = 'v17.3';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -851,7 +851,7 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
-  { version: 'v17.2', titre: 'Notifications, pseudo et nouveautés', points: [
+  { version: 'v17.3', titre: 'Notifications, pseudo et nouveautés', points: [
     'Être prévenu quand quelqu\'un modifie une liste partagée, ou t\'y invite',
     'Les notifications arrivent même quand l\'app est fermée',
     'Choisir un pseudo, affiché aux autres à la place de ton adresse',
@@ -1217,8 +1217,11 @@ const installee = () => matchMedia('(display-mode: standalone)').matches || navi
 
 function accountModal() {
   $('note-ios').hidden = !(iOS && installee());
-  renderAccount();
+  // Effacer d'abord, afficher ensuite : dans l'autre sens on effaçait le
+  // message d'erreur que `renderAccount` venait de poser, et l'app restait
+  // muette sur la panne qu'elle était censée expliquer.
   messageCompte('');
+  renderAccount();
   modeAuth = 'connexion';    // rouvrir la fenêtre repart de l'écran d'accueil
   renderAuthMode();
   compteBackdrop.hidden = false;
@@ -1548,8 +1551,15 @@ const ETATS = {
   erreur:    '· erreur de synchro'
 };
 
+const ORIGINES = { listes: 'les listes', reglages: "l'apparence",
+                   invitations: 'les invitations', connexion: 'la connexion' };
+
 function renderEtatSync() {
-  $('app-version').textContent = `${VERSION} ${ETATS[Sync.etat] || ''}`.trim();
+  // En cas de panne, l'indicateur nomme la partie fautive : c'est souvent tout
+  // ce qu'on peut lire sur un téléphone, sans console ni journal.
+  const detail = Sync.etat === 'erreur' && ORIGINES[Sync.origine]
+    ? ` (${ORIGINES[Sync.origine]})` : '';
+  $('app-version').textContent = `${VERSION} ${ETATS[Sync.etat] || ''}${detail}`.trim();
   $('app-version').classList.toggle('alerte', Sync.etat === 'erreur');
 }
 renderEtatSync();
