@@ -8,7 +8,7 @@ const STORE_KEY = 'meslistes.v1';
 /* Affichée en bas à gauche de l'écran d'accueil. À garder en phase avec le nom
    du cache dans `sw.js` : c'est ce couple qui permet de dire, en regardant un
    téléphone, si l'app a bien reçu la dernière version. */
-const VERSION = 'v9';
+const VERSION = 'v10';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -259,6 +259,15 @@ function goHome() {
   renderHome();
 }
 
+const partagee = list => (list.members || []).length > 1;
+
+/* Sur une liste à plusieurs, savoir qui a coché évite le doute — et le double
+   achat. Inutile de se nommer soi-même, ni sur une liste qu'on est seul à voir. */
+function parQui(email, list) {
+  if (!partagee(list) || !email || email === Sync.user?.email) return '';
+  return `<span class="par-qui">${esc(String(email).split('@')[0])}</span>`;
+}
+
 function renderItems() {
   const list = getList(currentListId);
   if (!list) return goHome();
@@ -285,6 +294,7 @@ function renderItems() {
             ${seule ? `<span class="row-sub">${esc(seule.name)}</span>` : ''}
           </span>
         </button>
+        ${done ? parQui(item.doneBy, list) : ''}
         ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
         <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
         <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
@@ -298,6 +308,7 @@ function renderItems() {
             <span class="check check-sm" style="background:${v.done ? list.color : 'transparent'}">${ICON.check}</span>
           </button>
           <span class="variant-name">${esc(v.name)}</span>
+          ${v.done ? parQui(v.doneBy, list) : ''}
           ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
         </li>`).join('')}
       </ul>` : ''}
@@ -319,12 +330,19 @@ elItems.addEventListener('click', e => {
   const item = list.items.find(i => i.id === row.dataset.id);
   if (!item) return;
 
+  // Qui a coché, pour les listes à plusieurs. Décocher efface la signature :
+  // une case vide n'appartient à personne.
+  const signer = (cible, etat) => { if (etat) cible.doneBy = Sync.user?.email || null;
+                                    else delete cible.doneBy; };
+
   const ligneVariante = e.target.closest('[data-vid]');
   if (ligneVariante && e.target.closest('[data-vtoggle]')) {
     const v = item.variants.find(x => x.id === ligneVariante.dataset.vid);
     if (v) {
       v.done = !v.done;
+      signer(v, v.done);
       item.done = item.variants.every(x => x.done);
+      signer(item, item.done);
       save();
       renderItems();
     }
@@ -335,7 +353,8 @@ elItems.addEventListener('click', e => {
     // Cocher l'article coche d'un coup toutes ses variantes, et inversement.
     const etat = !itemDone(item);
     item.done = etat;
-    item.variants.forEach(v => v.done = etat);
+    signer(item, etat);
+    item.variants.forEach(v => { v.done = etat; signer(v, etat); });
     save();
     renderItems();
   } else if (e.target.closest('[data-edit]')) {
@@ -504,7 +523,10 @@ $('btn-list-menu').addEventListener('click', () => {
     { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
         snapshot();
-        list.items.forEach(i => { i.done = false; i.variants.forEach(v => v.done = false); });
+        list.items.forEach(i => {
+          i.done = false; delete i.doneBy;
+          i.variants.forEach(v => { v.done = false; delete v.doneBy; });
+        });
         save(); renderItems();
       } },
     { label: `Supprimer les articles cochés (${doneCount})`, icon: '🧹', danger: true, run: () => {
@@ -883,7 +905,10 @@ const ERREURS = {
   'permission-denied':           "Accès refusé : les règles de la base ne sont pas encore publiées.",
   'unavailable':                 'Serveur injoignable. Les modifications partiront au retour du réseau.',
   'deja-membre':                 'Cette liste est déjà à toi.',
-  'not-found':                   'Cette liste a été supprimée entre-temps.'
+  'not-found':                   'Cette liste a été supprimée entre-temps.',
+  'lien/adresse-manquante':      'Saisis ton adresse pour terminer la connexion.',
+  'auth/invalid-action-code':    'Ce lien a déjà servi ou a expiré. Demandes-en un nouveau.',
+  'auth/expired-action-code':    'Ce lien a expiré. Demandes-en un nouveau.'
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -950,6 +975,13 @@ $('btn-signup').addEventListener('click', () => {
   if (!email) return messageCompte('Saisis une adresse e-mail.', 'erreur');
   if (mdp.length < 6) return messageCompte('Choisis un mot de passe d\'au moins six caractères.', 'erreur');
   tenter('Création du compte…', async () => { await Sync.init(); await Sync.signUpEmail(email, mdp); });
+});
+
+$('btn-lien').addEventListener('click', () => {
+  const { email } = identifiants();
+  if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
+  tenter('Envoi…', async () => { await Sync.init(); await Sync.envoyerLien(email); },
+    `Lien envoyé à ${email}. Ouvre-le depuis cet appareil, tu seras connecté sans mot de passe.`);
 });
 
 $('btn-reset').addEventListener('click', () => {
@@ -1162,15 +1194,49 @@ Sync.onChange = () => {
     toast(`${noms} partagée${noms.includes(',') ? 's' : ''} avec toi`);
   }
 
+  renderEtatSync();
   if (!shareBackdrop.hidden && listePartagee) renderPeople();
   if (currentListId && !getList(currentListId)) return goHome();
   renderHome();
   if (currentListId) renderItems();
 };
 
-$('app-version').textContent = VERSION;
+const ETATS = {
+  local:     '',                      // sans compte, rien à dire
+  synchro:   '· synchronisé',
+  envoi:     '· envoi…',
+  horsligne: '· hors ligne',
+  erreur:    '· erreur de synchro'
+};
+
+function renderEtatSync() {
+  $('app-version').textContent = `${VERSION} ${ETATS[Sync.etat] || ''}`.trim();
+  $('app-version').classList.toggle('alerte', Sync.etat === 'erreur');
+}
+renderEtatSync();
 applyTheme();
 renderHome();
+
+/* Retour depuis un lien de connexion : on termine l'ouverture de session avant
+   toute chose, l'app apparaîtra directement connectée. */
+if (location.href.includes('apiKey=') || location.href.includes('oobCode=')) {
+  Sync.init()
+    .then(() => Sync.lienEnAttente())
+    .then(async oui => {
+      if (!oui) return;
+      const memorisee = localStorage.getItem('meslistes.lien');
+      // Lien ouvert sur un autre appareil que celui qui l'a demandé : Firebase
+      // exige l'adresse, elle seule prouve qui est derrière le lien.
+      const email = memorisee || prompt('Confirme ton adresse e-mail pour terminer la connexion :');
+      if (!email) return;
+      await Sync.terminerLien(email);
+      toast('Connexion réussie');
+    })
+    .catch(e => {
+      accountModal();
+      messageCompte(messageErreur(e?.code || String(e)), 'erreur');
+    });
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

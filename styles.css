@@ -248,6 +248,21 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 }
 .item.done .qty { opacity: .5; }
 
+/* Qui a coché, sur une liste à plusieurs. */
+.par-qui {
+  flex: none;
+  max-width: 96px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: .85;
+}
+
 .variants { list-style: none; margin: 0; padding: 0 14px 10px 4px; }
 .variant { display: flex; align-items: center; gap: 6px; }
 
@@ -432,6 +447,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+.version.alerte { color: var(--danger); opacity: 1; }
 
 /* ===== Bouton flottant ===== */
 .fab {

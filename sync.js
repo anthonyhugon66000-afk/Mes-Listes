@@ -15,6 +15,7 @@ const Sync = {
   pret: false,          // SDK chargé et écoute de l'état de connexion en place
   user: null,           // { uid, email } quand connecté
   erreur: null,
+  etat: 'local',        // local | synchro | envoi | horsligne | erreur
   onChange: () => {}    // renseigné par app.js
 };
 window.Sync = Sync;
@@ -75,6 +76,7 @@ Sync.init = async function () {
     if (arreterReglages) { arreterReglages(); arreterReglages = null; }
     envoye = new Map();
     envoyeReglages = null;
+    Sync.etat = utilisateur ? 'envoi' : 'local';
 
     if (utilisateur) {
       try { await demarrerEcoute(); }
@@ -92,6 +94,40 @@ Sync.signInEmail = (email, mdp) =>
 
 Sync.resetEmail = email =>
   chargerSDK().then(({ auth, a }) => a.sendPasswordResetEmail(auth, email));
+
+/* ---------- Connexion par lien ----------
+
+   Pas de mot de passe : Firebase envoie un lien, l'ouvrir suffit. L'adresse est
+   gardée de côté en attendant le retour, sinon Firebase la redemanderait — le
+   lien seul ne prouve pas qui l'a demandé. */
+
+const CLE_LIEN = 'meslistes.lien';
+
+Sync.envoyerLien = async function (email) {
+  const { auth, a } = await chargerSDK();
+  await a.sendSignInLinkToEmail(auth, email.trim(), {
+    url: location.href.split('?')[0].split('#')[0],
+    handleCodeInApp: true
+  });
+  localStorage.setItem(CLE_LIEN, email.trim());
+};
+
+/* Vrai si la page a été ouverte depuis un lien de connexion. */
+Sync.lienEnAttente = async function () {
+  const { auth, a } = await chargerSDK();
+  return a.isSignInWithEmailLink(auth, location.href);
+};
+
+Sync.terminerLien = async function (emailSaisi) {
+  const { auth, a } = await chargerSDK();
+  const email = emailSaisi || localStorage.getItem(CLE_LIEN);
+  if (!email) throw { code: 'lien/adresse-manquante' };
+  await a.signInWithEmailLink(auth, email, location.href);
+  localStorage.removeItem(CLE_LIEN);
+  // L'adresse et le jeton restent dans la barre d'adresse : on les efface pour
+  // qu'un rechargement ne rejoue pas un lien désormais consommé.
+  history.replaceState(null, '', location.pathname);
+};
 
 Sync.signInGoogle = async function () {
   const { auth, a } = await chargerSDK();
@@ -111,8 +147,22 @@ Sync.signOut = async function () {
 
 function signalerErreur(e) {
   Sync.erreur = e?.code || String(e);
+  Sync.etat = 'erreur';
   Sync.onChange();
 }
+
+/* État de la synchro, déduit des métadonnées de Firestore : `hasPendingWrites`
+   dit qu'une modification attend son tour, `fromCache` que la réponse vient du
+   disque faute de serveur joignable. */
+function majEtat(metadonnees) {
+  if (!Sync.user) Sync.etat = 'local';
+  else if (metadonnees?.hasPendingWrites) Sync.etat = 'envoi';
+  else if (metadonnees?.fromCache || !navigator.onLine) Sync.etat = 'horsligne';
+  else Sync.etat = 'synchro';
+}
+
+addEventListener('online', () => { if (Sync.user) { majEtat(); Sync.onChange(); } });
+addEventListener('offline', () => { if (Sync.user) { Sync.etat = 'horsligne'; Sync.onChange(); } });
 
 /* ---------- Écoute et envoi des listes ---------- */
 
@@ -151,7 +201,10 @@ async function demarrerEcoute() {
     await lot.commit();
   }
 
-  arreterEcoute = s.onSnapshot(requete, instantane => {
+  // `includeMetadataChanges` : sans lui, passer de « envoi » à « synchronisé »
+  // ne déclencherait aucun instantané, puisque les données, elles, n'ont pas bougé.
+  arreterEcoute = s.onSnapshot(requete, { includeMetadataChanges: true }, instantane => {
+    majEtat(instantane.metadata);
     state.lists = instantane.docs
       .map(d => {
         const v = d.data();

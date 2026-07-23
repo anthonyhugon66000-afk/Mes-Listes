@@ -70,12 +70,34 @@ peut retirer quelqu'un ou annuler une invitation en attente ; les autres peuvent
 quitter la liste. **Seul le propriétaire peut supprimer la liste** — sinon un
 invité effacerait le travail commun.
 
+### Qui a coché quoi
+
+Sur une liste à plusieurs, un article coché porte le nom de qui l'a coché — la
+partie de l'adresse avant l'arobase. Rien ne s'affiche pour ses propres cases,
+ni sur une liste qu'on est seul à voir : la mention n'apparaît que là où elle
+apprend quelque chose. Décocher efface la signature.
+
+### Connexion sans mot de passe
+
+Bouton **Recevoir un lien** dans la fenêtre de compte. Firebase envoie un lien,
+l'ouvrir suffit. L'adresse est gardée de côté en attendant le retour : le lien
+seul ne prouve pas qui l'a demandé, et Firebase la redemande s'il est ouvert sur
+un autre appareil.
+
+Demande d'activer **Lien e-mail (connexion sans mot de passe)** dans la console
+Firebase : Authentication → Sign-in method → E-mail/Mot de passe.
+
 ### Numéro de version
 
 Affiché en bas à gauche de l'écran d'accueil. Il vient de la constante `VERSION`
 dans `app.js`, à garder en phase avec le nom du cache dans `sw.js` : c'est ce
 couple qui permet de vérifier d'un coup d'œil, sur un téléphone, que la dernière
 version est bien arrivée.
+
+Une fois connecté, l'état de la synchro s'y ajoute — `synchronisé`, `envoi…`,
+`hors ligne`, ou `erreur de synchro` en rouge. Il est déduit des métadonnées de
+Firestore : `hasPendingWrites` dit qu'une modification attend son tour,
+`fromCache` que la réponse vient du disque faute de serveur joignable.
 
 ### Mise en place côté Firebase
 
