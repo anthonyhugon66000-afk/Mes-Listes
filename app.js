@@ -8,7 +8,7 @@ const STORE_KEY = 'meslistes.v1';
 /* Affichée en bas à gauche de l'écran d'accueil. À garder en phase avec le nom
    du cache dans `sw.js` : c'est ce couple qui permet de dire, en regardant un
    téléphone, si l'app a bien reçu la dernière version. */
-const VERSION = 'v10';
+const VERSION = 'v11';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -908,7 +908,15 @@ const ERREURS = {
   'not-found':                   'Cette liste a été supprimée entre-temps.',
   'lien/adresse-manquante':      'Saisis ton adresse pour terminer la connexion.',
   'auth/invalid-action-code':    'Ce lien a déjà servi ou a expiré. Demandes-en un nouveau.',
-  'auth/expired-action-code':    'Ce lien a expiré. Demandes-en un nouveau.'
+  'auth/expired-action-code':    'Ce lien a expiré. Demandes-en un nouveau.',
+  'auth/operation-not-supported-in-this-environment':
+    "Ce navigateur refuse la connexion Google. Utilise le lien sans mot de passe.",
+  'auth/web-storage-unsupported':
+    "Ce navigateur bloque le stockage nécessaire à Google. Utilise le lien sans mot de passe.",
+  'auth/account-exists-with-different-credential':
+    'Un compte existe déjà avec cette adresse, créé autrement. Connecte-toi par mot de passe ou par lien.',
+  'auth/internal-error':
+    "La connexion Google a échoué. Sur iPhone, elle est peu fiable dans une app installée : utilise le lien sans mot de passe."
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -932,8 +940,15 @@ function renderAccount() {
   if (Sync.erreur) messageCompte(messageErreur(Sync.erreur), 'erreur');
 }
 
+/* Prévenir avant l'échec plutôt que l'expliquer après : c'est exactement la
+   configuration où la connexion Google casse. */
+const iOS = /iP(hone|ad|od)/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const installee = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
 function accountModal() {
   messageCompte('');
+  $('note-google').hidden = !(iOS && installee());
   renderAccount();
   compteBackdrop.hidden = false;
 }

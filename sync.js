@@ -10,6 +10,7 @@
    ============================================================ */
 
 const SDK = 'https://www.gstatic.com/firebasejs/11.10.0/';
+const CLE_REDIRECTION = 'meslistes.redirection';
 
 const Sync = {
   pret: false,          // SDK chargé et écoute de l'état de connexion en place
@@ -67,6 +68,13 @@ Sync.init = async function () {
   Sync.pret = true;
 
   const { auth, a } = await chargerSDK();
+
+  // Au retour d'une redirection, c'est le seul endroit où l'échec se manifeste.
+  // Sans cette lecture, une connexion Google refusée ne dit rien du tout : on
+  // revient sur l'écran d'accueil comme si l'on n'avait rien demandé.
+  a.getRedirectResult(auth)
+    .catch(signalerErreur)
+    .finally(() => localStorage.removeItem(CLE_REDIRECTION));
 
   a.onAuthStateChanged(auth, async utilisateur => {
     Sync.user = utilisateur ? { uid: utilisateur.uid, email: utilisateur.email } : null;
@@ -129,15 +137,26 @@ Sync.terminerLien = async function (emailSaisi) {
   history.replaceState(null, '', location.pathname);
 };
 
+/* Google passe par un aller-retour sur `firebaseapp.com`, un autre domaine que
+   celui de l'app. Safari cloisonne le stockage par domaine, et une app installée
+   sur l'écran d'accueil est plus cloisonnée encore : la redirection revient
+   souvent sans session. La fenêtre surgissante garde le contexte, on l'essaie
+   donc d'abord, y compris en mode installé, et la redirection ne sert plus que
+   de recours. */
 Sync.signInGoogle = async function () {
   const { auth, a } = await chargerSDK();
   const fournisseur = new a.GoogleAuthProvider();
-  // Une app installée sur l'écran d'accueil n'a pas de fenêtre surgissante à sa
-  // disposition : on redirige, et Firebase reprend la main au retour.
-  const installee = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  return installee
-    ? a.signInWithRedirect(auth, fournisseur)
-    : a.signInWithPopup(auth, fournisseur);
+  try {
+    return await a.signInWithPopup(auth, fournisseur);
+  } catch (e) {
+    const recuperable = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment',
+                         'auth/cancelled-popup-request'].includes(e?.code);
+    if (!recuperable) throw e;
+    // La redirection quitte la page : sans cette trace, on reviendrait sans
+    // savoir qu'une connexion était en cours, et le résultat serait ignoré.
+    localStorage.setItem(CLE_REDIRECTION, '1');
+    return a.signInWithRedirect(auth, fournisseur);
+  }
 };
 
 Sync.signOut = async function () {
@@ -397,8 +416,10 @@ Sync.push = function () {
   });
 };
 
-/* Un compte a déjà servi ici : on rebranche la synchro au démarrage, sans quoi
-   l'app s'ouvrirait déconnectée à chaque fois. */
-if (localStorage.getItem('meslistes.compte')) {
+/* Un compte a déjà servi ici, ou l'on revient d'une redirection : on rebranche
+   la synchro au démarrage. Sans le second cas, le retour de Google serait ignoré
+   pour quelqu'un qui ne s'est encore jamais connecté — c'est-à-dire à la seule
+   fois où ça compte vraiment. */
+if (localStorage.getItem('meslistes.compte') || localStorage.getItem(CLE_REDIRECTION)) {
   addEventListener('load', () => Sync.init().catch(signalerErreur));
 }
