@@ -89,10 +89,23 @@ Firebase : Authentication → Sign-in method → E-mail/Mot de passe.
 
 ### Numéro de version
 
-Affiché en bas à gauche de l'écran d'accueil. Il vient de la constante `VERSION`
-dans `app.js`, à garder en phase avec le nom du cache dans `sw.js` : c'est ce
-couple qui permet de vérifier d'un coup d'œil, sur un téléphone, que la dernière
-version est bien arrivée.
+Affiché en bas à gauche de l'écran d'accueil. Il permet de vérifier d'un coup
+d'œil, sur un téléphone, que la dernière version est bien arrivée.
+
+**À chaque publication, le numéro se change à quatre endroits** — il vaut mieux
+les traiter comme un bloc :
+
+| Fichier | Ce qu'il faut changer |
+|---|---|
+| `app.js` | la constante `VERSION` |
+| `sw.js` | le nom du cache `CACHE` |
+| `sw.js` | les `?v…` de la liste `ASSETS` |
+| `index.html` | les `?v…` du style et des trois scripts |
+
+Ces `?v…` ne sont pas une coquetterie. Sans eux, une page fraîchement
+téléchargée pouvait s'exécuter avec un `app.js` resté en cache : les
+identifiants ne correspondaient plus, le script s'arrêtait sur la première
+référence introuvable, et l'app restait à moitié morte sans rien afficher.
 
 Une fois connecté, l'état de la synchro s'y ajoute — `synchronisé`, `envoi…`,
 `hors ligne`, ou `erreur de synchro` en rouge. Il est déduit des métadonnées de

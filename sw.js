@@ -1,14 +1,16 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v14';
+const CACHE = 'meslistes-v15';
 
+/* Les adresses portent le même numéro de version que dans `index.html` : c'est
+   ce qui garantit qu'une page et ses scripts vont par paire. */
 const ASSETS = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
-  './sync.js',
-  './firebase-config.js',
+  './styles.css?v15',
+  './app.js?v15',
+  './sync.js?v15',
+  './firebase-config.js?v15',
   './manifest.json',
   './icons/icon-180.png',
   './icons/icon-192.png',

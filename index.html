@@ -14,7 +14,12 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
 
-<link rel="stylesheet" href="styles.css">
+<!-- Le numéro de version dans l'adresse lie chaque page à ses propres scripts.
+     Sans lui, une page fraîchement téléchargée pouvait s'exécuter avec un
+     `app.js` encore en cache : les identifiants ne correspondaient plus, le
+     script s'arrêtait sur la première référence introuvable, et l'app restait
+     à moitié morte sans rien afficher. -->
+<link rel="stylesheet" href="styles.css?v15">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -253,11 +258,6 @@
                  placeholder="Six caractères minimum" autocomplete="new-password" enterkeyhint="done">
         </div>
         <button type="button" class="auth-submit" id="btn-setpass">Enregistrer</button>
-        <p class="auth-intro small">
-          Même compte, mêmes listes — simplement une seconde porte d'entrée.
-          C'est la seule qui fonctionne depuis l'app installée sur iPhone, où
-          Google et les liens passent par Safari.
-        </p>
 
         <p class="sep"><span></span></p>
 
@@ -308,8 +308,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js"></script>
-<script src="sync.js"></script>
-<script src="app.js"></script>
+<script src="firebase-config.js?v15"></script>
+<script src="sync.js?v15"></script>
+<script src="app.js?v15"></script>
 </body>
 </html>
