@@ -7,6 +7,17 @@
    Analytics est volontairement écarté : l'app n'a pas besoin d'être mesurée,
    et c'est une dépendance et un traçage de moins. */
 
+/* Le Worker Cloudflare qui envoie les notifications. Il détient la clé qui
+   autorise l'envoi ; l'app ne fait que lui signaler quelle liste a changé.
+   Son code est dans `worker/notifier.js`. */
+const WORKER_NOTIFS = 'https://mes-listes-notifs.anthony-hugon-66000.workers.dev/';
+
+/* Clé publique de notification (VAPID). Elle sert à réclamer un jeton d'envoi
+   pour cet appareil. Publique elle aussi — c'est la clé privée, gardée chez
+   Cloudflare, qui autorise à envoyer. */
+const FIREBASE_VAPID =
+  'BKW4EDxgLH8Lh1t5vlgysn7c2MfTyTtyD7uwgY0BPyL_296lV_x24Hjvb8_vmAEN2WVgrYi6DAq_mIwYdQ1qiAM';
+
 const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyBD0DUziulvwarBdKRF5nBStzagpJ3px3Q',
   authDomain: 'mes--listes.firebaseapp.com',

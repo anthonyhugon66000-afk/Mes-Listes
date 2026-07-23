@@ -366,8 +366,9 @@ suite('Écran des articles', () => {
 
   // Ce que j'ai coché moi-même ne porte pas mon nom.
   ev('document.querySelector(\'[data-id="a"] [data-toggle]\').click()');
+  // Depuis les pseudos, on signe d'un nom affiché, plus d'une adresse.
   verifier('cocher enregistre qui a coché',
-    ev('state.lists[0].items[0].doneBy'), 'moi@example.com');
+    ev('state.lists[0].items[0].doneBy'), 'moi');
   verifier('aucune étiquette pour ses propres cases',
     ev('!!document.querySelector(\'[data-id="a"] .par-qui\')'), false);
   ev('document.querySelector(\'[data-id="a"] [data-toggle]\').click()');
@@ -580,8 +581,10 @@ suite('Écritures vers Firestore', () => {
     connue.champs.includes('owner'), false);
   verifier('liste déjà en ligne : les membres non plus',
     connue.champs.includes('members'), false);
+  // `majPar` et `majParNom` accompagnent le contenu : sans eux, impossible de
+  // distinguer la modification d'un autre de l'écho de la sienne.
   verifier('liste déjà en ligne : seul le contenu part',
-    connue.champs, ['color', 'items', 'majLe', 'name', 'ordre']);
+    connue.champs, ['color', 'items', 'majLe', 'majPar', 'majParNom', 'name', 'ordre']);
   verifier('liste neuve : document complet', neuve.fusion, false);
   verifier('liste neuve : propriétaire et membres inclus',
     ['owner', 'members', 'memberEmails'].every(c => neuve.champs.includes(c)), true);
@@ -592,6 +595,8 @@ suite('Écritures vers Firestore', () => {
   ev('state.lists.pop(); window.__journal = []; Sync.push(); void 0');
   verifier('une liste retirée est supprimée en ligne',
     ev('window.__journal.filter(j => j.op === "delete").length'), 1);
+
+  ev('fb = null; Sync.user = null');
 });
 
 /* ---------- Convergence des réglages ---------- */
@@ -617,7 +622,7 @@ suite('Convergence des réglages', () => {
   ev('window.__abonne({ data: () => undefined }); void 0');
   verifier('rien en ligne : une écriture part', ev('window.__ecritures.length'), 1);
   verifier('elle porte le thème de l\'appareil',
-    ev('window.__ecritures[0]'), { theme: 'dark', accent: '#af52de' });
+    ev('window.__ecritures[0]'), { theme: 'dark', accent: '#af52de', pseudo: '' });
 
   ev('window.__abonne({ data: () => window.__ecritures[0] }); void 0');
   verifier('l\'écho de sa propre écriture ne relance rien', ev('window.__ecritures.length'), 1);
@@ -631,6 +636,8 @@ suite('Convergence des réglages', () => {
   verifier('changement local : une écriture de plus', ev('window.__ecritures.length'), 2);
   ev('window.__abonne({ data: () => window.__ecritures[1] }); Sync.push(); void 0');
   verifier('puis le silence revient', ev('window.__ecritures.length'), 2);
+
+  ev('fb = null; Sync.user = null');   // le faux serveur ne doit pas déborder
 });
 
 /* ---------- Invitations ---------- */
@@ -664,6 +671,8 @@ suite('Invitations', async () => {
     () => ev('Sync.inviter("L1", "MOI@example.com", "Courses")'), 'deja-membre');
   await verifierLeve('une adresse sans arobase est refusée',
     () => ev('Sync.inviter("L1", "pas-une-adresse", "Courses")'), 'auth/invalid-email');
+
+  ev('fb = null; Sync.user = null');
 });
 
 /* ---------- Formulaire de connexion ---------- */
@@ -853,6 +862,225 @@ suite('Fiche d\'un article', () => {
   ev('document.getElementById("item-name").value = "Lait bio"; closeItemEditor()');
   verifier('annuler ne laisse aucune trace',
     ev('state.lists[0].items[0].text'), 'Lait');
+});
+
+/* ---------- Pseudo ---------- */
+
+suite('Pseudo', () => {
+  ev('Sync.user = { uid: "moi", email: "anthony.hugon@example.com" }');
+  poser({ hideDone: false, lists: [] });
+
+  verifier('sans pseudo, c\'est le début de l\'adresse', ev('Sync.nomAffiche()'), 'anthony.hugon');
+  ev('state.pseudo = "Tonio"');
+  verifier('avec pseudo, c\'est lui', ev('Sync.nomAffiche()'), 'Tonio');
+  ev('state.pseudo = "   "');
+  verifier('un pseudo d\'espaces ne compte pas', ev('Sync.nomAffiche()'), 'anthony.hugon');
+  ev('state.pseudo = ""; Sync.user = null');
+  verifier('sans compte, un nom de repli existe quand même',
+    ev('typeof Sync.nomAffiche()'), 'string');
+
+  // Le pseudo voyage avec le compte : il doit compter dans la signature.
+  ev('Sync.user = { uid: "moi", email: "a@b.c" }');
+  poser({ hideDone: false, lists: [], theme: 'dark', accent: null, pseudo: 'Tonio' });
+  const avec = ev('signatureReglages()');
+  ev('state.pseudo = "Autre"');
+  verifierVrai('changer de pseudo change la signature des réglages',
+    ev('signatureReglages()') !== avec);
+
+  // Ce qu'on coche porte désormais son pseudo, pas son adresse.
+  poser({ hideDone: false, pseudo: 'Tonio', lists: [{
+    id: 'L1', name: 'Courses', color: '#000', members: ['moi', 'ami'],
+    memberEmails: ['a@b.c', 'ami@b.c'], items: [article('a', 'Pommes')]
+  }] });
+  ev('currentListId = "L1"; renderItems(); document.querySelector(\'[data-id="a"] [data-toggle]\').click()');
+  verifier('cocher signe avec le pseudo', ev('state.lists[0].items[0].doneBy'), 'Tonio');
+  verifier('mais on ne s\'affiche pas soi-même',
+    ev('!!document.querySelector(".par-qui")'), false);
+
+  ev('state.lists[0].items[0].doneBy = "Marie"; renderItems()');
+  verifier('le pseudo d\'un autre s\'affiche',
+    ev('document.querySelector(".par-qui").textContent'), 'Marie');
+  ev('state.lists[0].items[0].doneBy = "ami@example.com"; renderItems()');
+  verifier('une ancienne signature par adresse reste lisible',
+    ev('document.querySelector(".par-qui").textContent'), 'ami');
+});
+
+/* ---------- Notifications ---------- */
+
+suite('Notifications', () => {
+  verifier('l\'état est lisible', ['granted', 'denied', 'default', 'indisponible']
+    .includes(ev('etatNotifs()')), true);
+  verifierVrai('notifier ne lève jamais', ev('typeof notifier') === 'function');
+
+  // Sans autorisation, rien ne part — et surtout rien ne casse.
+  const envoi = ev('notifier("Titre", "Corps", "essai")');
+  verifierVrai('l\'envoi rend une promesse', envoi && typeof envoi.then === 'function');
+
+  ['notif/indisponible', 'notif/denied', 'notif/default'].forEach(c => {
+    const m = ev('messageErreur(' + JSON.stringify(c) + ')');
+    verifierVrai('« ' + c + ' » est traduit', m && m.indexOf(c) === -1 && m.length > 10);
+  });
+
+  ev('Sync.user = { uid: "moi", email: "a@b.c" }; Sync.modifs = []; Sync.recues = []');
+  ev('openSheet("x", []); closeSheet(); notifsModal()');
+  verifierVrai('connecté, la feuille annonce les notifications app fermée',
+    ev('document.getElementById("sheet-body").textContent').includes('fermée'));
+  ev('closeSheet(); Sync.user = null; notifsModal()');
+  verifierVrai('sans compte, elle explique qu\'il n\'y a personne pour prévenir',
+    ev('document.getElementById("sheet-body").textContent').includes('Sans compte'));
+  ev('closeSheet()');
+});
+
+/* ---------- Envoi vers le Worker ---------- */
+
+suite('Avis envoyés aux autres appareils', async () => {
+  ev(`
+    window.__appels = [];
+    window.__vraiFetch = window.fetch;
+    window.fetch = (url, opts) => {
+      window.__appels.push({ url, corps: JSON.parse(opts.body) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ envoyes: 1 }) });
+    };
+    Sync.user = { uid: 'moi', email: 'a@b.c' };
+    state = { hideDone: false, pseudo: 'Tonio', lists: [] };
+    fb = { auth: { currentUser: { getIdToken: () => Promise.resolve('FAUX-JETON') } }, s: {} };
+    void 0
+  `);
+
+  const partagee = { id: 'L1', name: 'Courses', members: ['moi', 'ami'] };
+  const solo = { id: 'L2', name: 'Perso', members: ['moi'] };
+
+  ev('Sync.prevenirMembres(' + JSON.stringify(solo) + ')');
+  await new Promise(r => setTimeout(r, 20));
+  verifier('une liste non partagée ne prévient personne', ev('window.__appels.length'), 0);
+
+  // Trois modifications d'affilée ne doivent donner qu'un seul avis.
+  ev('Sync.prevenirMembres(' + JSON.stringify(partagee) + ')');
+  ev('Sync.prevenirMembres(' + JSON.stringify(partagee) + ')');
+  ev('Sync.prevenirMembres(' + JSON.stringify(partagee) + ')');
+  await new Promise(r => setTimeout(r, 20));
+  verifier('rien ne part immédiatement', ev('window.__appels.length'), 0);
+
+  await new Promise(r => setTimeout(r, 5200));
+  verifier('un seul avis après le délai', ev('window.__appels.length'), 1);
+
+  const appel = ev('window.__appels[0]');
+  verifierVrai('il vise le Worker', String(appel.url).includes('workers.dev'));
+  verifier('il transmet le jeton d\'identité', appel.corps.idToken, 'FAUX-JETON');
+  verifier('et la liste concernée', appel.corps.listeId, 'L1');
+  verifier('mais jamais de jetons d\'appareils', 'jetons' in appel.corps, false);
+  verifierVrai('le titre nomme la liste', appel.corps.titre.includes('Courses'));
+  verifierVrai('le corps nomme l\'auteur', appel.corps.corps.includes('Tonio'));
+
+  ev('window.fetch = window.__vraiFetch; fb = null; Sync.user = null');
+});
+
+/* ---------- Détection des modifications d'autrui ---------- */
+
+suite('Modifications faites par d\'autres', async () => {
+  const listeDoc = (contenu, majPar) => ({
+    id: 'L1',
+    data: () => ({ name: 'Courses', color: '#000', items: contenu, ordre: 0,
+                   owner: 'moi', members: ['moi', 'ami'], memberEmails: ['a@b.c', 'ami@b.c'],
+                   majPar, majParNom: majPar === 'moi' ? 'Moi' : 'Marie' })
+  });
+
+  ev(`
+    Sync.user = { uid: 'moi', email: 'a@b.c' };
+    Sync.modifs = [];
+    window.__abonneListes = null;
+    fb = { db: {}, s: {
+      collection: (db, nom) => ({ nom }),
+      doc: (col, id) => ({ col: (col && col.nom) || 'users', id }),
+      query: () => ({}), where: () => ({}),
+      getDocs: () => Promise.resolve({ docs: [] }),
+      // Deux écoutes cohabitent : celle des listes reçoit des options en second
+      // argument, celle des réglages reçoit directement son rappel.
+      onSnapshot: (q, o, cb) => {
+        if (typeof o === 'function') window.__abonneReglages = o;
+        else window.__abonneListes = cb;
+        return () => {};
+      },
+      setDoc: () => Promise.resolve(), deleteDoc: () => Promise.resolve(),
+      updateDoc: () => Promise.resolve(), writeBatch: () => ({ set(){}, commit: () => Promise.resolve() }),
+      serverTimestamp: () => 'TS', arrayUnion: v => v, arrayRemove: v => v
+    }};
+    state = { hideDone: false, lists: [] };
+    envoye = new Map();
+    void 0
+  `);
+
+  // `demarrerEcoute` récupère d'abord les invitations : l'écoute n'est posée
+  // qu'après, il faut donc laisser passer les promesses en attente.
+  ev('demarrerEcoute(); void 0');
+  await new Promise(r => setTimeout(r, 60));
+  verifierVrai('l\'écoute des listes est en place', ev('typeof window.__abonneListes === "function"'));
+
+  // `Sync.onChange` vide la file pour envoyer les notifications : on met un
+  // observateur à sa place, sinon on lirait toujours zéro.
+  ev(`
+    window.__vus = [];
+    window.__vraiOnChange = Sync.onChange;
+    Sync.onChange = () => { window.__vus.push(...Sync.modifs.splice(0)); };
+    void 0
+  `);
+
+  const premier = JSON.stringify([{ id: 'a', text: 'Pommes', qty: 1, done: false, variants: [] }]);
+  ev('window.__abonneListes({ metadata: {}, docs: [' +
+     '{ id: "L1", data: () => ({ name: "Courses", color: "#000", items: ' + premier + ', ordre: 0,' +
+     ' owner: "moi", members: ["moi","ami"], memberEmails: ["a@b.c","ami@b.c"], majPar: "ami", majParNom: "Marie" }) }] }); void 0');
+  verifier('le premier instantané ne signale rien', ev('window.__vus.length'), 0);
+
+  const second = JSON.stringify([{ id: 'a', text: 'Pommes', qty: 1, done: true, doneBy: 'Marie', variants: [] }]);
+  ev('window.__abonneListes({ metadata: {}, docs: [' +
+     '{ id: "L1", data: () => ({ name: "Courses", color: "#000", items: ' + second + ', ordre: 0,' +
+     ' owner: "moi", members: ["moi","ami"], memberEmails: ["a@b.c","ami@b.c"], majPar: "ami", majParNom: "Marie" }) }] }); void 0');
+  verifier('une modification d\'un autre est signalée', ev('window.__vus.length'), 1);
+  verifier('avec son auteur et sa liste',
+    ev('window.__vus[0]'), { liste: 'Courses', qui: 'Marie' });
+
+  ev('window.__vus = []');
+  const troisieme = JSON.stringify([{ id: 'a', text: 'Pommes', qty: 3, done: true, doneBy: 'Marie', variants: [] }]);
+  ev('window.__abonneListes({ metadata: {}, docs: [' +
+     '{ id: "L1", data: () => ({ name: "Courses", color: "#000", items: ' + troisieme + ', ordre: 0,' +
+     ' owner: "moi", members: ["moi","ami"], memberEmails: ["a@b.c","ami@b.c"], majPar: "moi", majParNom: "Moi" }) }] }); void 0');
+  verifier('sa propre modification ne se signale pas', ev('window.__vus.length'), 0);
+
+  ev('Sync.onChange = window.__vraiOnChange');
+  ev('if (arreterEcoute) arreterEcoute(); arreterEcoute = null;');
+  ev('if (arreterReglages) arreterReglages(); arreterReglages = null;');
+  ev('fb = null; Sync.user = null; Sync.modifs = []; envoye = new Map()');
+});
+
+/* ---------- Nouveautés ---------- */
+
+suite('Écran des nouveautés', () => {
+  poser({ hideDone: false, lists: [] });
+  ev('newsModal()');
+  verifier('la fenêtre s\'ouvre', ev('!document.getElementById("news-backdrop").hidden'), true);
+  verifierVrai('elle liste plusieurs versions',
+    ev('document.querySelectorAll("#news-body .news-version").length') >= 2);
+  verifierVrai('la version courante y figure',
+    ev('document.getElementById("news-body").textContent').includes(ev('VERSION')));
+  ev('document.getElementById("news-close").click()');
+  verifier('elle se ferme', ev('document.getElementById("news-backdrop").hidden'), true);
+
+  // Première ouverture : rien à annoncer, on note simplement la version.
+  ev('delete state.vuVersion; annoncerNouveautes()');
+  verifier('un premier usage n\'affiche rien',
+    ev('document.getElementById("news-backdrop").hidden'), true);
+  verifier('mais la version est retenue', ev('state.vuVersion'), ev('VERSION'));
+
+  // Mise à jour depuis une version antérieure : on montre ce qui a changé.
+  ev('state.vuVersion = "v1"; annoncerNouveautes()');
+  verifier('une mise à jour ouvre la fenêtre',
+    ev('!document.getElementById("news-backdrop").hidden'), true);
+  verifier('la version vue est mise à jour', ev('state.vuVersion'), ev('VERSION'));
+  ev('document.getElementById("news-close").click()');
+
+  ev('annoncerNouveautes()');
+  verifier('elle ne revient pas au lancement suivant',
+    ev('document.getElementById("news-backdrop").hidden'), true);
 });
 
 /* ---------- Annulation ---------- */

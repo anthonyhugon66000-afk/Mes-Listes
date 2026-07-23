@@ -132,6 +132,58 @@ Firestore : `hasPendingWrites` dit qu'une modification attend son tour,
    Ces valeurs sont publiques par nature : elles désignent le projet, elles
    n'autorisent rien. Ce sont les règles qui protègent les données.
 
+## Notifications
+
+Menu **⋯** → **Notifications**. Elles préviennent quand quelqu'un modifie une
+liste partagée, et quand on t'invite sur une liste.
+
+Elles arrivent **même app fermée**, grâce à un petit serveur chez Cloudflare —
+un site statique ne peut rien envoyer par lui-même.
+
+### Comment ça circule
+
+```
+Un appareil modifie une liste partagée
+   ↓ écrit dans Firestore
+   ↓ appelle le Worker Cloudflare
+Worker  ──►  Firebase Cloud Messaging  ──►  les autres appareils
+```
+
+**L'app n'envoie jamais de jetons.** Elle dit seulement quelle liste elle vient
+de modifier, avec son jeton d'identité. Le Worker vérifie cette identité contre
+les clés publiques de Google, vérifie que l'appelant est bien membre de la
+liste, puis va lui-même chercher les jetons des autres membres. Sans ce
+détour, n'importe quel compte pourrait se servir du Worker pour arroser des
+appareils au hasard.
+
+Les avis sont différés de cinq secondes et regroupés : cocher cinq articles
+d'affilée ne déclenche qu'une notification.
+
+Le code du Worker est dans [`worker/notifier.js`](worker/notifier.js), à coller
+dans l'éditeur Cloudflare. Son unique secret, `CLE_SERVICE`, est le fichier JSON
+de compte de service Firebase — **il ne doit jamais entrer dans ce dépôt**.
+
+Sur iPhone, l'app doit être **installée sur l'écran d'accueil** : Safari ne les
+affiche pas. L'autorisation est demandée par un bouton, jamais au chargement —
+et si tu refuses, iOS ne redemande plus, il faut passer par Réglages.
+
+La notification porte le nom et l'icône de l'app, qu'iOS reprend de l'écran
+d'accueil. Sur Android, `icons/icon-badge.png` fournit la silhouette blanche
+attendue à côté du nom ; elle est extraite des formes blanches de l'icône
+principale.
+
+## Pseudo
+
+Menu **⋯** → **Compte** → **Ton pseudo**. Il remplace le début de ton adresse
+partout où les autres te voient : l'étiquette de qui a coché quoi. Il suit le
+compte, comme le thème. Laissé vide, c'est le début de l'adresse qui s'affiche.
+
+## Nouveautés
+
+Menu **⋯** → **Nouveautés**. La fenêtre s'ouvre aussi d'elle-même au premier
+lancement d'une nouvelle version — mais jamais à la toute première ouverture de
+l'app, qui n'a rien à annoncer.
+
 ## Apparence
 
 **Réservée aux comptes.** Menu **⋯** → **Apparence** : mode **Automatique**,
@@ -266,5 +318,6 @@ désignes toi-même.
 | `sync.js` | Compte Firebase et synchronisation des listes |
 | `firebase-config.js` | Identifiants du projet Firebase |
 | `firestore.rules` | Règles d'accès à coller dans la console Firebase |
+| `worker/notifier.js` | Envoi des notifications — à coller dans le Worker Cloudflare |
 | `tests.html` | Tests — à ouvrir via `Lancer les tests.bat` |
-| `icons/` | Icônes de l'app |
+| `icons/` | Icônes de l'app, dont `icon-badge.png` pour les notifications Android |

@@ -531,6 +531,24 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   cursor: default;
 }
 
+/* ===== Nouveautés ===== */
+.news-version { margin-bottom: 20px; }
+.news-version:last-child { margin-bottom: 0; }
+.news-version h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.news-version ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.news-version li { margin-bottom: 4px; }
+.news-version li::marker { color: var(--accent); }
+
 /* ===== Partage : personnes sur une liste ===== */
 .people { list-style: none; margin: 0; padding: 0; }
 .person {

@@ -242,13 +242,30 @@ async function demarrerEcoute() {
   // ne déclencherait aucun instantané, puisque les données, elles, n'ont pas bougé.
   arreterEcoute = s.onSnapshot(requete, { includeMetadataChanges: true }, instantane => {
     majEtat(instantane.metadata);
+    // Ce qu'on affichait juste avant, pour repérer ce qu'un autre a changé.
+    const avant = new Map(state.lists.map(l => [l.id, signature(l, 0)]));
+    const premierPassage = envoye.size === 0;
+
     state.lists = instantane.docs
       .map(d => {
         const v = d.data();
         return { id: d.id, name: v.name, color: v.color, items: v.items || [], ordre: v.ordre,
-                 owner: v.owner, members: v.members || [], memberEmails: v.memberEmails || [] };
+                 owner: v.owner, members: v.members || [], memberEmails: v.memberEmails || [],
+                 majPar: v.majPar, majParNom: v.majParNom };
       })
       .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
+
+    // À la première synchronisation tout paraît nouveau : signaler chaque liste
+    // reviendrait à noyer l'utilisateur dès l'ouverture.
+    if (!premierPassage) {
+      state.lists.forEach(l => {
+        const connue = avant.has(l.id);
+        const change = connue && avant.get(l.id) !== signature(l, 0);
+        if (change && l.majPar && l.majPar !== Sync.user.uid) {
+          Sync.modifs.push({ liste: l.name, qui: l.majParNom || 'quelqu\'un' });
+        }
+      });
+    }
 
     // La normalisation d'abord, les signatures ensuite : sinon une donnée
     // d'ancien format serait renvoyée en boucle au serveur.
@@ -260,6 +277,59 @@ async function demarrerEcoute() {
   }, e => signalerErreur(e, 'listes'));
 
   ecouterReglages();
+}
+
+/* ---------- Notifications poussées ----------
+
+   L'appareil réclame un jeton d'envoi et le range dans son propre profil. Le
+   Worker, seul détenteur de la clé, ira le chercher pour prévenir les autres.
+   L'app ne transmet jamais de jeton : elle dit quelle liste a changé, rien de
+   plus, et le Worker vérifie qu'on en est bien membre. */
+
+Sync.enregistrerJeton = async function () {
+  if (!Sync.user) return null;
+  const { s } = fb || await chargerSDK();
+  const messagerie = await import(SDK + 'firebase-messaging.js');
+  if (!(await messagerie.isSupported())) throw { code: 'notif/indisponible' };
+
+  const reg = await navigator.serviceWorker.ready;
+  const jeton = await messagerie.getToken(messagerie.getMessaging(), {
+    vapidKey: FIREBASE_VAPID,
+    serviceWorkerRegistration: reg
+  });
+  if (!jeton) throw { code: 'notif/sans-jeton' };
+
+  await s.setDoc(docReglages(), { jetons: s.arrayUnion(jeton) }, { merge: true });
+  return jeton;
+};
+
+/* Un appareil qui coche cinq articles d'affilée ne doit pas déclencher cinq
+   notifications : on laisse passer quelques secondes avant de prévenir. */
+const attentes = new Map();
+
+Sync.prevenirMembres = function (liste) {
+  if (!Sync.user || !liste || (liste.members || []).length < 2) return;
+  clearTimeout(attentes.get(liste.id));
+  attentes.set(liste.id, setTimeout(() => envoyerAvis(liste.id, liste.name), 5000));
+};
+
+async function envoyerAvis(listeId, nomListe) {
+  attentes.delete(listeId);
+  try {
+    const idToken = await fb.auth.currentUser.getIdToken();
+    await fetch(WORKER_NOTIFS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idToken, listeId,
+        titre: `« ${nomListe} » a changé`,
+        corps: `${Sync.nomAffiche()} vient de modifier la liste.`
+      })
+    });
+  } catch {
+    // Prévenir les autres est un confort : que ça échoue ne doit jamais
+    // empêcher la modification, déjà enregistrée.
+  }
 }
 
 /* ---------- Partage à plusieurs ----------
@@ -347,26 +417,35 @@ async function accepterInvitations() {
   }
 }
 
-Sync.recues = [];   // noms des listes récupérées à l'ouverture, pour le message
+Sync.recues = [];   // listes récupérées à l'ouverture, pour le message
+Sync.modifs = [];   // modifications faites par d'autres, à signaler
 
 /* ---------- Apparence ----------
 
    Le thème est réservé aux comptes : il doit donc suivre le compte, sinon le
    violet choisi sur le téléphone resterait introuvable sur l'ordinateur. */
 
-const signatureReglages = () => JSON.stringify([state.theme || 'auto', state.accent || null]);
+const signatureReglages = () =>
+  JSON.stringify([state.theme || 'auto', state.accent || null, state.pseudo || '']);
+
+/* Le nom sous lequel on apparaît aux autres. Sans pseudo, on retombe sur le
+   début de l'adresse — mieux que rien, et moins indiscret que l'adresse entière. */
+Sync.nomAffiche = () =>
+  (state.pseudo || '').trim() || String(Sync.user?.email || '').split('@')[0] || 'quelqu\'un';
 
 function ecouterReglages() {
   arreterReglages = fb.s.onSnapshot(docReglages(), instantane => {
     const distant = instantane.data();
 
     if (distant) {
-      // Le compte fait foi : c'est lui qui porte l'apparence.
+      // Le compte fait foi : c'est lui qui porte l'apparence et le pseudo.
       state.theme = distant.theme || 'auto';
       state.accent = distant.accent || null;
+      state.pseudo = distant.pseudo || '';
       envoyeReglages = signatureReglages();
       sauverLocalement();
       applyTheme();
+      Sync.onChange();
     } else {
       // Rien en ligne : ce premier appareil donne le ton au compte.
       envoyeReglages = null;
@@ -380,7 +459,7 @@ function pousserReglages() {
   if (envoyeReglages === sig) return;
   envoyeReglages = sig;
   fb.s.setDoc(docReglages(),
-    { theme: state.theme || 'auto', accent: state.accent || null },
+    { theme: state.theme || 'auto', accent: state.accent || null, pseudo: state.pseudo || '' },
     { merge: true }
   ).catch(e => signalerErreur(e, 'reglages'));
 }
@@ -395,7 +474,12 @@ function contenu(liste, ordre) {
     color: liste.color,
     items: liste.items,
     ordre,
-    majLe: fb.s.serverTimestamp()
+    majLe: fb.s.serverTimestamp(),
+    // Qui vient d'écrire. Sans cette trace, impossible de distinguer la
+    // modification d'un autre du simple écho de la sienne : on se notifierait
+    // soi-même à chaque case cochée.
+    majPar: Sync.user.uid,
+    majParNom: Sync.nomAffiche()
   };
 }
 
@@ -430,6 +514,8 @@ Sync.push = function () {
       ? s.setDoc(ref, contenu(liste, i), { merge: true })
       : s.setDoc(ref, enDocument(liste, i));
     ecriture.catch(e => signalerErreur(e, 'listes'));
+
+    if (connue) Sync.prevenirMembres(liste);
   });
 
   const vivantes = new Set(state.lists.map(l => l.id));

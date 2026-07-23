@@ -1,21 +1,22 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v16.1';
+const CACHE = 'meslistes-v17.1';
 
 /* Les adresses portent le même numéro de version que dans `index.html` : c'est
    ce qui garantit qu'une page et ses scripts vont par paire. */
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v16.1',
-  './app.js?v16.1',
-  './sync.js?v16.1',
-  './firebase-config.js?v16.1',
+  './styles.css?v17.1',
+  './app.js?v17.1',
+  './sync.js?v17.1',
+  './firebase-config.js?v17.1',
   './manifest.json',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-512-maskable.png'
+  './icons/icon-512-maskable.png',
+  './icons/icon-badge.png'
 ];
 
 self.addEventListener('install', e => {
@@ -32,6 +33,36 @@ self.addEventListener('activate', e => {
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+/* Notifications poussées. Le Worker n'envoie que des données, sans texte tout
+   prêt : c'est ici qu'on compose l'affichage, seul endroit qui connaisse les
+   icônes de l'app. */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch {}
+  const contenu = d.data || d;
+
+  e.waitUntil(self.registration.showNotification(contenu.titre || 'Mes Listes', {
+    body: contenu.corps || 'Une de tes listes a changé.',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-badge.png',
+    lang: 'fr',
+    tag: contenu.listeId || 'mes-listes',
+    data: { listeId: contenu.listeId || '' }
+  }));
+});
+
+/* Toucher la notification doit rouvrir l'app, et réutiliser la fenêtre déjà
+   ouverte plutôt que d'en empiler une nouvelle. */
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const ouverte = fenetres.find(c => c.url.includes(self.registration.scope));
+    if (ouverte) return ouverte.focus();
+    return self.clients.openWindow('./index.html');
+  })());
 });
 
 /* Réseau d'abord, cache en secours : l'app se met à jour dès qu'il y a du réseau,

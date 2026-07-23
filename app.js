@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v16.1';
+const VERSION = 'v17.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -266,9 +266,11 @@ const partagee = list => (list.members || []).length > 1;
 
 /* Sur une liste à plusieurs, savoir qui a coché évite le doute — et le double
    achat. Inutile de se nommer soi-même, ni sur une liste qu'on est seul à voir. */
-function parQui(email, list) {
-  if (!partagee(list) || !email || email === Sync.user?.email) return '';
-  return `<span class="par-qui">${esc(String(email).split('@')[0])}</span>`;
+function parQui(nom, list) {
+  if (!partagee(list) || !nom || nom === Sync.nomAffiche()) return '';
+  // Les cases cochées avant les pseudos portent une adresse : on n'en montre
+  // que le début, comme on le faisait alors.
+  return `<span class="par-qui">${esc(String(nom).split('@')[0])}</span>`;
 }
 
 function renderItems() {
@@ -335,7 +337,7 @@ elItems.addEventListener('click', e => {
 
   // Qui a coché, pour les listes à plusieurs. Décocher efface la signature :
   // une case vide n'appartient à personne.
-  const signer = (cible, etat) => { if (etat) cible.doneBy = Sync.user?.email || null;
+  const signer = (cible, etat) => { if (etat) cible.doneBy = Sync.user ? Sync.nomAffiche() : null;
                                     else delete cible.doneBy; };
 
   const ligneVariante = e.target.closest('[data-vid]');
@@ -758,13 +760,161 @@ $('btn-settings').addEventListener('click', () => {
     ? `Dernière sauvegarde le ${dateCourte(state.lastBackup)}`
     : 'Aucune sauvegarde enregistrée';
 
+  const notifs = { granted: 'activées', denied: 'refusées', default: 'désactivées',
+                   indisponible: 'indisponibles' }[etatNotifs()];
+
   openSheet(`${count} liste${count > 1 ? 's' : ''}`, [
     { label: Sync.user ? 'Compte et synchronisation' : 'Se connecter', icon: '☁️', run: accountModal },
+    { label: `Notifications — ${notifs}`, icon: '🔔', run: notifsModal },
     { label: 'Apparence', icon: '🎨', run: themePicker },
+    { label: `Nouveautés de ${VERSION}`, icon: '✨', run: newsModal },
     { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
     { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
   ], { html: `<p class="sheet-note">${esc(info)}</p>` });
 });
+
+/* ---------- Notifications ----------
+
+   Ce que l'app sait faire seule : prévenir pendant qu'elle tourne. Prévenir un
+   téléphone dont l'app est fermée demande un serveur qui pousse le message, et
+   il n'y en a pas — un site statique ne peut rien envoyer. C'est dit dans la
+   fenêtre plutôt que promis à moitié. */
+
+let jetonEnregistre = false;
+
+const notifsPossibles = () => 'Notification' in window;
+const etatNotifs = () => notifsPossibles() ? Notification.permission : 'indisponible';
+
+async function demanderNotifs() {
+  if (!notifsPossibles()) throw { code: 'notif/indisponible' };
+  const reponse = await Notification.requestPermission();
+  if (reponse !== 'granted') throw { code: 'notif/' + reponse };
+
+  // Sans compte, prévenir n'a personne à prévenir : on s'arrête à l'autorisation.
+  if (Sync.user) {
+    try { await Sync.enregistrerJeton(); }
+    catch (e) { messageCompte(messageErreur(e?.code || String(e)), 'erreur'); }
+  }
+  await notifier('Notifications activées', 'Tu seras prévenu des changements sur tes listes partagées.', 'bienvenue');
+}
+
+/* iOS n'affiche une notification que si elle passe par le service worker :
+   `new Notification()` y est refusé dans une app installée. */
+async function notifier(titre, corps, tag) {
+  if (etatNotifs() !== 'granted') return false;
+  const options = {
+    body: corps, lang: 'fr', tag: tag || 'mes-listes',
+    icon: 'icons/icon-192.png', badge: 'icons/icon-badge.png'
+  };
+  try {
+    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if (reg) { await reg.showNotification(titre, options); return true; }
+    new Notification(titre, options);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* La feuille dit franchement ce que les notifications couvrent et ce qu'elles
+   ne couvrent pas : promettre d'être prévenu app fermée serait un mensonge. */
+function notifsModal() {
+  const etat = etatNotifs();
+
+  const explications = {
+    granted: 'Tu seras prévenu quand quelqu\'un modifie une liste que tu partages, ou t\'invite sur une liste.',
+    denied: 'Tu les as refusées. iOS ne redemande jamais : il faut repasser par Réglages → Mes Listes → Notifications.',
+    default: 'Tu seras prévenu quand quelqu\'un modifie une liste que tu partages, ou t\'invite sur une liste.',
+    indisponible: 'Ce navigateur ne sait pas afficher de notifications. Sur iPhone, l\'app doit être installée sur l\'écran d\'accueil.'
+  };
+
+  const html = `<p class="sheet-note left">${esc(explications[etat])}</p>
+    <p class="sheet-note left">${Sync.user
+      ? 'Elles arrivent même quand l\'app est fermée, tant que tu es connecté.'
+      : 'Sans compte, il n\'y a personne pour te prévenir : les notifications concernent les listes partagées.'}</p>`;
+
+  const actions = etat === 'default'
+    ? [{ label: 'Activer les notifications', icon: '🔔', run: () => activerNotifs() }]
+    : etat === 'granted'
+      ? [{ label: 'Envoyer une notification d\'essai', icon: '📨',
+           run: () => notifier('Essai', 'Si tu lis ceci, tout fonctionne.', 'essai') }]
+      : [];
+
+  openSheet('Notifications', actions, { html });
+}
+
+async function activerNotifs() {
+  try { await demanderNotifs(); toast('Notifications activées'); }
+  catch (e) { toast(messageErreur(e?.code || String(e))); }
+}
+
+/* ---------- Nouveautés ---------- */
+
+const NOUVEAUTES = [
+  { version: 'v17.1', titre: 'Notifications, pseudo et nouveautés', points: [
+    'Être prévenu quand quelqu\'un modifie une liste partagée, ou t\'y invite',
+    'Les notifications arrivent même quand l\'app est fermée',
+    'Choisir un pseudo, affiché aux autres à la place de ton adresse',
+    'Cet écran, qui explique ce que chaque version apporte'
+  ] },
+  { version: 'v16', titre: 'Tests automatisés', points: [
+    'Une page de tests qui vérifie l\'application toute seule',
+    'Rien de visible dans l\'app : c\'est un filet pour les versions suivantes'
+  ] },
+  { version: 'v15', titre: 'Connexion refaite', points: [
+    'Connexion et inscription dans une même fenêtre, plus claires',
+    'Ajouter un mot de passe à un compte créé avec Google',
+    'Chaque page ne peut plus s\'exécuter qu\'avec ses propres scripts'
+  ] },
+  { version: 'v14', titre: 'Partage et synchronisation', points: [
+    'Partager une liste avec quelqu\'un, chacun coche de son côté',
+    'Voir qui a coché quoi',
+    'Thème et couleur qui suivent le compte d\'un appareil à l\'autre'
+  ] }
+];
+
+const newsBackdrop = $('news-backdrop');
+
+function renderNews(depuis) {
+  const aMontrer = depuis
+    ? NOUVEAUTES.filter(n => n.version !== depuis).slice(0, 1)
+    : NOUVEAUTES;
+
+  $('news-title').textContent = depuis ? `Quoi de neuf en ${VERSION}` : 'Nouveautés';
+  $('news-body').innerHTML = (aMontrer.length ? aMontrer : NOUVEAUTES.slice(0, 1)).map(n => `
+    <div class="news-version">
+      <h3>${esc(n.version)} — ${esc(n.titre)}</h3>
+      <ul>${n.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+    </div>`).join('');
+}
+
+function newsModal() {
+  renderNews(null);
+  newsBackdrop.hidden = false;
+}
+
+$('news-close').addEventListener('click', () => { newsBackdrop.hidden = true; });
+newsBackdrop.addEventListener('click', e => { if (e.target === newsBackdrop) newsBackdrop.hidden = true; });
+
+/* Au premier lancement d'une nouvelle version : on montre ce qui a changé. Un
+   tout premier usage n'a rien à annoncer, on note simplement la version. */
+function annoncerNouveautes() {
+  const vue = state.vuVersion;
+  if (vue === VERSION) return;
+
+  state.vuVersion = VERSION;
+  sauverLocalement();
+  if (!vue) return;                       // première ouverture de l'app
+
+  renderNews(vue);
+  newsBackdrop.hidden = false;
+
+  // Une notification n'a de sens que si l'écran est ailleurs : sinon la fenêtre
+  // ci-dessus dit déjà tout, et prévenir deux fois est du bruit.
+  if (document.hidden) {
+    notifier(`Mes Listes ${VERSION}`, 'De nouvelles fonctions sont disponibles. Ouvre l\'app pour les découvrir.', 'maj');
+  }
+}
 
 /* ---------- Partage d'une liste ---------- */
 
@@ -927,7 +1077,15 @@ const ERREURS = {
   'auth/credential-already-in-use':
     'Ces identifiants appartiennent déjà à un autre compte.',
   'auth/no-current-user':
-    'Connecte-toi d\'abord.'
+    'Connecte-toi d\'abord.',
+  'notif/indisponible':
+    "Ce navigateur ne sait pas afficher de notifications. Sur iPhone, installe l'app sur l'écran d'accueil.",
+  'notif/denied':
+    'Notifications refusées. iOS ne redemande pas : passe par Réglages → Mes Listes → Notifications.',
+  'notif/default':
+    'Tu n\'as pas répondu à la demande. Réessaie quand tu veux.',
+  'notif/sans-jeton':
+    "Cet appareil n'a pas pu être enregistré pour les notifications. Réessaie plus tard."
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -1042,6 +1200,7 @@ function renderAccount() {
   if (connecte) {
     $('account-who').textContent =
       `Connecté en tant que ${Sync.user.email || 'compte Google'}. Tes listes se synchronisent.`;
+    $('account-pseudo').value = state.pseudo || '';
   }
   if (Sync.erreur) {
     const ou = { listes: 'les listes', reglages: "l'apparence",
@@ -1121,6 +1280,18 @@ $('btn-reset').addEventListener('click', () => {
   if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
   tenter('Envoi…', () => Sync.resetEmail(email), `Lien envoyé à ${email}. Regarde ta boîte mail.`);
 });
+
+$('btn-pseudo').addEventListener('click', () => {
+  const pseudo = $('account-pseudo').value.trim().slice(0, 24);
+  tenter('Enregistrement…', async () => {
+    state.pseudo = pseudo;
+    save();
+    if (currentListId) renderItems();
+  }, pseudo ? `Les autres te verront sous « ${pseudo} ».`
+            : 'Pseudo retiré : c\'est le début de ton adresse qui s\'affichera.');
+});
+
+$('account-pseudo').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-pseudo').click(); });
 
 $('btn-setpass').addEventListener('click', () => {
   const mdp = $('account-newpass').value;
@@ -1336,11 +1507,33 @@ Sync.onChange = () => {
   // Une liste partagée par quelqu'un d'autre n'apparaîtrait sinon qu'au
   // lancement suivant, sans qu'on sache d'où elle sort.
   if (Sync.recues.length) {
-    const noms = Sync.recues.splice(0).map(n => `« ${n} »`).join(', ');
-    toast(`${noms} partagée${noms.includes(',') ? 's' : ''} avec toi`);
+    const recues = Sync.recues.splice(0);
+    const noms = recues.map(n => `« ${n} »`).join(', ');
+    toast(`${noms} partagée${recues.length > 1 ? 's' : ''} avec toi`);
+    notifier(recues.length > 1 ? `${recues.length} listes partagées avec toi` : 'Une liste partagée avec toi',
+      `${noms} ${recues.length > 1 ? 'sont' : 'est'} maintenant dans ton compte.`, 'invitation');
+  }
+
+  // Ce que les autres viennent de changer. Regroupé : trois articles cochés
+  // d'affilée ne doivent pas donner trois notifications.
+  if (Sync.modifs.length) {
+    const modifs = Sync.modifs.splice(0);
+    const listes = [...new Set(modifs.map(m => m.liste))];
+    const gens = [...new Set(modifs.map(m => m.qui))];
+    const titre = listes.length === 1 ? `« ${listes[0]} » a changé` : `${listes.length} listes ont changé`;
+    notifier(titre, `${gens.join(' et ')} vient de faire une modification.`, 'modif');
   }
 
   renderEtatSync();
+
+  // Se connecter sur un appareil déjà autorisé doit y enregistrer le jeton :
+  // sans ça, il faudrait redemander une permission déjà accordée.
+  if (Sync.user && etatNotifs() === 'granted' && !jetonEnregistre) {
+    jetonEnregistre = true;
+    Sync.enregistrerJeton().catch(() => { jetonEnregistre = false; });
+  }
+  if (!Sync.user) jetonEnregistre = false;
+
   if (!shareBackdrop.hidden && listePartagee) renderPeople();
   if (currentListId && !getList(currentListId)) return goHome();
   renderHome();
@@ -1362,6 +1555,7 @@ function renderEtatSync() {
 renderEtatSync();
 applyTheme();
 renderHome();
+annoncerNouveautes();
 
 /* Retour depuis un lien de connexion : on termine l'ouverture de session avant
    toute chose, l'app apparaîtra directement connectée. */
