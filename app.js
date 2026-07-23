@@ -8,7 +8,7 @@ const STORE_KEY = 'meslistes.v1';
 /* Affichée en bas à gauche de l'écran d'accueil. À garder en phase avec le nom
    du cache dans `sw.js` : c'est ce couple qui permet de dire, en regardant un
    téléphone, si l'app a bien reçu la dernière version. */
-const VERSION = 'v12';
+const VERSION = 'v13';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -916,7 +916,15 @@ const ERREURS = {
   'auth/account-exists-with-different-credential':
     'Un compte existe déjà avec cette adresse, créé autrement. Connecte-toi par mot de passe ou par lien.',
   'auth/internal-error':
-    "La connexion Google a échoué. Sur iPhone, elle est peu fiable dans une app installée : utilise le lien sans mot de passe."
+    "La connexion Google a échoué. Sur iPhone, dans une app installée, seule la connexion par mot de passe aboutit.",
+  'auth/requires-recent-login':
+    'Par sécurité, reconnecte-toi puis recommence : cette opération demande une connexion récente.',
+  'auth/provider-already-linked':
+    'Ce compte a déjà un mot de passe. Saisis-en un nouveau pour le remplacer.',
+  'auth/credential-already-in-use':
+    'Ces identifiants appartiennent déjà à un autre compte.',
+  'auth/no-current-user':
+    'Connecte-toi d\'abord.'
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -1009,6 +1017,18 @@ $('btn-reset').addEventListener('click', () => {
   if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
   tenter('Envoi…', () => Sync.resetEmail(email), `Lien envoyé à ${email}. Regarde ta boîte mail.`);
 });
+
+$('btn-setpass').addEventListener('click', () => {
+  const mdp = $('account-newpass').value;
+  if (mdp.length < 6) return messageCompte("Six caractères au minimum.", 'erreur');
+  const adresse = Sync.user?.email || 'ton adresse';
+  tenter('Enregistrement…', async () => {
+    await Sync.definirMotDePasse(mdp);
+    $('account-newpass').value = '';
+  }, `C'est fait. Tu peux maintenant te connecter avec ${adresse} et ce mot de passe, depuis n'importe quel appareil — y compris l'app installée.`);
+});
+
+$('account-newpass').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-setpass').click(); });
 
 $('btn-signout').addEventListener('click', () =>
   tenter('Déconnexion…', () => Sync.signOut()));

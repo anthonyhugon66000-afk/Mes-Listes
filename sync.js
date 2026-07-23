@@ -159,6 +159,20 @@ Sync.signInGoogle = async function () {
   }
 };
 
+/* Ajoute un mot de passe à un compte déjà ouvert — typiquement créé avec Google.
+   Le compte reste le même, avec ses listes : on lui donne simplement une seconde
+   porte d'entrée, la seule qui fonctionne depuis une app installée sur iPhone. */
+Sync.definirMotDePasse = async function (mdp) {
+  const { auth, a } = await chargerSDK();
+  const utilisateur = auth.currentUser;
+  if (!utilisateur) throw { code: 'auth/no-current-user' };
+
+  const aDejaUnMotDePasse = utilisateur.providerData.some(p => p.providerId === 'password');
+  if (aDejaUnMotDePasse) return a.updatePassword(utilisateur, mdp);
+
+  return a.linkWithCredential(utilisateur, a.EmailAuthProvider.credential(utilisateur.email, mdp));
+};
+
 Sync.signOut = async function () {
   const { auth, a } = await chargerSDK();
   await a.signOut(auth);
