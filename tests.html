@@ -621,8 +621,11 @@ suite('Convergence des réglages', () => {
 
   ev('window.__abonne({ data: () => undefined }); void 0');
   verifier('rien en ligne : une écriture part', ev('window.__ecritures.length'), 1);
-  verifier('elle porte le thème de l\'appareil',
-    ev('window.__ecritures[0]'), { theme: 'dark', accent: '#af52de', pseudo: '' });
+  // L'adresse accompagne les réglages : c'est par elle que le Worker retrouve
+  // qui prévenir lors d'une invitation.
+  verifier('elle porte le thème et l\'adresse de l\'appareil',
+    ev('window.__ecritures[0]'),
+    { theme: 'dark', accent: '#af52de', pseudo: '', email: 'moi@example.com' });
 
   ev('window.__abonne({ data: () => window.__ecritures[0] }); void 0');
   verifier('l\'écho de sa propre écriture ne relance rien', ev('window.__ecritures.length'), 1);
@@ -971,6 +974,27 @@ suite('Avis envoyés aux autres appareils', async () => {
   verifier('mais jamais de jetons d\'appareils', 'jetons' in appel.corps, false);
   verifierVrai('le titre nomme la liste', appel.corps.titre.includes('Courses'));
   verifierVrai('le corps nomme l\'auteur', appel.corps.corps.includes('Tonio'));
+
+  // Inviter quelqu'un doit aussi le prévenir, alors qu'il n'est pas encore membre.
+  ev(`
+    window.__appels = [];
+    fb.s = Object.assign({}, fb.s, {
+      collection: (db, nom) => ({ nom }),
+      doc: (col, id) => ({ col: (col && col.nom) || 'users', id }),
+      setDoc: () => Promise.resolve(), serverTimestamp: () => 'TS'
+    });
+    void 0
+  `);
+  ev('Sync.inviter("L1", "Ami@Example.FR", "Courses")');
+  await new Promise(r => setTimeout(r, 60));
+
+  const invitation = ev('window.__appels[0]');
+  verifierVrai('inviter prévient aussitôt', !!invitation);
+  verifier('l\'appel est marqué comme une invitation', invitation && invitation.corps.action, 'invitation');
+  verifier('avec l\'adresse normalisée', invitation && invitation.corps.email, 'ami@example.fr');
+  verifier('et la liste concernée', invitation && invitation.corps.listeId, 'L1');
+  verifierVrai('le corps nomme la liste',
+    invitation && invitation.corps.corps.includes('Courses'));
 
   ev('window.fetch = window.__vraiFetch; fb = null; Sync.user = null');
 });

@@ -131,6 +131,31 @@ async function lireDocument(projet, acces, chemin) {
 // Firestore renvoie ses valeurs typées : on n'extrait que ce dont on a besoin.
 const tableau = champ => (champ?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
 
+/* Retrouver quelqu'un à partir de son adresse. Au moment d'inviter, c'est tout
+   ce que l'on connaît de lui — son identifiant de compte, non. */
+async function jetonsParEmail(projet, acces, email) {
+  const r = await fetch(`${BASE_FS(projet)}:runQuery`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${acces}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: 'users' }],
+        where: { fieldFilter: {
+          field: { fieldPath: 'email' }, op: 'EQUAL', value: { stringValue: email }
+        } },
+        limit: 5
+      }
+    })
+  });
+  if (!r.ok) return [];
+  const lignes = await r.json();
+  const jetons = [];
+  for (const ligne of lignes) {
+    tableau(ligne?.document?.fields?.jetons).forEach(j => jetons.push(j));
+  }
+  return jetons;
+}
+
 /* ---------- Envoi ---------- */
 
 async function envoyer(projet, acces, jeton, titre, corps, listeId) {
@@ -172,14 +197,14 @@ export default {
       return repondre({ erreur: 'corps illisible' }, 400);
     }
 
-    const { idToken, listeId, titre, corps } = corpsRequete;
+    const { idToken, listeId, titre, corps, action, email } = corpsRequete;
     if (!idToken || !listeId) return repondre({ erreur: 'idToken et listeId requis' }, 400);
 
     let auteur;
     try {
       auteur = await verifierIdentite(idToken, projet);
     } catch (e) {
-      return repondre({ erreur: 'identité refusée : ' + e.message }, 401);
+      return repondre({ erreur: 'identité refusée' }, 401);
     }
 
     const acces = await jetonDeService(compte);
@@ -190,12 +215,19 @@ export default {
     const membres = tableau(liste.members);
     if (!membres.includes(auteur)) return repondre({ erreur: 'tu n\'es pas membre de cette liste' }, 403);
 
-    // On ne se notifie pas soi-même : on vient de faire la modification.
-    const destinataires = membres.filter(m => m !== auteur);
-    const jetons = [];
-    for (const uid of destinataires) {
-      const profil = await lireDocument(projet, acces, `users/${uid}`);
-      tableau(profil?.jetons).forEach(j => jetons.push(j));
+    let jetons = [];
+
+    if (action === 'invitation') {
+      // L'invité n'est pas encore membre : on le retrouve par son adresse. Le
+      // droit d'inviter vient d'être vérifié — l'appelant, lui, est membre.
+      if (!email) return repondre({ erreur: 'email requis pour une invitation' }, 400);
+      jetons = await jetonsParEmail(projet, acces, String(email).trim().toLowerCase());
+    } else {
+      // On ne se notifie pas soi-même : on vient de faire la modification.
+      for (const uid of membres.filter(m => m !== auteur)) {
+        const profil = await lireDocument(projet, acces, `users/${uid}`);
+        tableau(profil?.jetons).forEach(j => jetons.push(j));
+      }
     }
 
     if (!jetons.length) return repondre({ envoyes: 0, raison: 'aucun appareil enregistré' });

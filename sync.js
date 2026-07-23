@@ -315,20 +315,24 @@ Sync.prevenirMembres = function (liste) {
 
 async function envoyerAvis(listeId, nomListe) {
   attentes.delete(listeId);
+  appelerWorker({
+    listeId,
+    titre: `« ${nomListe} » a changé`,
+    corps: `${Sync.nomAffiche()} vient de modifier la liste.`
+  });
+}
+
+async function appelerWorker(charge) {
   try {
     const idToken = await fb.auth.currentUser.getIdToken();
     await fetch(WORKER_NOTIFS, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        idToken, listeId,
-        titre: `« ${nomListe} » a changé`,
-        corps: `${Sync.nomAffiche()} vient de modifier la liste.`
-      })
+      body: JSON.stringify({ idToken, ...charge })
     });
   } catch {
     // Prévenir les autres est un confort : que ça échoue ne doit jamais
-    // empêcher la modification, déjà enregistrée.
+    // empêcher l'action, déjà enregistrée.
   }
 }
 
@@ -357,6 +361,16 @@ Sync.inviter = async function (listId, email, nomListe) {
     invitePar: Sync.user.uid,
     inviteParEmail: Sync.user.email || '',
     creeLe: fb.s.serverTimestamp()
+  });
+
+  // L'invité n'est pas encore membre : le Worker le retrouvera par son adresse.
+  // Sans cet appel, il ne l'apprendrait qu'en rouvrant l'app de lui-même.
+  appelerWorker({
+    action: 'invitation',
+    listeId: listId,
+    email: adresse,
+    titre: 'Une liste partagée avec toi',
+    corps: `${Sync.nomAffiche()} t'invite sur « ${nomListe || 'une liste'} ».`
   });
 };
 
@@ -458,9 +472,14 @@ function pousserReglages() {
   const sig = signatureReglages();
   if (envoyeReglages === sig) return;
   envoyeReglages = sig;
-  fb.s.setDoc(docReglages(),
-    { theme: state.theme || 'auto', accent: state.accent || null, pseudo: state.pseudo || '' },
-    { merge: true }
+  fb.s.setDoc(docReglages(), {
+    theme: state.theme || 'auto',
+    accent: state.accent || null,
+    pseudo: state.pseudo || '',
+    // L'adresse sert au Worker à retrouver qui prévenir quand on invite
+    // quelqu'un : à ce moment-là, on ne connaît que son adresse.
+    email: normaliser(Sync.user.email)
+  }, { merge: true }
   ).catch(e => signalerErreur(e, 'reglages'));
 }
 
