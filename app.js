@@ -130,6 +130,7 @@ function renderHome() {
   }).join('');
 
   $('empty-lists').classList.toggle('is-visible', state.lists.length === 0);
+  renderBackupNotice();
 }
 
 elLists.addEventListener('click', e => {
@@ -692,6 +693,7 @@ $('toast-undo').addEventListener('click', () => {
   state = JSON.parse(undoSnapshot);
   undoSnapshot = null;
   save();
+  applyTheme();
   $('toast').hidden = true;
   if (currentListId && getList(currentListId)) renderItems();
   else goHome();
@@ -701,22 +703,135 @@ $('toast-undo').addEventListener('click', () => {
    Réglages — sauvegarde et restauration
    ============================================================ */
 
+const JOUR = 86400000;
+const dateCourte = ts =>
+  new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
 $('btn-settings').addEventListener('click', () => {
   const count = state.lists.length;
+  const info = state.lastBackup
+    ? `Dernière sauvegarde le ${dateCourte(state.lastBackup)}`
+    : 'Aucune sauvegarde enregistrée';
+
   openSheet(`${count} liste${count > 1 ? 's' : ''}`, [
-    { label: 'Exporter une sauvegarde', icon: '⬇️', run: exportData },
-    { label: 'Importer une sauvegarde', icon: '⬆️', run: importData }
-  ]);
+    { label: 'Apparence', icon: '🎨', run: themePicker },
+    { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
+    { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
+  ], { html: `<p class="sheet-note">${esc(info)}</p>` });
 });
 
-function exportData() {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+/* ---------- Apparence ---------- */
+
+const MODES = [['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']];
+const ACCENT_DEFAUT = '#007aff';
+const nuitPreferee = matchMedia('(prefers-color-scheme: dark)');
+
+function applyTheme() {
+  const choix = state.theme || 'auto';
+  const sombre = choix === 'dark' || (choix === 'auto' && nuitPreferee.matches);
+
+  document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
+  if (state.accent) document.documentElement.style.setProperty('--accent', state.accent);
+  else document.documentElement.style.removeProperty('--accent');
+  $('meta-theme').content = sombre ? '#000000' : '#f2f2f7';
+}
+
+// En mode automatique, l'app suit le basculement jour/nuit du téléphone sans
+// qu'on ait à la rouvrir.
+nuitPreferee.addEventListener('change', () => {
+  if ((state.theme || 'auto') === 'auto') applyTheme();
+});
+
+function themePicker() {
+  const html = `
+    <div class="seg">
+      ${MODES.map(([valeur, libelle]) => `
+        <button class="seg-btn" data-mode="${valeur}"
+                aria-checked="${(state.theme || 'auto') === valeur}">${libelle}</button>`).join('')}
+    </div>
+    <p class="sheet-note">Couleur des boutons</p>
+    <div class="swatches">
+      ${COLORS.map(c => `
+        <button class="swatch" style="--c:${c}" data-accent="${c}"
+                aria-checked="${(state.accent || ACCENT_DEFAUT) === c}"
+                aria-label="Couleur ${c}"></button>`).join('')}
+    </div>`;
+
+  openSheet('Apparence', [], {
+    html,
+    onClick: e => {
+      const mode = e.target.closest('[data-mode]');
+      const accent = e.target.closest('[data-accent]');
+      if (!mode && !accent) return;
+
+      if (mode) state.theme = mode.dataset.mode;
+      if (accent) state.accent = accent.dataset.accent;
+      save();
+      applyTheme();
+      themePicker();      // réaffiche la feuille avec le nouveau choix coché
+    }
+  });
+}
+
+function markBackup() {
+  state.lastBackup = Date.now();
+  save();
+  renderBackupNotice();
+}
+
+async function exportData() {
+  const nom = `mes-listes-${new Date().toISOString().slice(0, 10)}.json`;
+  const contenu = JSON.stringify(state, null, 2);
+
+  // Sur iPhone, la feuille de partage propose « Enregistrer dans Fichiers », donc
+  // iCloud Drive : c'est le seul chemin pour que les listes quittent l'appareil.
+  // Ailleurs (ordinateur), on retombe sur un téléchargement classique.
+  const fichier = new File([contenu], nom, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [fichier] })) {
+    try {
+      await navigator.share({ files: [fichier], title: 'Mes Listes' });
+      markBackup();
+      toast('Sauvegarde enregistrée');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;   // partage annulé : rien n'a été sauvegardé
+      // tout autre échec : on tente quand même le téléchargement
+    }
+  }
+
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `mes-listes-${new Date().toISOString().slice(0, 10)}.json`;
+  a.href = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }));
+  a.download = nom;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  markBackup();
 }
+
+/* Bandeau de rappel : discret, et seulement quand il y a quelque chose à perdre. */
+function renderBackupNotice() {
+  const el = $('backup-notice');
+  const derniere = state.lastBackup || 0;
+  const montrer = state.lists.length > 0
+    && Date.now() - derniere > 14 * JOUR
+    && Date.now() - (state.noticeSnooze || 0) > 7 * JOUR;
+
+  el.hidden = !montrer;
+  if (!montrer) return;
+  $('backup-notice-text').textContent = derniere
+    ? `Dernière sauvegarde le ${dateCourte(derniere)}.`
+    : 'Tes listes ne sont enregistrées que sur cet appareil.';
+}
+
+$('backup-notice-go').addEventListener('click', exportData);
+$('backup-notice-close').addEventListener('click', () => {
+  state.noticeSnooze = Date.now();
+  save();
+  renderBackupNotice();
+});
+
+// L'app vide, c'est le cas typique d'une réinstallation : le sélecteur iOS ouvre
+// Fichiers et iCloud Drive. Aucun navigateur n'autorise à les lire sans ce geste.
+$('btn-restore').addEventListener('click', importData);
 
 function importData() {
   const input = document.createElement('input');
@@ -733,6 +848,7 @@ function importData() {
         snapshot();
         state = migrate(data);
         save();
+        applyTheme();
         goHome();
         toast('Sauvegarde importée');
       } catch {
@@ -748,6 +864,7 @@ function importData() {
    Démarrage
    ============================================================ */
 
+applyTheme();
 renderHome();
 
 if ('serviceWorker' in navigator) {

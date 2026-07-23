@@ -6,8 +6,7 @@
 <title>Mes Listes</title>
 
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7" id="meta-theme">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -16,6 +15,23 @@
 <link rel="icon" href="icons/icon-192.png">
 
 <link rel="stylesheet" href="styles.css">
+
+<!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
+     apparaîtrait un instant dans les mauvaises couleurs. -->
+<script>
+  try {
+    var reglages = JSON.parse(localStorage.getItem('meslistes.v1') || '{}');
+    var choix = reglages.theme || 'auto';
+    if (choix === 'auto') {
+      choix = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = choix;
+    if (reglages.accent) {
+      document.documentElement.style.setProperty('--accent', reglages.accent);
+    }
+    document.querySelector('#meta-theme').content = choix === 'dark' ? '#000000' : '#f2f2f7';
+  } catch (e) {}
+</script>
 </head>
 <body>
 
@@ -30,13 +46,22 @@
     </div>
   </header>
 
+  <div class="notice" id="backup-notice" hidden>
+    <span id="backup-notice-text"></span>
+    <button class="link-btn" id="backup-notice-go">Sauvegarder</button>
+    <button class="notice-close" id="backup-notice-close" aria-label="Masquer">×</button>
+  </div>
+
   <main class="scroll">
     <ul id="lists" class="lists"></ul>
 
-    <p id="empty-lists" class="empty">
-      Aucune liste pour l'instant.<br>
-      Appuie sur <strong>+</strong> pour en créer une.
-    </p>
+    <div id="empty-lists" class="empty">
+      <p>
+        Aucune liste pour l'instant.<br>
+        Appuie sur <strong>+</strong> pour en créer une.
+      </p>
+      <button class="ghost-btn" id="btn-restore">Restaurer depuis Fichiers ou iCloud…</button>
+    </div>
   </main>
 
   <button class="fab" id="btn-new-list" aria-label="Nouvelle liste">

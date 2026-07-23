@@ -33,6 +33,12 @@ quantités s'en écartent, le nombre total d'exemplaires à rapporter :
 
 Toute suppression peut être annulée pendant 5 secondes via la notification qui apparaît.
 
+## Apparence
+
+Menu **⋯** → **Apparence** : mode **Automatique**, **Clair** ou **Sombre**, et la
+couleur des boutons parmi dix. En automatique l'app suit le réglage du téléphone
+en direct, sans avoir besoin d'être rouverte.
+
 ## Installer sur l'iPhone
 
 L'app doit être servie en **HTTPS** pour fonctionner hors connexion. La méthode la
@@ -80,12 +86,27 @@ sans le mode hors connexion (réservé au HTTPS).
 
 ## Sauvegarder tes données
 
-Les listes sont enregistrées dans le stockage local de Safari. iOS peut l'effacer
-si l'app reste inutilisée plusieurs semaines, ou si tu effaces les données de
-navigation.
+Les listes vivent dans le stockage local du téléphone. Depuis iOS 14, une app web
+ajoutée à l'écran d'accueil dispose de son propre espace, séparé de Safari :
+effacer les données de navigation n'y touche pas. En revanche **supprimer l'icône
+de l'écran d'accueil efface les listes**, et rien ne survit à un changement de
+téléphone.
 
-Le menu **⋯** en haut à droite de l'écran d'accueil permet d'**exporter** un
-fichier de sauvegarde et de le **réimporter** ensuite.
+D'où la sauvegarde, dans le menu **⋯** en haut à droite :
+
+- **Sauvegarder mes listes** ouvre la feuille de partage iOS. Choisis
+  **Enregistrer dans Fichiers** puis un dossier **iCloud Drive** : le fichier
+  quitte alors l'appareil. Sur ordinateur, c'est un téléchargement classique.
+- **Restaurer une sauvegarde** relit un de ces fichiers.
+
+La date de la dernière sauvegarde est rappelée dans ce même menu. Passé deux
+semaines sans sauvegarde, un bandeau discret le signale sur l'écran d'accueil ;
+la croix le met en sourdine pour une semaine.
+
+Quand l'app est vide — après une réinstallation, typiquement — l'écran d'accueil
+propose directement **Restaurer depuis Fichiers ou iCloud**. Il faut ce geste :
+aucun navigateur n'autorise une page web à lire tes fichiers sans que tu les
+désignes toi-même.
 
 ## Structure
 

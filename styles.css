@@ -12,19 +12,20 @@
   --shadow:    0 1px 3px rgba(0,0,0,.08);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg:        #000000;
-    --surface:   #1c1c1e;
-    --surface-2: #2c2c2e;
-    --text:      #ffffff;
-    --text-dim:  #98989f;
-    --separator: rgba(84,84,88,.5);
-    --accent:    #0a84ff;
-    --danger:    #ff453a;
-    --bar:       rgba(28,28,30,.82);
-    --shadow:    none;
-  }
+/* Le mode est décidé en JavaScript — `auto` suit le réglage du téléphone, sinon
+   c'est le choix de l'utilisateur — et posé en `data-theme` sur <html>. La feuille
+   n'a donc qu'un seul jeu de couleurs sombres à décrire. */
+:root[data-theme="dark"] {
+  --bg:        #000000;
+  --surface:   #1c1c1e;
+  --surface-2: #2c2c2e;
+  --text:      #ffffff;
+  --text-dim:  #98989f;
+  --separator: rgba(84,84,88,.5);
+  --accent:    #0a84ff;
+  --danger:    #ff453a;
+  --bar:       rgba(28,28,30,.82);
+  --shadow:    none;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -283,6 +284,51 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   line-height: 1.6;
 }
 .empty.is-visible { display: block; }
+.empty p { margin: 0; }
+
+.ghost-btn {
+  margin-top: 20px;
+  padding: 11px 18px;
+  background: none;
+  border: 1.5px solid var(--separator);
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: 15px;
+  cursor: pointer;
+}
+.ghost-btn:active { background: var(--surface-2); }
+
+/* ===== Rappel de sauvegarde ===== */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 16px 0;
+  padding: 10px 8px 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+  box-shadow: var(--shadow);
+}
+.notice span { flex: 1; min-width: 0; }
+.notice-close {
+  width: 30px; height: 30px;
+  flex: none;
+  padding: 0;
+  background: none; border: 0;
+  color: var(--text-dim);
+  font-size: 20px; line-height: 1;
+  cursor: pointer;
+}
+
+.sheet-note {
+  margin: -2px 4px 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+}
 
 /* ===== Bouton flottant ===== */
 .fab {
@@ -384,6 +430,29 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .sheet-action:active { opacity: .6; }
 .sheet-action.danger { color: var(--danger); }
 .sheet-cancel { justify-content: center; font-weight: 600; color: var(--accent); margin-top: 6px; }
+
+/* ===== Choix du thème ===== */
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+.seg-btn {
+  flex: 1;
+  padding: 10px 6px;
+  background: none;
+  border: 0; border-radius: 9px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.seg-btn[aria-checked="true"] {
+  background: var(--surface);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
 
 /* ===== Palette de couleurs ===== */
 .swatches {
@@ -538,7 +607,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   font-size: 15px;
   animation: slideUp .2s;
 }
-@media (prefers-color-scheme: dark) { .toast { background: #3a3a3c; } }
+:root[data-theme="dark"] .toast { background: #3a3a3c; }
 .toast button {
   background: none; border: 0;
   color: #64d2ff;
