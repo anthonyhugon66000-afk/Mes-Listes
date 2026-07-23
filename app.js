@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v15.1';
+const VERSION = 'v15.2';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -919,7 +919,7 @@ const ERREURS = {
   'auth/account-exists-with-different-credential':
     'Un compte existe déjà avec cette adresse, créé autrement. Connecte-toi par mot de passe ou par lien.',
   'auth/internal-error':
-    "La connexion Google a échoué. Sur iPhone, dans une app installée, seule la connexion par mot de passe aboutit.",
+    "La connexion Google a échoué. L'e-mail et le mot de passe restent la voie sûre.",
   'auth/requires-recent-login':
     'Par sécurité, reconnecte-toi puis recommence : cette opération demande une connexion récente.',
   'auth/provider-already-linked':

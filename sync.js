@@ -140,9 +140,9 @@ Sync.terminerLien = async function (emailSaisi) {
 /* Google passe par un aller-retour sur `firebaseapp.com`, un autre domaine que
    celui de l'app. Safari cloisonne le stockage par domaine, et une app installée
    sur l'écran d'accueil est plus cloisonnée encore : la redirection revient
-   souvent sans session. La fenêtre surgissante garde le contexte, on l'essaie
-   donc d'abord, y compris en mode installé, et la redirection ne sert plus que
-   de recours. */
+   souvent sans session. La fenêtre surgissante, elle, garde le contexte — et
+   fonctionne bien depuis une app installée. On l'essaie donc d'abord, la
+   redirection ne servant plus que de recours. */
 Sync.signInGoogle = async function () {
   const { auth, a } = await chargerSDK();
   const fournisseur = new a.GoogleAuthProvider();
