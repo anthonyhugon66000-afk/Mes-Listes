@@ -92,6 +92,13 @@ Firebase : Authentication → Sign-in method → E-mail/Mot de passe.
 Affiché en bas à gauche de l'écran d'accueil. Il permet de vérifier d'un coup
 d'œil, sur un téléphone, que la dernière version est bien arrivée.
 
+Il s'écrit **majeur.mineur** :
+
+| | Quand | Exemple |
+|---|---|---|
+| **Majeur** | nouvelle fonctionnalité, refonte, changement du modèle de données | `v15` → `v16` |
+| **Mineur** | correctif, retouche de texte ou de mise en page | `v15` → `v15.1` → `v15.2` |
+
 **À chaque publication, le numéro se change à quatre endroits** — il vaut mieux
 les traiter comme un bloc :
 
