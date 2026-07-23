@@ -190,13 +190,12 @@
           partout et survivent à sa perte.
         </p>
 
-        <button type="button" class="ghost-btn wide" id="btn-google">Continuer avec Google</button>
-        <p class="sheet-note left" id="note-google" hidden>
-          Sur iPhone, Google fonctionne mal depuis une app installée : Safari
-          cloisonne le stockage entre domaines. Le lien sans mot de passe, plus bas,
-          est plus sûr.
+        <p class="form-msg" id="note-ios" hidden>
+          Dans une app installée sur iPhone, seule la connexion par
+          <strong>e-mail et mot de passe</strong> fonctionne de bout en bout.
+          Google et le lien passent par Safari, qui ne partage pas ses données
+          avec l'app : tu y serais connecté dans Safari, pas ici.
         </p>
-        <p class="sep"><span>ou</span></p>
 
         <label class="modal-label" for="account-email">Adresse e-mail</label>
         <input type="email" id="account-email" autocomplete="username"
@@ -206,8 +205,12 @@
         <input type="password" id="account-pass" autocomplete="current-password" enterkeyhint="done">
 
         <button type="button" class="modal-btn primary wide" id="btn-signin">Se connecter</button>
-        <button type="button" class="ghost-btn wide" id="btn-lien">Recevoir un lien, sans mot de passe</button>
         <button type="button" class="link-btn wide" id="btn-signup">Je n'ai pas encore de compte</button>
+
+        <p class="sep"><span>ou</span></p>
+
+        <button type="button" class="ghost-btn wide" id="btn-google">Continuer avec Google</button>
+        <button type="button" class="ghost-btn wide" id="btn-lien">Recevoir un lien, sans mot de passe</button>
         <button type="button" class="link-btn wide" id="btn-reset">Mot de passe oublié</button>
       </div>
 

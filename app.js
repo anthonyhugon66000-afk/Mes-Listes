@@ -8,7 +8,7 @@ const STORE_KEY = 'meslistes.v1';
 /* Affichée en bas à gauche de l'écran d'accueil. À garder en phase avec le nom
    du cache dans `sw.js` : c'est ce couple qui permet de dire, en regardant un
    téléphone, si l'app a bien reçu la dernière version. */
-const VERSION = 'v11';
+const VERSION = 'v12';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -948,7 +948,7 @@ const installee = () => matchMedia('(display-mode: standalone)').matches || navi
 
 function accountModal() {
   messageCompte('');
-  $('note-google').hidden = !(iOS && installee());
+  $('note-ios').hidden = !(iOS && installee());
   renderAccount();
   compteBackdrop.hidden = false;
 }
@@ -995,8 +995,13 @@ $('btn-signup').addEventListener('click', () => {
 $('btn-lien').addEventListener('click', () => {
   const { email } = identifiants();
   if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
+  // Sur iPhone, un lien ouvert depuis un mail atterrit dans Safari, jamais dans
+  // l'app installée : le dire avant, plutôt que de laisser croire à une panne.
+  const avertissement = iOS && installee()
+    ? " Attention : sur iPhone le lien s'ouvrira dans Safari, pas ici — tu seras connecté dans Safari seulement."
+    : '';
   tenter('Envoi…', async () => { await Sync.init(); await Sync.envoyerLien(email); },
-    `Lien envoyé à ${email}. Ouvre-le depuis cet appareil, tu seras connecté sans mot de passe.`);
+    `Lien envoyé à ${email}. Regarde aussi tes indésirables.${avertissement}`);
 });
 
 $('btn-reset').addEventListener('click', () => {

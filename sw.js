@@ -1,6 +1,6 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v11';
+const CACHE = 'meslistes-v12';
 
 const ASSETS = [
   './',
