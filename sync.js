@@ -228,14 +228,30 @@ async function demarrerEcoute() {
   // Ce qui existait sur l'appareil avant la connexion est versé dans le compte,
   // une seule fois : les listes déjà en ligne sont reconnues à leur identifiant,
   // donc se reconnecter ne duplique rien.
-  const distantes = await s.getDocs(requete);
-  const connues = new Set(distantes.docs.map(d => d.id));
-  const aVerser = state.lists.filter(l => !connues.has(l.id));
-  if (aVerser.length) {
-    const lot = s.writeBatch(fb.db);
-    aVerser.forEach((liste, i) =>
-      lot.set(s.doc(collectionListes(), liste.id), enDocument(liste, connues.size + i)));
-    await lot.commit();
+  //
+  // Tout ce qui suit est délibérément tolérant à l'échec. Auparavant, un refus
+  // ici interrompait la fonction avant même que l'écoute soit posée : plus rien
+  // ne se synchronisait, et l'app se contentait d'afficher « erreur ».
+  try {
+    const distantes = await s.getDocs(requete);
+    const connues = new Set(distantes.docs.map(d => d.id));
+
+    // Une liste portant le nom d'un autre propriétaire vient d'un compte qui
+    // s'est déconnecté de cet appareil. Elle vit dans le sien : la reprendre est
+    // refusé par les règles, et la garder ici ne ferait qu'afficher un doublon
+    // fantôme que rien ne met à jour.
+    const aMoi = l => !l.owner || l.owner === Sync.user.uid;
+    state.lists = state.lists.filter(l => aMoi(l) || connues.has(l.id));
+
+    const aVerser = state.lists.filter(l => !connues.has(l.id) && aMoi(l));
+    if (aVerser.length) {
+      const lot = s.writeBatch(fb.db);
+      aVerser.forEach((liste, i) =>
+        lot.set(s.doc(collectionListes(), liste.id), enDocument(liste, connues.size + i)));
+      await lot.commit();
+    }
+  } catch (e) {
+    signalerErreur(e, 'listes');
   }
 
   // `includeMetadataChanges` : sans lui, passer de « envoi » à « synchronisé »

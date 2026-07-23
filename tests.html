@@ -1040,6 +1040,41 @@ suite('Modifications faites par d\'autres', async () => {
   await new Promise(r => setTimeout(r, 60));
   verifierVrai('l\'écoute des listes est en place', ev('typeof window.__abonneListes === "function"'));
 
+  // Un versement refusé ne doit plus empêcher l'écoute : c'est ce qui laissait
+  // un compte entier sans aucune synchronisation.
+  ev(`
+    window.__abonneListes = null;
+    fb.s.getDocs = () => Promise.resolve({ docs: [] });
+    fb.s.writeBatch = () => ({ set() {}, commit: () => Promise.reject({ code: 'permission-denied' }) });
+    state.lists = [{ id: 'LOCALE', name: 'Locale', color: '#000', items: [] }];
+    envoye = new Map();
+    demarrerEcoute();
+    void 0
+  `);
+  await new Promise(r => setTimeout(r, 80));
+  verifierVrai('un versement refusé n\'empêche pas l\'écoute',
+    ev('typeof window.__abonneListes === "function"'));
+  verifier('et l\'erreur est signalée', ev('Sync.erreur'), 'permission-denied');
+
+  // Les listes d'un compte précédent ne doivent pas être reprises.
+  ev(`
+    Sync.erreur = null;
+    window.__lot = [];
+    fb.s.writeBatch = () => ({ set: (ref, d) => window.__lot.push(ref.id), commit: () => Promise.resolve() });
+    state.lists = [
+      { id: 'AMOI', name: 'A moi', color: '#000', items: [], owner: 'moi' },
+      { id: 'AUTRE', name: 'A un autre', color: '#000', items: [], owner: 'quelqu-un-dautre' },
+      { id: 'SANSMAITRE', name: 'Purement locale', color: '#000', items: [] }
+    ];
+    envoye = new Map();
+    demarrerEcoute();
+    void 0
+  `);
+  await new Promise(r => setTimeout(r, 80));
+  verifier('seules les siennes sont versées', ev('window.__lot'), ['AMOI', 'SANSMAITRE']);
+  verifier('celle d\'un autre compte est écartée',
+    ev('state.lists.map(l => l.id)'), ['AMOI', 'SANSMAITRE']);
+
   // `Sync.onChange` vide la file pour envoyer les notifications : on met un
   // observateur à sa place, sinon on lirait toujours zéro.
   ev(`
