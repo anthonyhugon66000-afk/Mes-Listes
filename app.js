@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v15.2';
+const VERSION = 'v15.3';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -965,6 +965,13 @@ const TEXTES_AUTH = {
     valider: 'Créer mon compte',
     bascule: 'Tu as déjà un compte ?',
     lienBascule: 'Connecte-toi'
+  },
+  lien: {
+    titre: 'Recevoir un lien',
+    intro: "Saisis ton adresse : tu recevras un lien à ouvrir, et te voilà connecté. Aucun mot de passe à retenir.",
+    valider: 'Envoyer le lien',
+    bascule: 'Tu préfères un mot de passe ?',
+    lienBascule: 'Revenir à la connexion'
   }
 };
 
@@ -976,8 +983,17 @@ function renderAuthMode() {
   $('switch-text').textContent = t.bascule;
   $('btn-switch').textContent = t.lienBascule;
 
+  // Le mode « lien » se passe de mot de passe : montrer le champ inviterait à
+  // en taper un qui ne servirait à rien. Les autres portes d'entrée aussi
+  // s'effacent — on est venu chercher un lien.
+  const parLien = modeAuth === 'lien';
+  $('account-pass').parentElement.hidden = parLien;
+  $('btn-google').hidden = parLien;
+  $('btn-lien').hidden = parLien;
+  $('separateur-auth').hidden = parLien;
+
   // Réinitialiser un mot de passe qu'on n'a pas encore choisi n'a pas de sens.
-  $('btn-reset').hidden = modeAuth === 'inscription';
+  $('btn-reset').hidden = modeAuth !== 'connexion';
   $('account-pass').setAttribute('autocomplete',
     modeAuth === 'inscription' ? 'new-password' : 'current-password');
   $('account-pass').placeholder =
@@ -990,16 +1006,23 @@ function renderAuthMode() {
    ferait au lieu d'échouer une fois pressé. */
 function majBoutonAuth() {
   const { email, mdp } = identifiants();
-  const assezLong = modeAuth === 'inscription' ? mdp.length >= 6 : mdp.length > 0;
-  $('btn-submit').disabled = !(email.includes('@') && assezLong);
+  const adresseOk = email.includes('@');
+  const motDePasseOk = modeAuth === 'lien' ? true
+                     : modeAuth === 'inscription' ? mdp.length >= 6
+                     : mdp.length > 0;
+  $('btn-submit').disabled = !(adresseOk && motDePasseOk);
 }
 
-$('btn-switch').addEventListener('click', () => {
-  modeAuth = modeAuth === 'connexion' ? 'inscription' : 'connexion';
+function changerMode(mode) {
+  modeAuth = mode;
   messageCompte('');
   renderAuthMode();
   $('account-email').focus();
-});
+}
+
+// Depuis le mode « lien », la bascule ramène toujours à la connexion.
+$('btn-switch').addEventListener('click', () =>
+  changerMode(modeAuth === 'connexion' ? 'inscription' : 'connexion'));
 
 ['account-email', 'account-pass'].forEach(id =>
   $(id).addEventListener('input', majBoutonAuth));
@@ -1020,7 +1043,11 @@ function renderAccount() {
     $('account-who').textContent =
       `Connecté en tant que ${Sync.user.email || 'compte Google'}. Tes listes se synchronisent.`;
   }
-  if (Sync.erreur) messageCompte(messageErreur(Sync.erreur), 'erreur');
+  if (Sync.erreur) {
+    const ou = { listes: 'les listes', reglages: "l'apparence",
+                 invitations: 'les invitations', connexion: 'la connexion' }[Sync.origine];
+    messageCompte(messageErreur(Sync.erreur) + (ou ? ` (${ou})` : ''), 'erreur');
+  }
 }
 
 /* Prévenir avant l'échec plutôt que l'expliquer après : c'est exactement la
@@ -1033,6 +1060,7 @@ function accountModal() {
   $('note-ios').hidden = !(iOS && installee());
   renderAccount();
   messageCompte('');
+  modeAuth = 'connexion';    // rouvrir la fenêtre repart de l'écran d'accueil
   renderAuthMode();
   compteBackdrop.hidden = false;
 }
@@ -1065,6 +1093,7 @@ $('btn-google').addEventListener('click', () =>
 
 $('btn-submit').addEventListener('click', () => {
   const { email, mdp } = identifiants();
+  if (modeAuth === 'lien') return envoyerLien();
   if (modeAuth === 'inscription') {
     tenter('Création du compte…', async () => { await Sync.init(); await Sync.signUpEmail(email, mdp); });
   } else {
@@ -1072,9 +1101,12 @@ $('btn-submit').addEventListener('click', () => {
   }
 });
 
-$('btn-lien').addEventListener('click', () => {
+/* Le bouton n'envoie rien : il ouvre l'étape où l'on saisit son adresse. Exiger
+   qu'elle soit déjà remplie revenait à refuser d'agir sans le dire. */
+$('btn-lien').addEventListener('click', () => changerMode('lien'));
+
+function envoyerLien() {
   const { email } = identifiants();
-  if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
   // Sur iPhone, un lien ouvert depuis un mail atterrit dans Safari, jamais dans
   // l'app installée : le dire avant, plutôt que de laisser croire à une panne.
   const avertissement = iOS && installee()
@@ -1082,7 +1114,7 @@ $('btn-lien').addEventListener('click', () => {
     : '';
   tenter('Envoi…', async () => { await Sync.init(); await Sync.envoyerLien(email); },
     `Lien envoyé à ${email}. Regarde aussi tes indésirables.${avertissement}`);
-});
+}
 
 $('btn-reset').addEventListener('click', () => {
   const { email } = identifiants();

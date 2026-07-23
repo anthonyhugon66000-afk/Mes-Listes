@@ -73,7 +73,7 @@ Sync.init = async function () {
   // Sans cette lecture, une connexion Google refusée ne dit rien du tout : on
   // revient sur l'écran d'accueil comme si l'on n'avait rien demandé.
   a.getRedirectResult(auth)
-    .catch(signalerErreur)
+    .catch(e => signalerErreur(e, 'connexion'))
     .finally(() => localStorage.removeItem(CLE_REDIRECTION));
 
   a.onAuthStateChanged(auth, async utilisateur => {
@@ -88,7 +88,7 @@ Sync.init = async function () {
 
     if (utilisateur) {
       try { await demarrerEcoute(); }
-      catch (e) { signalerErreur(e); }
+      catch (e) { signalerErreur(e, 'listes'); }
     }
     Sync.onChange();
   });
@@ -178,8 +178,12 @@ Sync.signOut = async function () {
   await a.signOut(auth);
 };
 
-function signalerErreur(e) {
+/* `origine` dit quelle partie a échoué. Sans elle, « accès refusé » ne permet
+   pas de savoir quelle règle manque : celle des listes, des réglages, ou des
+   invitations. */
+function signalerErreur(e, origine) {
   Sync.erreur = e?.code || String(e);
+  Sync.origine = origine || null;
   Sync.etat = 'erreur';
   Sync.onChange();
 }
@@ -217,7 +221,7 @@ async function demarrerEcoute() {
   // Avant tout : récupérer les listes qu'on nous a partagées, sinon elles
   // n'apparaîtraient qu'au prochain lancement.
   Sync.recues = [];
-  try { await accepterInvitations(); } catch (e) { signalerErreur(e); }
+  try { await accepterInvitations(); } catch (e) { signalerErreur(e, 'invitations'); }
 
   const requete = s.query(collectionListes(), s.where('members', 'array-contains', Sync.user.uid));
 
@@ -253,7 +257,7 @@ async function demarrerEcoute() {
     Sync.erreur = null;
     sauverLocalement();
     Sync.onChange();
-  }, signalerErreur);
+  }, e => signalerErreur(e, 'listes'));
 
   ecouterReglages();
 }
@@ -294,10 +298,15 @@ Sync.annulerInvitation = (listId, email) =>
 Sync.ecouterInvitations = function (listId, rappel) {
   if (!fb || !Sync.user) return () => {};
   const { s } = fb;
+  // Le filtre sur `invitePar` n'est pas cosmétique : la règle de lecture est un
+  // « ou », et Firestore n'accepte une requête que s'il peut prouver l'un des
+  // deux termes à partir de ses filtres. Sans lui, la requête est refusée.
   return s.onSnapshot(
-    s.query(collectionInvites(), s.where('listId', '==', listId)),
+    s.query(collectionInvites(),
+      s.where('listId', '==', listId),
+      s.where('invitePar', '==', Sync.user.uid)),
     instantane => rappel(instantane.docs.map(d => d.data().email)),
-    () => rappel([])
+    e => { signalerErreur(e, 'invitations'); rappel([]); }
   );
 };
 
@@ -333,7 +342,7 @@ async function accepterInvitations() {
       await s.deleteDoc(invitation.ref);
       Sync.recues.push(invitation.data().nomListe || 'une liste');
     } catch (e) {
-      signalerErreur(e);
+      signalerErreur(e, 'invitations');
     }
   }
 }
@@ -363,7 +372,7 @@ function ecouterReglages() {
       envoyeReglages = null;
       pousserReglages();
     }
-  }, signalerErreur);
+  }, e => signalerErreur(e, 'reglages'));
 }
 
 function pousserReglages() {
@@ -373,7 +382,7 @@ function pousserReglages() {
   fb.s.setDoc(docReglages(),
     { theme: state.theme || 'auto', accent: state.accent || null },
     { merge: true }
-  ).catch(signalerErreur);
+  ).catch(e => signalerErreur(e, 'reglages'));
 }
 
 /* Le contenu, et lui seul. Une liste partagée est écrite par plusieurs
@@ -420,7 +429,7 @@ Sync.push = function () {
     const ecriture = connue
       ? s.setDoc(ref, contenu(liste, i), { merge: true })
       : s.setDoc(ref, enDocument(liste, i));
-    ecriture.catch(signalerErreur);
+    ecriture.catch(e => signalerErreur(e, 'listes'));
   });
 
   const vivantes = new Set(state.lists.map(l => l.id));
@@ -435,5 +444,5 @@ Sync.push = function () {
    pour quelqu'un qui ne s'est encore jamais connecté — c'est-à-dire à la seule
    fois où ça compte vraiment. */
 if (localStorage.getItem('meslistes.compte') || localStorage.getItem(CLE_REDIRECTION)) {
-  addEventListener('load', () => Sync.init().catch(signalerErreur));
+  addEventListener('load', () => Sync.init().catch(e => signalerErreur(e, 'connexion')));
 }
