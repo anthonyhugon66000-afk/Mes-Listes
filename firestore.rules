@@ -4,43 +4,85 @@ rules_version = '2';
    Firestore Database -> onglet Règles -> Publier.
 
    Sans elles, la base refuse tout (mode production) et l'app affichera
-   « Accès refusé par les règles de la base ».
-
-   Le principe tient en une phrase : on ne voit que les listes dont on est
-   membre. La liste des membres est elle-même protégée, sinon n'importe qui
-   pourrait s'ajouter à la liste de courses d'un inconnu. */
+   « Accès refusé par les règles de la base ». */
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Réglages personnels : thème et couleur d'accent. Chacun chez soi.
+    function connecte() {
+      return request.auth != null;
+    }
+
+    /* Réglages personnels : thème et couleur d'accent. Chacun chez soi. */
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if connecte() && request.auth.uid == userId;
+    }
+
+    /* Invitations en attente. Elles sont déposées au nom d'une adresse e-mail,
+       parce que rien ne permet de traduire une adresse en identifiant de compte
+       avant que la personne se connecte. */
+    match /invites/{inviteId} {
+
+      // Seul un membre de la liste concernée peut inviter quelqu'un.
+      allow create: if connecte()
+        && request.resource.data.invitePar == request.auth.uid
+        && request.auth.uid in get(/databases/$(database)/documents/lists/$(request.resource.data.listId)).data.members;
+
+      // On voit une invitation si elle nous est adressée, ou si on l'a émise.
+      allow read, delete: if connecte()
+        && (resource.data.email == request.auth.token.email
+            || resource.data.invitePar == request.auth.uid);
     }
 
     match /lists/{listId} {
-
-      function connecte() {
-        return request.auth != null;
-      }
 
       function membre() {
         return connecte() && request.auth.uid in resource.data.members;
       }
 
-      // À la création, on ne peut se déclarer propriétaire que de soi-même,
-      // et seul soi-même peut figurer parmi les membres.
+      function proprietaire() {
+        return connecte() && request.auth.uid == resource.data.owner;
+      }
+
+      // Le contenu change, l'appartenance non : c'est le cas de loin le plus
+      // fréquent — cocher un article, renommer, réordonner.
+      function contenuSeul() {
+        return request.resource.data.owner == resource.data.owner
+          && request.resource.data.members == resource.data.members
+          && request.resource.data.memberEmails == resource.data.memberEmails;
+      }
+
+      // Quelqu'un d'invité s'ajoute lui-même, et rien d'autre. L'invitation
+      // porte un identifiant déterministe, ce qui permet de la vérifier ici.
+      function accepteInvitation() {
+        return connecte()
+          && exists(/databases/$(database)/documents/invites/$(listId + '__' + request.auth.token.email))
+          && request.resource.data.owner == resource.data.owner
+          && request.resource.data.members == resource.data.members.concat([request.auth.uid]);
+      }
+
+      // Quitter une liste : on se retire, sans toucher aux autres.
+      function seRetire() {
+        return membre()
+          && request.resource.data.owner == resource.data.owner
+          && !(request.auth.uid in request.resource.data.members)
+          && resource.data.members.hasAll(request.resource.data.members);
+      }
+
       allow create: if connecte()
         && request.resource.data.owner == request.auth.uid
         && request.resource.data.members.hasOnly([request.auth.uid]);
 
-      allow read, delete: if membre();
+      allow read: if membre();
 
-      // Une modification ne doit pas pouvoir changer le propriétaire ni servir
-      // à se greffer sur la liste de quelqu'un d'autre.
-      allow update: if membre()
-        && request.resource.data.owner == resource.data.owner
-        && request.resource.data.members == resource.data.members;
+      // Supprimer la liste pour tout le monde reste au propriétaire. Les autres
+      // la quittent — sans quoi un invité pourrait effacer le travail commun.
+      allow delete: if proprietaire();
+
+      allow update: if (membre() && contenuSeul())
+        || (proprietaire() && request.resource.data.owner == resource.data.owner)
+        || accepteInvitation()
+        || seRetire();
     }
   }
 }

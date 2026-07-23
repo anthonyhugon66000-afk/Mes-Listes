@@ -80,6 +80,8 @@
     </div>
   </main>
 
+  <span class="version" id="app-version"></span>
+
   <button class="fab" id="btn-new-list" aria-label="Nouvelle liste">
     <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
   </button>
@@ -218,6 +220,35 @@
 
     <div class="modal-buttons">
       <button class="modal-btn" id="account-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PARTAGE D'UNE LISTE ========== -->
+<div class="modal-backdrop" id="share-backdrop" hidden>
+  <div class="modal modal-item" id="share-modal" role="dialog" aria-modal="true">
+    <h2 id="share-title">Partager la liste</h2>
+
+    <div class="modal-scroll">
+      <label class="modal-label" for="share-email">Inviter par adresse e-mail</label>
+      <input type="email" id="share-email" autocomplete="off" inputmode="email"
+             autocapitalize="none" placeholder="adresse@exemple.fr" enterkeyhint="done">
+      <button type="button" class="modal-btn primary wide" id="share-invite">Inviter</button>
+
+      <p class="sheet-note left">
+        Aucun courriel n'est envoyé : l'app n'a pas de serveur pour ça. La liste
+        apparaîtra chez la personne à sa prochaine ouverture, une fois connectée
+        avec cette adresse.
+      </p>
+
+      <p class="form-msg" id="share-msg" hidden></p>
+
+      <label class="modal-label">Sur cette liste</label>
+      <ul class="people" id="share-people"></ul>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="modal-btn" id="share-close">Fermer</button>
     </div>
   </div>
 </div>

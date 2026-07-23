@@ -5,6 +5,11 @@
 
 const STORE_KEY = 'meslistes.v1';
 
+/* Affichée en bas à gauche de l'écran d'accueil. À garder en phase avec le nom
+   du cache dans `sw.js` : c'est ce couple qui permet de dire, en regardant un
+   téléphone, si l'app a bien reçu la dernière version. */
+const VERSION = 'v9';
+
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
   '#007aff', '#5856d6', '#af52de', '#ff2d55', '#8e8e93'
@@ -115,9 +120,11 @@ function renderHome() {
   elLists.innerHTML = state.lists.map(list => {
     const total = list.items.length;
     const done = list.items.filter(itemDone).length;
-    const sub = total === 0
+    const partagee = (list.members || []).length > 1;
+    const sub = (total === 0
       ? 'Vide'
-      : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`;
+      : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`)
+      + (partagee ? ' · partagée' : '');
 
     return `
       <li class="row" data-id="${list.id}">
@@ -168,6 +175,7 @@ function listMenu(id) {
   openSheet(list.name, [
     { label: 'Renommer', icon: '✏️', run: () => renameList(id) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(id) },
+    { label: 'Partager', icon: '👥', run: () => shareModal(id) },
     { label: 'Dupliquer', icon: '📄', run: () => duplicateList(id) },
     { label: 'Supprimer', icon: '🗑️', danger: true, run: () => deleteList(id) }
   ]);
@@ -493,6 +501,7 @@ $('btn-list-menu').addEventListener('click', () => {
   openSheet(list.name, [
     { label: 'Renommer la liste', icon: '✏️', run: () => renameList(currentListId) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(currentListId) },
+    { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
         snapshot();
         list.items.forEach(i => { i.done = false; i.variants.forEach(v => v.done = false); });
@@ -732,6 +741,127 @@ $('btn-settings').addEventListener('click', () => {
   ], { html: `<p class="sheet-note">${esc(info)}</p>` });
 });
 
+/* ---------- Partage d'une liste ---------- */
+
+const shareBackdrop = $('share-backdrop');
+let listePartagee = null;
+let arreterInvitations = null;
+
+const estProprietaire = liste => !liste.owner || liste.owner === Sync.user?.uid;
+
+function shareModal(id) {
+  const liste = getList(id);
+  if (!liste) return;
+  // Partager suppose de savoir avec qui : sans compte, il n'y a personne.
+  if (!Sync.user) return accountModal();
+  listePartagee = id;
+
+  $('share-title').textContent = `Partager « ${liste.name} »`;
+  $('share-email').value = '';
+  messagePartage('');
+  renderPeople([]);
+  shareBackdrop.hidden = false;
+
+  // Les invitations en attente arrivent en direct : accepter chez l'un fait
+  // disparaître la ligne chez l'autre.
+  arreterInvitations?.();
+  arreterInvitations = Sync.ecouterInvitations(id, renderPeople);
+}
+
+function closeShare() {
+  shareBackdrop.hidden = true;
+  arreterInvitations?.();
+  arreterInvitations = null;
+  listePartagee = null;
+}
+
+function messagePartage(texte, type) {
+  const el = $('share-msg');
+  el.textContent = texte || '';
+  el.hidden = !texte;
+  el.classList.toggle('erreur', type === 'erreur');
+}
+
+let invitationsEnAttente = [];
+
+/* Appelée sans argument quand seules les listes ont changé : les invitations
+   viennent de leur propre écoute, il ne faut pas les effacer au passage. */
+function renderPeople(enAttente) {
+  if (enAttente) invitationsEnAttente = enAttente;
+  const liste = getList(listePartagee);
+  if (!liste) return;
+  const moi = Sync.user?.uid;
+  const proprio = estProprietaire(liste);
+
+  const membres = (liste.members || [moi]).map((uid, i) => {
+    const email = (liste.memberEmails || [])[i] || 'compte sans adresse';
+    const soi = uid === moi;
+    const retirable = proprio && !soi;
+    return `
+      <li class="person">
+        <span class="person-name">${esc(email)}${soi ? ' (toi)' : ''}</span>
+        ${uid === liste.owner ? '<span class="tag">propriétaire</span>' : ''}
+        ${retirable ? `<button class="link-btn danger" data-retirer="${esc(uid)}"
+                               data-email="${esc(email)}">Retirer</button>` : ''}
+      </li>`;
+  }).join('');
+
+  const invitations = invitationsEnAttente.map(email => `
+    <li class="person">
+      <span class="person-name">${esc(email)}</span>
+      <span class="tag">en attente</span>
+      ${proprio ? `<button class="link-btn danger" data-annuler="${esc(email)}">Annuler</button>` : ''}
+    </li>`).join('');
+
+  const quitter = proprio ? '' : `
+    <li class="person">
+      <button class="link-btn danger" id="btn-quitter">Quitter cette liste</button>
+    </li>`;
+
+  $('share-people').innerHTML = membres + invitations + quitter;
+}
+
+$('share-people').addEventListener('click', async e => {
+  const retirer = e.target.closest('[data-retirer]');
+  const annuler = e.target.closest('[data-annuler]');
+  const quitter = e.target.closest('#btn-quitter');
+  const id = listePartagee;
+
+  try {
+    if (retirer) {
+      await Sync.retirerMembre(id, retirer.dataset.retirer, retirer.dataset.email);
+      messagePartage('Personne retirée.');
+    } else if (annuler) {
+      await Sync.annulerInvitation(id, annuler.dataset.annuler);
+      messagePartage('Invitation annulée.');
+    } else if (quitter) {
+      await Sync.quitter(id);
+      closeShare();
+      toast('Tu as quitté cette liste');
+    }
+  } catch (err) {
+    messagePartage(messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('share-invite').addEventListener('click', async () => {
+  const email = $('share-email').value;
+  const liste = getList(listePartagee);
+  if (!liste) return;
+  messagePartage('Envoi…');
+  try {
+    await Sync.inviter(listePartagee, email, liste.name);
+    $('share-email').value = '';
+    messagePartage(`${email.trim()} verra la liste à sa prochaine ouverture.`);
+  } catch (err) {
+    messagePartage(messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('share-email').addEventListener('keydown', e => { if (e.key === 'Enter') $('share-invite').click(); });
+$('share-close').addEventListener('click', closeShare);
+shareBackdrop.addEventListener('click', e => { if (e.target === shareBackdrop) closeShare(); });
+
 /* ---------- Compte et synchronisation ---------- */
 
 /* Les codes de Firebase sont clairs pour un développeur, opaques pour tout le
@@ -751,7 +881,9 @@ const ERREURS = {
   'auth/unauthorized-domain':    "Ce domaine n'est pas autorisé dans la console Firebase.",
   'auth/operation-not-allowed':  "Cette méthode de connexion n'est pas activée dans la console Firebase.",
   'permission-denied':           "Accès refusé : les règles de la base ne sont pas encore publiées.",
-  'unavailable':                 'Serveur injoignable. Les modifications partiront au retour du réseau.'
+  'unavailable':                 'Serveur injoignable. Les modifications partiront au retour du réseau.',
+  'deja-membre':                 'Cette liste est déjà à toi.',
+  'not-found':                   'Cette liste a été supprimée entre-temps.'
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -1022,11 +1154,21 @@ function importData() {
 Sync.onChange = () => {
   renderAccount();
   applyTheme();          // se connecter rend l'apparence choisie, se déconnecter la retire
+
+  // Une liste partagée par quelqu'un d'autre n'apparaîtrait sinon qu'au
+  // lancement suivant, sans qu'on sache d'où elle sort.
+  if (Sync.recues.length) {
+    const noms = Sync.recues.splice(0).map(n => `« ${n} »`).join(', ');
+    toast(`${noms} partagée${noms.includes(',') ? 's' : ''} avec toi`);
+  }
+
+  if (!shareBackdrop.hidden && listePartagee) renderPeople();
   if (currentListId && !getList(currentListId)) return goHome();
   renderHome();
   if (currentListId) renderItems();
 };
 
+$('app-version').textContent = VERSION;
 applyTheme();
 renderHome();
 

@@ -52,6 +52,31 @@ les modifications sont mises en file et partent au retour du réseau.
 dans le compte. Elles sont reconnues à leur identifiant, donc se reconnecter
 ne duplique rien.
 
+### Partager une liste
+
+Menu de la liste → **Partager** → saisir une adresse e-mail.
+
+**Aucun courriel n'est envoyé** : l'app n'a pas de serveur pour ça. L'invitation
+est déposée dans Firestore au nom de l'adresse ; la personne la récupère à sa
+prochaine ouverture, une fois connectée avec cette même adresse. La liste
+apparaît alors chez elle et un message le lui signale.
+
+Ce détour vient d'une contrainte réelle : rien ne permet de traduire une adresse
+en identifiant de compte avant que la personne se connecte. Publier cette
+correspondance laisserait n'importe qui parcourir les adresses de tout le monde.
+
+Chacun coche de son côté, tout le monde voit les modifications. Le propriétaire
+peut retirer quelqu'un ou annuler une invitation en attente ; les autres peuvent
+quitter la liste. **Seul le propriétaire peut supprimer la liste** — sinon un
+invité effacerait le travail commun.
+
+### Numéro de version
+
+Affiché en bas à gauche de l'écran d'accueil. Il vient de la constante `VERSION`
+dans `app.js`, à garder en phase avec le nom du cache dans `sw.js` : c'est ce
+couple qui permet de vérifier d'un coup d'œil, sur un téléphone, que la dernière
+version est bien arrivée.
+
 ### Mise en place côté Firebase
 
 1. Projet créé sur [console.firebase.google.com](https://console.firebase.google.com)

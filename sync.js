@@ -130,6 +130,12 @@ const noterEnvoyees = () => {
 
 async function demarrerEcoute() {
   const { s } = fb;
+
+  // Avant tout : récupérer les listes qu'on nous a partagées, sinon elles
+  // n'apparaîtraient qu'au prochain lancement.
+  Sync.recues = [];
+  try { await accepterInvitations(); } catch (e) { signalerErreur(e); }
+
   const requete = s.query(collectionListes(), s.where('members', 'array-contains', Sync.user.uid));
 
   // Ce qui existait sur l'appareil avant la connexion est versé dans le compte,
@@ -147,8 +153,11 @@ async function demarrerEcoute() {
 
   arreterEcoute = s.onSnapshot(requete, instantane => {
     state.lists = instantane.docs
-      .map(d => ({ id: d.id, name: d.data().name, color: d.data().color,
-                   items: d.data().items || [], ordre: d.data().ordre }))
+      .map(d => {
+        const v = d.data();
+        return { id: d.id, name: v.name, color: v.color, items: v.items || [], ordre: v.ordre,
+                 owner: v.owner, members: v.members || [], memberEmails: v.memberEmails || [] };
+      })
       .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
 
     // La normalisation d'abord, les signatures ensuite : sinon une donnée
@@ -162,6 +171,88 @@ async function demarrerEcoute() {
 
   ecouterReglages();
 }
+
+/* ---------- Partage à plusieurs ----------
+
+   Rien n'associe une adresse e-mail à un identifiant de compte : Firestore ne
+   sait pas interroger l'annuaire des comptes, et publier cette correspondance
+   reviendrait à laisser n'importe qui parcourir les adresses de tout le monde.
+
+   L'invitation est donc déposée au nom de l'adresse. Le destinataire la trouve
+   à sa prochaine ouverture, s'ajoute lui-même à la liste, et la consomme. Aucun
+   courriel n'est envoyé — il n'y a pas de serveur pour le faire. */
+
+const collectionInvites = () => fb.s.collection(fb.db, 'invites');
+const normaliser = e => String(e || '').trim().toLowerCase();
+const idInvite = (listId, email) => `${listId}__${normaliser(email)}`;
+
+Sync.inviter = async function (listId, email, nomListe) {
+  const adresse = normaliser(email);
+  if (!adresse.includes('@')) throw { code: 'auth/invalid-email' };
+  if (adresse === normaliser(Sync.user.email)) throw { code: 'deja-membre' };
+  await fb.s.setDoc(fb.s.doc(collectionInvites(), idInvite(listId, adresse)), {
+    listId,
+    email: adresse,
+    nomListe: nomListe || '',
+    invitePar: Sync.user.uid,
+    inviteParEmail: Sync.user.email || '',
+    creeLe: fb.s.serverTimestamp()
+  });
+};
+
+Sync.annulerInvitation = (listId, email) =>
+  fb.s.deleteDoc(fb.s.doc(collectionInvites(), idInvite(listId, email)));
+
+/* Invitations encore en attente sur une liste, pour que celui qui invite ne
+   reste pas sans nouvelles. */
+Sync.ecouterInvitations = function (listId, rappel) {
+  if (!fb || !Sync.user) return () => {};
+  const { s } = fb;
+  return s.onSnapshot(
+    s.query(collectionInvites(), s.where('listId', '==', listId)),
+    instantane => rappel(instantane.docs.map(d => d.data().email)),
+    () => rappel([])
+  );
+};
+
+Sync.retirerMembre = function (listId, uid, email) {
+  const { s } = fb;
+  return s.updateDoc(s.doc(collectionListes(), listId), {
+    members: s.arrayRemove(uid),
+    memberEmails: s.arrayRemove(email || '')
+  });
+};
+
+Sync.quitter = function (listId) {
+  return Sync.retirerMembre(listId, Sync.user.uid, Sync.user.email);
+};
+
+/* Au démarrage : on ramasse ce qui nous attend. L'ajout et la suppression de
+   l'invitation sont deux écritures distinctes — si la seconde échoue, la
+   prochaine ouverture retentera sans rien casser, `arrayUnion` ne duplique pas. */
+async function accepterInvitations() {
+  const { s } = fb;
+  const adresse = normaliser(Sync.user.email);
+  if (!adresse) return;
+
+  const attendues = await s.getDocs(
+    s.query(collectionInvites(), s.where('email', '==', adresse)));
+
+  for (const invitation of attendues.docs) {
+    try {
+      await s.updateDoc(s.doc(collectionListes(), invitation.data().listId), {
+        members: s.arrayUnion(Sync.user.uid),
+        memberEmails: s.arrayUnion(Sync.user.email)
+      });
+      await s.deleteDoc(invitation.ref);
+      Sync.recues.push(invitation.data().nomListe || 'une liste');
+    } catch (e) {
+      signalerErreur(e);
+    }
+  }
+}
+
+Sync.recues = [];   // noms des listes récupérées à l'ouverture, pour le message
 
 /* ---------- Apparence ----------
 
@@ -199,16 +290,27 @@ function pousserReglages() {
   ).catch(signalerErreur);
 }
 
-function enDocument(liste, ordre) {
+/* Le contenu, et lui seul. Une liste partagée est écrite par plusieurs
+   personnes : renvoyer `members` à chaque case cochée effacerait, en cas de
+   croisement, quelqu'un qui vient d'accepter une invitation. L'appartenance
+   passe donc uniquement par les fonctions dédiées plus bas. */
+function contenu(liste, ordre) {
   return {
     name: liste.name,
     color: liste.color,
     items: liste.items,
     ordre,
-    owner: Sync.user.uid,
-    members: [Sync.user.uid],
     majLe: fb.s.serverTimestamp()
   };
+}
+
+/* À la création seulement : c'est le seul moment où l'on décide qui possède. */
+function enDocument(liste, ordre) {
+  return Object.assign(contenu(liste, ordre), {
+    owner: Sync.user.uid,
+    members: [Sync.user.uid],
+    memberEmails: [Sync.user.email || '']
+  });
 }
 
 /* Appelé après chaque modification. On n'écrit que les listes réellement
@@ -223,8 +325,16 @@ Sync.push = function () {
   state.lists.forEach((liste, i) => {
     const sig = signature(liste, i);
     if (envoye.get(liste.id) === sig) return;
+    const connue = envoye.has(liste.id);
     envoye.set(liste.id, sig);
-    s.setDoc(s.doc(collectionListes(), liste.id), enDocument(liste, i)).catch(signalerErreur);
+
+    // Une liste déjà en ligne ne reçoit que son contenu, en fusion : le reste
+    // du document — propriétaire et membres — ne nous appartient plus.
+    const ref = s.doc(collectionListes(), liste.id);
+    const ecriture = connue
+      ? s.setDoc(ref, contenu(liste, i), { merge: true })
+      : s.setDoc(ref, enDocument(liste, i));
+    ecriture.catch(signalerErreur);
   });
 
   const vivantes = new Set(state.lists.map(l => l.id));
