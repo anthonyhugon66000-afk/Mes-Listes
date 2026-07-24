@@ -1665,7 +1665,6 @@ function importData() {
 
 const adminBackdrop = $('admin-backdrop');
 let annonceImage = '';          // image de l'annonce en cours d'édition (data URL)
-let annonceEcartee = false;     // bandeau non bloquant masqué pour cette session
 
 /* Une image de compte de service dans un document Firestore : il faut la réduire.
    On la redessine plus petite et on la ré-encode en JPEG, en baissant la qualité
@@ -1732,7 +1731,7 @@ function renderAnnonce(a) {
   const aBandeauContenu = actif && (mode === 'bandeau' ? !!(a.titre || a.message)
                         : !!(a.titre || a.message || a.image));
   const montrerBandeau = actif && !bloquant && !montrerVitrine
-                       && aBandeauContenu && !annonceEcartee;
+                       && aBandeauContenu;
   banner.hidden = !montrerBandeau;
   if (montrerBandeau) {
     $('annonce-b-titre').textContent = a.titre || '';
@@ -1758,10 +1757,7 @@ Sync.onAnnonce = renderAnnonce;
 
 $('annonce-mode').addEventListener('change', majModeAdmin);
 
-$('annonce-banner-close').addEventListener('click', () => {
-  annonceEcartee = true;
-  $('annonce-banner').hidden = true;
-});
+
 $('annonce-b-gerer').addEventListener('click', adminModal);
 
 /* ---------- Panneau d'administration ---------- */

@@ -941,7 +941,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   align-items: center;
   gap: 10px;
   margin: 10px 16px 0;
-  padding: 12px 40px 12px 14px;
+  padding: 12px 14px;
   background: var(--surface);
   border: 1px solid var(--accent);
   border-radius: 12px;
@@ -954,7 +954,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .annonce-vignette { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; }
 .annonce-signe { font-size: 12px; color: var(--text-dim); }
 .annonce-etat { font-size: 12px; color: var(--accent); }
-.annonce-banner .notice-close { position: absolute; top: 6px; right: 6px; }
+
 .annonce-banner .link-btn { flex: none; font-weight: 600; }
 
 /* Vitrine : image pleine largeur sous les listes, en mode vitrine. */

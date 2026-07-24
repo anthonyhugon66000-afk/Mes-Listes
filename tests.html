@@ -473,9 +473,6 @@ suite('Modes d\'affichage de l\'annonce', () => {
   const GMAIL  = 'jXcKGdfqQxNM8SZN3E4Y1nKX5d53';
   const BASE = { actif: true, titre: 'Titre', message: 'Texte', image: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==' };
 
-  // Réinitialiser l'état de l'annonce écartée (bandeau fermé manuellement).
-  ev('annonceEcartee = false');
-
   // Mode bandeau : texte seul, pas d'image, animation de glissement.
   ev('Sync.user = { uid: "moi", email: "moi@example.com" }');
   ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'bandeau' })})`);
