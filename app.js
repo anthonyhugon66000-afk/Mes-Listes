@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.7';
+const VERSION = 'v17.7.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -905,6 +905,11 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v17.7.1', titre: 'Trois façons d\'afficher une annonce', points: [
+    'Bandeau coulissant en haut, texte seul',
+    'Carte complète avec titre, texte et image (comme avant)',
+    'Vitrine sous les listes, image en grand'
+  ] },
   { version: 'v17.7', titre: 'Comptes vérifiés et annonces', points: [
     'Un badge distingue les comptes administrateurs et de test',
     'Certains pseudos sont désormais réservés, uniques à un compte',
@@ -1696,12 +1701,15 @@ async function preparerImage(file) {
    Un admin n'est jamais bloqué : sinon une pause l'empêcherait d'aller la lever.
    Il voit le bandeau, jamais l'overlay, avec un bouton pour ouvrir le panneau. */
 function renderAnnonce(a) {
-  const overlay = $('annonce-overlay');
-  const banner = $('annonce-banner');
-  const actif = !!(a && a.actif && (a.titre || a.message || a.image));
-  const admin = Sync.estAdmin();
-  const bloquant = actif && a.bloquant && !admin;
+  const overlay  = $('annonce-overlay');
+  const banner   = $('annonce-banner');
+  const vitrine  = $('annonce-vitrine');
+  const actif    = !!(a && a.actif);
+  const mode     = (a && a.mode) || 'carte';
+  const admin    = Sync.estAdmin();
 
+  // Overlay bloquant : mode carte + bloquant + non admin.
+  const bloquant = actif && mode === 'carte' && !!a.bloquant && !admin;
   overlay.hidden = !bloquant;
   if (bloquant) {
     $('annonce-o-titre').textContent = a.titre || '';
@@ -1712,17 +1720,28 @@ function renderAnnonce(a) {
     signer($('annonce-o-signe'), a);
   }
 
-  const montrerBandeau = actif && !bloquant && !annonceEcartee;
+  // Vitrine : image en grand sous les listes, sans texte.
+  const montrerVitrine = actif && mode === 'vitrine' && !!a.image && !bloquant;
+  vitrine.hidden = !montrerVitrine;
+  if (montrerVitrine) {
+    poserImage($('annonce-v-image'), a.image);
+    signer($('annonce-v-signe'), a);
+  }
+
+  // Bandeau : texte seul (mode bandeau) ou carte complète non bloquante (mode carte).
+  const aBandeauContenu = actif && (mode === 'bandeau' ? !!(a.titre || a.message)
+                        : !!(a.titre || a.message || a.image));
+  const montrerBandeau = actif && !bloquant && !montrerVitrine
+                       && aBandeauContenu && !annonceEcartee;
   banner.hidden = !montrerBandeau;
   if (montrerBandeau) {
     $('annonce-b-titre').textContent = a.titre || '';
     $('annonce-b-titre').hidden = !a.titre;
     $('annonce-b-message').textContent = a.message || '';
     $('annonce-b-message').hidden = !a.message;
-    poserImage($('annonce-b-image'), a.image);
+    // En mode bandeau : texte seul, pas d'image.
+    poserImage($('annonce-b-image'), mode === 'bandeau' ? '' : a.image);
     signer($('annonce-b-signe'), a);
-    // Pour l'admin, le bandeau rappelle si l'annonce bloque les autres, et
-    // ouvre le panneau d'un geste.
     $('annonce-b-gerer').hidden = !admin;
     $('annonce-b-etat').textContent = admin && a.bloquant ? ' · bloquante pour les autres' : '';
   }
@@ -1737,6 +1756,8 @@ function renderAnnonce(a) {
 }
 Sync.onAnnonce = renderAnnonce;
 
+$('annonce-mode').addEventListener('change', majModeAdmin);
+
 $('annonce-banner-close').addEventListener('click', () => {
   annonceEcartee = true;
   $('annonce-banner').hidden = true;
@@ -1745,14 +1766,30 @@ $('annonce-b-gerer').addEventListener('click', adminModal);
 
 /* ---------- Panneau d'administration ---------- */
 
+const NOTES_MODE = {
+  bandeau: `Bandeau coulissant en haut. Seuls le titre et le texte s'affichent — l'image est ignorée.`,
+  carte:   `Carte avec titre, texte et image. Peut bloquer l'app si la case ci-dessous est cochée.`,
+  vitrine: `Image en grand sous les listes. Le titre et le texte sont ignorés.`,
+};
+
+function majModeAdmin() {
+  const mode = $('annonce-mode').value;
+  $('annonce-mode-note').textContent = NOTES_MODE[mode] || '';
+  // Le blocage n'a de sens qu'en mode carte.
+  $('annonce-bloquant').closest('label').hidden = mode !== 'carte';
+  if (mode !== 'carte') $('annonce-bloquant').checked = false;
+}
+
 function adminModal() {
   const a = Sync.annonce || {};
   $('annonce-actif').checked = !!a.actif;
+  $('annonce-mode').value = a.mode || 'carte';
   $('annonce-bloquant').checked = !!a.bloquant;
   $('annonce-titre').value = a.titre || '';
   $('annonce-message').value = a.message || '';
   annonceImage = a.image || '';
   majApercuImage();
+  majModeAdmin();
   messageAdmin('annonce-msg', '');
   messageAdmin('admin-pseudo-msg', '');
   $('admin-pseudo').value = '';
@@ -1802,6 +1839,7 @@ $('annonce-enregistrer').addEventListener('click', async () => {
   try {
     await Sync.enregistrerAnnonce({
       actif: $('annonce-actif').checked,
+      mode: $('annonce-mode').value,
       bloquant: $('annonce-bloquant').checked,
       titre: $('annonce-titre').value.trim(),
       message: $('annonce-message').value.trim(),

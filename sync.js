@@ -544,6 +544,7 @@ Sync.enregistrerAnnonce = function (annonce) {
   if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
   return fb.s.setDoc(docAnnonce(), {
     actif: !!annonce.actif,
+    mode: annonce.mode || 'carte',
     bloquant: !!annonce.bloquant,
     titre: (annonce.titre || '').slice(0, 120),
     message: (annonce.message || '').slice(0, 2000),

@@ -931,6 +931,10 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 :root[data-theme="dark"] .badge-test { background: #48484a; }
 
 /* ===== Annonce : bandeau (avis) et overlay (pause) ===== */
+@keyframes glisserBas {
+  from { transform: translateY(-110%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
 .annonce-banner {
   position: relative;
   display: flex;
@@ -942,6 +946,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   border: 1px solid var(--accent);
   border-radius: 12px;
   box-shadow: var(--shadow);
+  animation: glisserBas 0.3s ease;
 }
 .annonce-banner-corps { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .annonce-banner-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 14px; line-height: 1.4; }
@@ -951,6 +956,21 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .annonce-etat { font-size: 12px; color: var(--accent); }
 .annonce-banner .notice-close { position: absolute; top: 6px; right: 6px; }
 .annonce-banner .link-btn { flex: none; font-weight: 600; }
+
+/* Vitrine : image pleine largeur sous les listes, en mode vitrine. */
+.annonce-vitrine {
+  padding: 0 16px 20px;
+  text-align: center;
+}
+.annonce-vitrine-image {
+  width: 100%;
+  max-width: 560px;
+  border-radius: 16px;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 8px;
+}
+.annonce-vitrine .annonce-signe { display: block; font-size: 12px; color: var(--text-dim); }
 
 /* L'overlay couvre tout — modales comprises (z-index au-dessus de 100). C'est la
    pause : plus rien n'est atteignable tant qu'un admin ne l'a pas levée. */
@@ -993,3 +1013,15 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .annonce-apercu { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex: none; }
 .admin-image-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .admin-boutons { display: flex; gap: 10px; margin-top: 4px; }
+.admin-select {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  outline: none;
+  margin-bottom: 12px;
+  appearance: auto;
+}
