@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.5';
+const VERSION = 'v17.6';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -244,7 +244,7 @@ function deleteList(id) {
   save();
   if (currentListId === id) goHome();
   renderHome();
-  toast(`« ${list.name} » supprimée`);
+  toast(`« ${list.name} » supprimée`, true);
 }
 
 function colorPicker(id) {
@@ -395,7 +395,7 @@ elItems.addEventListener('click', e => {
     list.items = list.items.filter(i => i.id !== item.id);
     save();
     renderItems();
-    toast(`« ${item.text} » supprimé`);
+    toast(`« ${item.text} » supprimé`, true);
   }
 });
 
@@ -565,7 +565,7 @@ $('btn-list-menu').addEventListener('click', () => {
         snapshot();
         list.items = list.items.filter(i => !itemDone(i));
         save(); renderItems();
-        toast(`${doneCount} article${doneCount > 1 ? 's' : ''} supprimé${doneCount > 1 ? 's' : ''}`);
+        toast(`${doneCount} article${doneCount > 1 ? 's' : ''} supprimé${doneCount > 1 ? 's' : ''}`, true);
       } },
     { label: 'Dupliquer la liste', icon: '📄', run: () => { duplicateList(currentListId); toast('Liste dupliquée'); } },
     { label: 'Supprimer la liste', icon: '🗑️', danger: true, run: () => deleteList(currentListId) }
@@ -754,8 +754,14 @@ function snapshot() {
   undoSnapshot = JSON.stringify(state);
 }
 
-function toast(message) {
+/* `annulable` n'est vrai que pour ce qui se défait vraiment — les suppressions,
+   qui ont pris un instantané. Quitter une liste retire des membres côté serveur :
+   « Annuler » ne pourrait pas rejoindre à nouveau, alors le bouton ne s'affiche
+   pas. Le laisser partout annulait en douce la dernière suppression en mémoire. */
+function toast(message, annulable = false) {
   $('toast-text').textContent = message;
+  $('toast-undo').hidden = !annulable;
+  if (!annulable) undoSnapshot = null;
   $('toast').hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { $('toast').hidden = true; }, 5000);
@@ -877,7 +883,7 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
-  { version: 'v17.5', titre: 'Invitations et code ami', points: [
+  { version: 'v17.6', titre: 'Invitations et code ami', points: [
     'Une invitation à une liste se choisit maintenant : Rejoindre ou Refuser',
     'Un code ami, à donner pour être ajouté sans révéler ton adresse',
     'Quitter une liste partagée sans la supprimer pour les autres',

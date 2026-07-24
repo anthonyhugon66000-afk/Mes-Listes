@@ -1239,6 +1239,37 @@ suite('Recevoir une invitation', async () => {
   ev('fb = null; Sync.user = null');
 });
 
+/* ---------- Notification annulable ---------- */
+
+suite('Notification et bouton Annuler', () => {
+  const undo = () => ev('document.getElementById("toast-undo").hidden');
+
+  ev('toast("Rien d\'annulable")');
+  verifier('une notification ordinaire n\'offre pas Annuler', undo(), true);
+
+  ev('snapshot(); toast("Supprimé", true)');
+  verifier('une suppression offre Annuler', undo(), false);
+
+  // Une notification non annulable ne doit pas laisser traîner un instantané
+  // qu'un futur « Annuler » rejouerait.
+  ev('snapshot(); toast("Info non annulable")');
+  verifier('elle efface l\'instantané en attente', ev('undoSnapshot'), null);
+
+  // Quitter une liste : notification sans Annuler (on ne peut pas rejoindre seul).
+  ev('Sync.user = { uid: "moi", email: "a@b.c" }');
+  ev('Sync.quitter = () => Promise.resolve()');
+  poser({ hideDone: false, lists: [
+    { id: 'Q', name: 'À quitter', color: '#000', items: [], owner: 'autre', members: ['autre', 'moi'] }
+  ] });
+  ev('goHome(); quitterListe("Q")');
+  return new Promise(r => setTimeout(() => {
+    verifier('quitter retire la liste', ev('state.lists.length'), 0);
+    verifier('et sa notification n\'offre pas Annuler', undo(), true);
+    ev('Sync.user = null');
+    r();
+  }, 40));
+});
+
 /* ---------- Menu : quitter ou supprimer ---------- */
 
 suite('Menu d\'une liste : quitter ou supprimer', () => {
