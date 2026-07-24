@@ -2,7 +2,7 @@
 
 Application de listes d'articles, installable sur iPhone via safari. Aucune dépendance, aucun
 compte, aucun serveur : tes données restent sur ton téléphone.
-le site: https://anthonyhugon66000-afk.github.io/Mes-Listes/
+Voici le site: https://anthonyhugon66000-afk.github.io/Mes-Listes/
 
 ## Fonctionnalités
 
