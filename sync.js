@@ -17,13 +17,44 @@ const Sync = {
   user: null,           // { uid, email } quand connecté
   erreur: null,
   etat: 'local',        // local | synchro | envoi | horsligne | erreur
-  onChange: () => {}    // renseigné par app.js
+  annonce: null,        // dernière annonce globale reçue, ou null
+  onChange: () => {},   // renseigné par app.js
+  onAnnonce: () => {}   // renseigné par app.js — reçoit l'annonce globale
 };
 window.Sync = Sync;
+
+/* ---------- Comptes marqués : admins et comptes de test ----------
+
+   Chaque compte spécial est désigné par son UID Firebase, associé à un type de
+   marque : `admin` (doré) ou `test` (noir). L'UID est le choix le plus sûr —
+   c'est le seul identifiant que les règles Firestore vérifient sans faille
+   (`request.auth.uid`), impossible à usurper. Cette table sert à l'interface :
+   badge affiché, panneau d'administration réservé aux admins. La sécurité, elle,
+   vient des règles.
+
+   LA LISTE DES ADMINS DOIT RESTER D'ACCORD avec `firestore.rules` (fonction
+   `estAdmin`) : un admin ajouté ici doit l'être là-bas aussi, sans quoi ses
+   écritures (annonce, réservation de pseudo) seront refusées. On récupère un UID
+   dans la console Firebase : Authentication → Users → « Identifiant utilisateur ». */
+Sync.MARQUES = {
+  'jXcKGdfqQxNM8SZN3E4Y1nKX5d53': 'admin',   // compte Gmail
+  'IfPmjQ3iLyUwA8lCAiyumevQa793': 'test'      // compte iCloud — pseudo unique, non admin
+};
+
+// La marque d'un compte, ou '' s'il n'en a pas. `uid` optionnel : par défaut le
+// compte courant. L'argument sert à reconnaître un autre — l'auteur d'une
+// invitation, celui qui a coché une case.
+Sync.marque = (uid = Sync.user && Sync.user.uid) => (uid && Sync.MARQUES[uid]) || '';
+
+// Les admins découlent de la table : seuls les comptes marqués `admin`. Un
+// compte `test` n'a que son badge, aucun pouvoir.
+Sync.ADMINS = Object.keys(Sync.MARQUES).filter(u => Sync.MARQUES[u] === 'admin');
+Sync.estAdmin = (uid = Sync.user && Sync.user.uid) => !!uid && Sync.ADMINS.includes(uid);
 
 let fb = null;              // fonctions du SDK, une fois chargées
 let arreterEcoute = null;
 let arreterReglages = null;
+let arreterAnnonce = null;
 let envoye = new Map();     // id de liste -> signature déjà poussée
 let envoyeReglages = null;
 let chargement = null;
@@ -82,6 +113,10 @@ Sync.init = async function () {
 
     if (arreterEcoute) { arreterEcoute(); arreterEcoute = null; }
     if (arreterReglages) { arreterReglages(); arreterReglages = null; }
+    if (arreterAnnonce) { arreterAnnonce(); arreterAnnonce = null; }
+    // Se déconnecter efface l'annonce : elle ne vaut que pour les connectés.
+    Sync.annonce = null;
+    Sync.onAnnonce(null);
     Sync.oublierAvis();
     Sync.invitations = [];
     envoye = new Map();
@@ -294,6 +329,10 @@ async function demarrerEcoute() {
   }, e => signalerErreur(e, 'listes'));
 
   ecouterReglages();
+
+  // L'annonce globale : un message ou une pause décidés par un admin. Son échec
+  // est silencieux — l'app doit marcher même si cette lecture-là ne passe pas.
+  arreterAnnonce = Sync.ecouterAnnonce(a => { Sync.annonce = a; Sync.onAnnonce(a); });
 }
 
 /* ---------- Notifications poussées ----------
@@ -372,6 +411,8 @@ async function appelerWorker(charge) {
 
 const collectionInvites = () => fb.s.collection(fb.db, 'invites');
 const collectionCodes = () => fb.s.collection(fb.db, 'codes');
+const collectionPseudos = () => fb.s.collection(fb.db, 'pseudos');
+const docAnnonce = () => fb.s.doc(fb.db, 'config', 'annonce');
 const normaliser = e => String(e || '').trim().toLowerCase();
 
 // Deux façons d'adresser une invitation : à une adresse (la personne n'a
@@ -418,6 +459,99 @@ Sync.resoudreCode = async function (codeSaisi) {
   const snap = await fb.s.getDoc(fb.s.doc(collectionCodes(), code));
   if (!snap.exists()) throw { code: 'code/introuvable' };
   return snap.data().uid;
+};
+
+/* ---------- Pseudos réservés ----------
+
+   Certains pseudos sont uniques : réservés à un compte, indisponibles aux
+   autres. Le mécanisme reprend celui du code ami — une collection `pseudos`
+   dont chaque document porte le pseudo pour identifiant et l'UID de son
+   titulaire pour contenu. Seuls les admins y écrivent (voir les règles) : ils
+   protègent leur propre pseudo, et en réservent pour d'autres comptes,
+   secondaires ou non. Les pseudos non réservés restent libres, comme avant.
+
+   La clé du document est le pseudo réduit à sa forme comparable : sans espaces
+   superflus, en minuscules. Deux pseudos qui ne diffèrent que par la casse
+   désignent donc la même réservation. La barre oblique, seul caractère interdit
+   dans un identifiant Firestore, devient une espace. */
+const clePseudo = p => String(p || '').trim().toLowerCase().replace(/\//g, ' ').slice(0, 60);
+Sync.clePseudo = clePseudo;
+
+/* Un pseudo est-il disponible pour moi ? `libre` si personne ne l'a réservé,
+   `moi` s'il m'est déjà réservé, `pris` s'il appartient à un autre compte. */
+Sync.pseudoDisponible = async function (pseudo) {
+  const cle = clePseudo(pseudo);
+  if (!cle || !fb || !Sync.user) return 'libre';
+  const snap = await fb.s.getDoc(fb.s.doc(collectionPseudos(), cle));
+  if (!snap.exists()) return 'libre';
+  return snap.data().uid === Sync.user.uid ? 'moi' : 'pris';
+};
+
+/* Protéger son propre pseudo — réservé aux admins. On garde la clé réservée
+   dans les réglages du compte : sans cette trace, changer de pseudo laisserait
+   l'ancien bloqué pour tout le monde, faute de savoir lequel libérer. */
+Sync.reserverMonPseudo = async function (pseudo) {
+  if (!Sync.estAdmin() || !fb || !Sync.user) return;
+  const { s } = fb;
+  const cle = clePseudo(pseudo);
+  const ancienne = state.pseudoReserve || '';
+  if (ancienne && ancienne !== cle) {
+    try { await s.deleteDoc(s.doc(collectionPseudos(), ancienne)); } catch { /* déjà libre */ }
+  }
+  if (cle) await s.setDoc(s.doc(collectionPseudos(), cle), { uid: Sync.user.uid });
+  state.pseudoReserve = cle;
+  await s.setDoc(docReglages(), { pseudoReserve: cle }, { merge: true });
+  sauverLocalement();
+};
+
+/* Réserver un pseudo pour un autre compte — réservé aux admins. La cible se
+   désigne par son code ami (huit chiffres) ou directement par son UID. */
+Sync.reserverPseudoPour = async function (pseudo, cible) {
+  if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
+  const cle = clePseudo(pseudo);
+  if (!cle) throw { code: 'pseudo/vide' };
+  const saisie = String(cible || '').trim();
+  if (!saisie) throw { code: 'cible/vide' };
+  // Huit chiffres : c'est un code ami, qu'on traduit en UID. Sinon, c'est déjà
+  // un UID, qu'on prend tel quel.
+  const uidCible = /^[\d-]{8,9}$/.test(saisie) ? await Sync.resoudreCode(saisie) : saisie;
+  await fb.s.setDoc(fb.s.doc(collectionPseudos(), cle), { uid: uidCible });
+  return uidCible;
+};
+
+/* Libérer un pseudo réservé — réservé aux admins. */
+Sync.libererPseudo = async function (pseudo) {
+  if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
+  const cle = clePseudo(pseudo);
+  if (cle) await fb.s.deleteDoc(fb.s.doc(collectionPseudos(), cle));
+};
+
+/* ---------- Annonce globale ----------
+
+   Un admin peut afficher un message à l'entrée de l'app — un simple avis, ou
+   un écran bloquant qui met l'app en pause. Le message vit dans un unique
+   document `config/annonce`, lu par tout compte connecté et écrit par les seuls
+   admins (voir les règles). Comme le reste, ça ne touche que les comptes
+   connectés : sans compte, l'app ne charge même pas Firebase. */
+Sync.ecouterAnnonce = function (rappel) {
+  if (!fb) return () => {};
+  return fb.s.onSnapshot(docAnnonce(),
+    snap => rappel(snap.exists() ? snap.data() : null),
+    () => rappel(null));   // une annonce injoignable ne doit jamais bloquer l'app
+};
+
+Sync.enregistrerAnnonce = function (annonce) {
+  if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
+  return fb.s.setDoc(docAnnonce(), {
+    actif: !!annonce.actif,
+    bloquant: !!annonce.bloquant,
+    titre: (annonce.titre || '').slice(0, 120),
+    message: (annonce.message || '').slice(0, 2000),
+    image: annonce.image || '',
+    maj: fb.s.serverTimestamp(),
+    parNom: Sync.nomAffiche(),
+    parUid: Sync.user.uid
+  });
 };
 
 /* ---------- Inviter ---------- */
@@ -512,7 +646,7 @@ async function chargerInvitations() {
     const v = d.data();
     Sync.invitations.push({
       id: d.id, listId: v.listId, nomListe: v.nomListe || 'une liste',
-      deQui: v.inviteParNom || 'quelqu\'un'
+      deQui: v.inviteParNom || 'quelqu\'un', invitePar: v.invitePar || ''
     });
   });
 
@@ -571,6 +705,7 @@ function ecouterReglages() {
       state.theme = distant.theme || 'auto';
       state.accent = distant.accent || null;
       state.pseudo = distant.pseudo || '';
+      state.pseudoReserve = distant.pseudoReserve || '';
       if (distant.code) state.code = distant.code;
       envoyeReglages = signatureReglages();
       sauverLocalement();

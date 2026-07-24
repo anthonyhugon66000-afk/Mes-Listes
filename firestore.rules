@@ -13,6 +13,33 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /* Comptes administrateurs, désignés par leur UID. CETTE LISTE DOIT RESTER
+       D'ACCORD avec `Sync.MARQUES` dans `sync.js` (les entrées de type `admin`) :
+       un admin ajouté d'un côté sans l'autre verra ses écritures refusées, ou
+       gardera des pouvoirs qu'on croyait retirés. L'UID est le seul identifiant
+       infalsifiable — un e-mail dans le jeton peut être non vérifié. */
+    function estAdmin() {
+      return connecte()
+        && request.auth.uid in [
+          'jXcKGdfqQxNM8SZN3E4Y1nKX5d53'   // compte Gmail
+        ];
+    }
+
+    /* Configuration globale : l'annonce affichée à l'entrée de l'app. Tout compte
+       connecté la lit ; seul un admin l'écrit. */
+    match /config/{doc} {
+      allow read: if connecte();
+      allow write: if estAdmin();
+    }
+
+    /* Pseudos réservés : pseudo -> compte. Consultable un par un (`get`) pour
+       vérifier une disponibilité, jamais listable. Seuls les admins réservent ou
+       libèrent — leur propre pseudo, ou celui d'un autre compte. */
+    match /pseudos/{nom} {
+      allow get: if connecte();
+      allow write: if estAdmin();
+    }
+
     /* Réglages personnels : thème, couleur, pseudo, code ami, jetons de
        notification. Chacun chez soi. */
     match /users/{userId} {

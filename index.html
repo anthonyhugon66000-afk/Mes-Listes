@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.6">
+<link rel="stylesheet" href="styles.css?v17.7">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -53,6 +53,22 @@
       </button>
     </div>
   </header>
+
+  <!-- Annonce non bloquante : un avis posé par un admin. L'overlay bloquant, lui,
+       est en fin de page pour couvrir tout l'écran. -->
+  <div class="annonce-banner" id="annonce-banner" hidden>
+    <button class="notice-close" id="annonce-banner-close" aria-label="Masquer">×</button>
+    <div class="annonce-banner-corps">
+      <img class="annonce-vignette" id="annonce-b-image" alt="" hidden>
+      <div class="annonce-banner-texte">
+        <strong id="annonce-b-titre" hidden></strong>
+        <span id="annonce-b-message" hidden></span>
+        <span class="annonce-signe" id="annonce-b-signe"></span>
+        <span class="annonce-etat" id="annonce-b-etat"></span>
+      </div>
+    </div>
+    <button type="button" class="link-btn" id="annonce-b-gerer" hidden>Gérer</button>
+  </div>
 
   <div class="invite" id="sync-invite" hidden>
     <button class="notice-close" id="sync-invite-close" aria-label="Plus tard">×</button>
@@ -251,6 +267,7 @@
       <div id="account-in" hidden>
         <h2 class="auth-title">Ton compte</h2>
         <p class="auth-intro" id="account-who"></p>
+        <p class="auth-intro" id="account-marque" hidden></p>
 
         <p class="form-msg" id="account-msg-in" hidden></p>
 
@@ -345,6 +362,77 @@
   </div>
 </div>
 
+<!-- ========== ADMINISTRATION (admins seulement) ========== -->
+<div class="modal-backdrop" id="admin-backdrop" hidden>
+  <div class="modal modal-item" role="dialog" aria-modal="true">
+    <h2>Administration</h2>
+
+    <div class="modal-scroll">
+      <h3 class="admin-section">Annonce à l'entrée</h3>
+      <label class="admin-check">
+        <input type="checkbox" id="annonce-actif"> Afficher l'annonce
+      </label>
+      <label class="admin-check">
+        <input type="checkbox" id="annonce-bloquant"> Bloquer l'app (met en pause)
+      </label>
+
+      <label class="modal-label" for="annonce-titre">Titre</label>
+      <input type="text" id="annonce-titre" maxlength="120" placeholder="Titre du message">
+
+      <label class="modal-label" for="annonce-message">Message</label>
+      <textarea id="annonce-message" class="admin-textarea" maxlength="2000" rows="4"
+                placeholder="Ton message aux utilisateurs"></textarea>
+
+      <label class="modal-label">Image (facultative)</label>
+      <div class="admin-image">
+        <img id="annonce-apercu" class="annonce-apercu" alt="" hidden>
+        <div class="admin-image-actions">
+          <label class="link-btn" for="annonce-fichier">Choisir une image</label>
+          <input type="file" id="annonce-fichier" accept="image/*" hidden>
+          <button type="button" class="link-btn" id="annonce-image-retirer" hidden>Retirer</button>
+        </div>
+      </div>
+
+      <button type="button" class="modal-btn primary wide" id="annonce-enregistrer">Enregistrer l'annonce</button>
+      <p class="form-msg" id="annonce-msg" hidden></p>
+
+      <p class="sep"><span></span></p>
+
+      <h3 class="admin-section">Réserver un pseudo</h3>
+      <label class="modal-label" for="admin-pseudo">Pseudo à réserver</label>
+      <input type="text" id="admin-pseudo" maxlength="60" autocomplete="off" placeholder="Le pseudo unique">
+
+      <label class="modal-label" for="admin-cible">Pour le compte (code ami ou UID)</label>
+      <input type="text" id="admin-cible" autocomplete="off" placeholder="1234-5678 ou UID Firebase">
+
+      <div class="admin-boutons">
+        <button type="button" class="modal-btn primary" id="admin-reserver">Réserver</button>
+        <button type="button" class="modal-btn" id="admin-liberer">Libérer</button>
+      </div>
+      <p class="sheet-note left">
+        « Réserver » attribue le pseudo au compte visé : lui seul pourra le porter.
+        « Libérer » le rend de nouveau disponible pour tous (le champ compte est
+        alors inutile).
+      </p>
+      <p class="form-msg" id="admin-pseudo-msg" hidden></p>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="modal-btn" id="admin-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ANNONCE BLOQUANTE (pause) ========== -->
+<div class="annonce-overlay" id="annonce-overlay" hidden>
+  <div class="annonce-carte">
+    <h2 id="annonce-o-titre" hidden></h2>
+    <img class="annonce-image" id="annonce-o-image" alt="" hidden>
+    <p id="annonce-o-message" hidden></p>
+    <p class="annonce-signe" id="annonce-o-signe"></p>
+  </div>
+</div>
+
 <!-- ========== NOTIFICATION ========== -->
 <div class="toast" id="toast" hidden>
   <span id="toast-text"></span>
@@ -353,8 +441,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js?v17.6"></script>
-<script src="sync.js?v17.6"></script>
-<script src="app.js?v17.6"></script>
+<script src="firebase-config.js?v17.7"></script>
+<script src="sync.js?v17.7"></script>
+<script src="app.js?v17.7"></script>
 </body>
 </html>

@@ -911,3 +911,85 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   cursor: pointer;
   flex: none;
 }
+
+/* ===== Comptes marqués : badges admin (doré) et test (noir) ===== */
+.badge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+.badge-admin { background: #d4af37; color: #3a2c00; }
+.badge-test  { background: #1c1c1e; color: #ffffff; }
+/* En sombre, un noir plein disparaît sur le fond : on l'éclaircit juste assez. */
+:root[data-theme="dark"] .badge-test { background: #48484a; }
+
+/* ===== Annonce : bandeau (avis) et overlay (pause) ===== */
+.annonce-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 16px 0;
+  padding: 12px 40px 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.annonce-banner-corps { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.annonce-banner-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 14px; line-height: 1.4; }
+.annonce-banner-texte strong { font-size: 15px; }
+.annonce-vignette { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; }
+.annonce-signe { font-size: 12px; color: var(--text-dim); }
+.annonce-etat { font-size: 12px; color: var(--accent); }
+.annonce-banner .notice-close { position: absolute; top: 6px; right: 6px; }
+.annonce-banner .link-btn { flex: none; font-weight: 600; }
+
+/* L'overlay couvre tout — modales comprises (z-index au-dessus de 100). C'est la
+   pause : plus rien n'est atteignable tant qu'un admin ne l'a pas levée. */
+.annonce-overlay {
+  position: fixed; inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+.annonce-carte {
+  max-width: 420px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+  text-align: center;
+}
+.annonce-carte h2 { margin: 0 0 14px; font-size: 22px; }
+.annonce-carte p { margin: 0; font-size: 16px; line-height: 1.5; white-space: pre-wrap; }
+.annonce-image { max-width: 100%; border-radius: 14px; margin: 6px 0 16px; }
+.annonce-carte .annonce-signe { margin-top: 18px; }
+
+/* ===== Panneau d'administration ===== */
+.admin-section { margin: 4px 0 12px; font-size: 15px; }
+.admin-check { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 15px; cursor: pointer; }
+.admin-check input { width: auto; margin: 0; }
+.admin-textarea {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 16px;
+  background: var(--bg);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  outline: none;
+  resize: vertical;
+  margin-bottom: 14px;
+}
+.admin-textarea:focus { border-color: var(--accent); }
+.admin-image { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.annonce-apercu { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex: none; }
+.admin-image-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.admin-boutons { display: flex; gap: 10px; margin-top: 4px; }

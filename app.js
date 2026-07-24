@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.6';
+const VERSION = 'v17.7';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -290,13 +290,23 @@ function goHome() {
 
 const partagee = list => (list.members || []).length > 1;
 
+/* Un compte marqué porte un badge — le même partout : à côté du nom sur une
+   liste partagée, sur une invitation, dans la fenêtre Compte. Doré pour un
+   admin, noir pour un compte de test. Le libellé dit lequel. */
+const MARQUES_LIBELLE = { admin: 'admin', test: 'test' };
+function badgeMarque(uid) {
+  const type = Sync.marque(uid);
+  if (!type) return '';
+  return `<span class="badge badge-${type}" title="Compte ${type}" aria-label="compte ${type}">${MARQUES_LIBELLE[type]}</span>`;
+}
+
 /* Sur une liste à plusieurs, savoir qui a coché évite le doute — et le double
    achat. Inutile de se nommer soi-même, ni sur une liste qu'on est seul à voir. */
-function parQui(nom, list) {
+function parQui(nom, list, uid) {
   if (!partagee(list) || !nom || nom === Sync.nomAffiche()) return '';
   // Les cases cochées avant les pseudos portent une adresse : on n'en montre
   // que le début, comme on le faisait alors.
-  return `<span class="par-qui">${esc(String(nom).split('@')[0])}</span>`;
+  return `<span class="par-qui">${esc(String(nom).split('@')[0])}${badgeMarque(uid)}</span>`;
 }
 
 function renderItems() {
@@ -325,7 +335,7 @@ function renderItems() {
             ${seule ? `<span class="row-sub">${esc(seule.name)}</span>` : ''}
           </span>
         </button>
-        ${done ? parQui(item.doneBy, list) : ''}
+        ${done ? parQui(item.doneBy, list, item.doneByUid) : ''}
         ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
         <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
         <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
@@ -339,7 +349,7 @@ function renderItems() {
             <span class="check check-sm" style="background:${v.done ? list.color : 'transparent'}">${ICON.check}</span>
           </button>
           <span class="variant-name">${esc(v.name)}</span>
-          ${v.done ? parQui(v.doneBy, list) : ''}
+          ${v.done ? parQui(v.doneBy, list, v.doneByUid) : ''}
           ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
         </li>`).join('')}
       </ul>` : ''}
@@ -363,8 +373,13 @@ elItems.addEventListener('click', e => {
 
   // Qui a coché, pour les listes à plusieurs. Décocher efface la signature :
   // une case vide n'appartient à personne.
-  const signer = (cible, etat) => { if (etat) cible.doneBy = Sync.user ? Sync.nomAffiche() : null;
-                                    else delete cible.doneBy; };
+  // Le nom pour l'afficher, l'UID pour reconnaître un compte marqué (badge).
+  const signer = (cible, etat) => {
+    if (etat) {
+      cible.doneBy = Sync.user ? Sync.nomAffiche() : null;
+      if (Sync.user) cible.doneByUid = Sync.user.uid; else delete cible.doneByUid;
+    } else { delete cible.doneBy; delete cible.doneByUid; }
+  };
 
   const ligneVariante = e.target.closest('[data-vid]');
   if (ligneVariante && e.target.closest('[data-vtoggle]')) {
@@ -555,8 +570,8 @@ $('btn-list-menu').addEventListener('click', () => {
     { label: 'Tout décocher', icon: '↩️', run: () => {
         snapshot();
         list.items.forEach(i => {
-          i.done = false; delete i.doneBy;
-          i.variants.forEach(v => { v.done = false; delete v.doneBy; });
+          i.done = false; delete i.doneBy; delete i.doneByUid;
+          i.variants.forEach(v => { v.done = false; delete v.doneBy; delete v.doneByUid; });
         });
         save(); renderItems();
       } },
@@ -795,14 +810,21 @@ $('btn-settings').addEventListener('click', () => {
   const notifs = { granted: 'activées', denied: 'refusées', default: 'désactivées',
                    indisponible: 'indisponibles' }[etatNotifs()];
 
-  openSheet(`${count} liste${count > 1 ? 's' : ''}`, [
+  const actions = [
     { label: Sync.user ? 'Compte et synchronisation' : 'Se connecter', icon: '☁️', run: accountModal },
     { label: `Notifications — ${notifs}`, icon: '🔔', run: notifsModal },
     { label: 'Apparence', icon: '🎨', run: themePicker },
     { label: `Nouveautés de ${VERSION}`, icon: '✨', run: newsModal },
     { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
     { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
-  ], { html: `<p class="sheet-note">${esc(info)}</p>` });
+  ];
+  // Réservé aux admins : annonce globale et réservation de pseudos.
+  if (Sync.estAdmin()) {
+    actions.push({ label: 'Administration', icon: '✦', run: adminModal });
+  }
+
+  openSheet(`${count} liste${count > 1 ? 's' : ''}`, actions,
+    { html: `<p class="sheet-note">${esc(info)}</p>` });
 });
 
 /* ---------- Notifications ----------
@@ -883,6 +905,11 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v17.7', titre: 'Comptes vérifiés et annonces', points: [
+    'Un badge distingue les comptes administrateurs et de test',
+    'Certains pseudos sont désormais réservés, uniques à un compte',
+    'L\'équipe peut afficher un message, ou mettre l\'app en pause'
+  ] },
   { version: 'v17.6', titre: 'Invitations et code ami', points: [
     'Une invitation à une liste se choisit maintenant : Rejoindre ou Refuser',
     'Un code ami, à donner pour être ajouté sans révéler ton adresse',
@@ -964,7 +991,7 @@ function renderInvitationsRecues() {
   const invits = Sync.invitations || [];
   el.innerHTML = invits.map(inv => `
     <li class="invite-recue" data-inv="${esc(inv.id)}">
-      <span class="invite-texte"><strong>${esc(inv.deQui)}</strong> t'invite sur « ${esc(inv.nomListe)} »</span>
+      <span class="invite-texte"><strong>${esc(inv.deQui)}${badgeMarque(inv.invitePar)}</strong> t'invite sur « ${esc(inv.nomListe)} »</span>
       <span class="invite-actions">
         <button class="modal-btn primary" data-rejoindre>Rejoindre</button>
         <button class="link-btn" data-refuser>Refuser</button>
@@ -1181,7 +1208,19 @@ const ERREURS = {
   'code/invalide':
     'Un code ami est un nombre à huit chiffres, comme 1234-5678.',
   'code/introuvable':
-    "Aucun compte ne porte ce code. Vérifie les chiffres."
+    "Aucun compte ne porte ce code. Vérifie les chiffres.",
+  'pseudo/reserve':
+    'Ce pseudo est réservé à un autre compte. Choisis-en un autre.',
+  'pseudo/vide':
+    'Saisis le pseudo à réserver.',
+  'cible/vide':
+    'Indique le compte visé, par son code ami ou son UID.',
+  'admin/refuse':
+    "Cette action est réservée aux comptes administrateurs.",
+  'image/illisible':
+    "Ce fichier n'a pas pu être lu comme une image.",
+  'image/trop-grande':
+    "Cette image reste trop lourde même réduite. Choisis-en une plus légère."
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -1298,6 +1337,13 @@ function renderAccount() {
       `Connecté en tant que ${Sync.user.email || 'compte Google'}. Tes listes se synchronisent.`;
     $('account-pseudo').value = state.pseudo || '';
     $('account-code').textContent = Sync.codeAffiche() || 'attribution…';
+
+    // Un compte marqué le voit ici — admin (doré) ou compte de test (noir).
+    const type = Sync.marque();
+    const marque = $('account-marque');
+    marque.hidden = !type;
+    if (type) marque.innerHTML =
+      `Ce compte est un compte ${type} ${badgeMarque(Sync.user.uid)}`;
   }
   if (Sync.erreur) {
     const ou = { listes: 'les listes', reglages: "l'apparence",
@@ -1392,6 +1438,12 @@ $('btn-copier-code').addEventListener('click', async () => {
 $('btn-pseudo').addEventListener('click', () => {
   const pseudo = $('account-pseudo').value.trim().slice(0, 24);
   tenter('Enregistrement…', async () => {
+    // Un pseudo réservé par un autre compte est refusé. Les pseudos non
+    // réservés restent libres — la vérification ne bloque que les uniques.
+    if (pseudo && await Sync.pseudoDisponible(pseudo) === 'pris') throw { code: 'pseudo/reserve' };
+    // Un admin protège automatiquement son pseudo : personne d'autre ne pourra
+    // le prendre. Change-t-il de pseudo ? L'ancien est libéré.
+    if (Sync.estAdmin()) await Sync.reserverMonPseudo(pseudo);
     state.pseudo = pseudo;
     save();
     if (currentListId) renderItems();
@@ -1601,6 +1653,191 @@ function importData() {
   };
   input.click();
 }
+
+/* ============================================================
+   Administration — annonce globale et pseudos réservés
+   ============================================================ */
+
+const adminBackdrop = $('admin-backdrop');
+let annonceImage = '';          // image de l'annonce en cours d'édition (data URL)
+let annonceEcartee = false;     // bandeau non bloquant masqué pour cette session
+
+/* Une image de compte de service dans un document Firestore : il faut la réduire.
+   On la redessine plus petite et on la ré-encode en JPEG, en baissant la qualité
+   jusqu'à tenir sous la limite d'un document (1 Mo). Rare et réservé aux admins :
+   la simplicité prime sur la finesse. */
+function redimensionnerImage(file, maxDim, qualite) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const echelle = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * echelle), h = Math.round(img.height * echelle);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(img.src);
+      resolve(canvas.toDataURL('image/jpeg', qualite));
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); reject({ code: 'image/illisible' }); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function preparerImage(file) {
+  for (let qualite = 0.7; qualite >= 0.3; qualite -= 0.2) {
+    const url = await redimensionnerImage(file, 1280, qualite);
+    if (url.length <= 900000) return url;   // ~900 Ko encodés, sous la limite Firestore
+  }
+  throw { code: 'image/trop-grande' };
+}
+
+/* ---------- Affichage de l'annonce ----------
+
+   Un admin n'est jamais bloqué : sinon une pause l'empêcherait d'aller la lever.
+   Il voit le bandeau, jamais l'overlay, avec un bouton pour ouvrir le panneau. */
+function renderAnnonce(a) {
+  const overlay = $('annonce-overlay');
+  const banner = $('annonce-banner');
+  const actif = !!(a && a.actif && (a.titre || a.message || a.image));
+  const admin = Sync.estAdmin();
+  const bloquant = actif && a.bloquant && !admin;
+
+  overlay.hidden = !bloquant;
+  if (bloquant) {
+    $('annonce-o-titre').textContent = a.titre || '';
+    $('annonce-o-titre').hidden = !a.titre;
+    $('annonce-o-message').textContent = a.message || '';
+    $('annonce-o-message').hidden = !a.message;
+    poserImage($('annonce-o-image'), a.image);
+    signer($('annonce-o-signe'), a);
+  }
+
+  const montrerBandeau = actif && !bloquant && !annonceEcartee;
+  banner.hidden = !montrerBandeau;
+  if (montrerBandeau) {
+    $('annonce-b-titre').textContent = a.titre || '';
+    $('annonce-b-titre').hidden = !a.titre;
+    $('annonce-b-message').textContent = a.message || '';
+    $('annonce-b-message').hidden = !a.message;
+    poserImage($('annonce-b-image'), a.image);
+    signer($('annonce-b-signe'), a);
+    // Pour l'admin, le bandeau rappelle si l'annonce bloque les autres, et
+    // ouvre le panneau d'un geste.
+    $('annonce-b-gerer').hidden = !admin;
+    $('annonce-b-etat').textContent = admin && a.bloquant ? ' · bloquante pour les autres' : '';
+  }
+
+  function poserImage(el, url) {
+    el.hidden = !url;
+    if (url) el.src = url;
+  }
+  function signer(el, a) {
+    el.innerHTML = a.parNom ? `— ${esc(a.parNom)}${badgeMarque(a.parUid)}` : '';
+  }
+}
+Sync.onAnnonce = renderAnnonce;
+
+$('annonce-banner-close').addEventListener('click', () => {
+  annonceEcartee = true;
+  $('annonce-banner').hidden = true;
+});
+$('annonce-b-gerer').addEventListener('click', adminModal);
+
+/* ---------- Panneau d'administration ---------- */
+
+function adminModal() {
+  const a = Sync.annonce || {};
+  $('annonce-actif').checked = !!a.actif;
+  $('annonce-bloquant').checked = !!a.bloquant;
+  $('annonce-titre').value = a.titre || '';
+  $('annonce-message').value = a.message || '';
+  annonceImage = a.image || '';
+  majApercuImage();
+  messageAdmin('annonce-msg', '');
+  messageAdmin('admin-pseudo-msg', '');
+  $('admin-pseudo').value = '';
+  $('admin-cible').value = '';
+  adminBackdrop.hidden = false;
+}
+
+function closeAdmin() { adminBackdrop.hidden = true; }
+$('admin-close').addEventListener('click', closeAdmin);
+adminBackdrop.addEventListener('click', e => { if (e.target === adminBackdrop) closeAdmin(); });
+
+function majApercuImage() {
+  const apercu = $('annonce-apercu');
+  apercu.hidden = !annonceImage;
+  if (annonceImage) apercu.src = annonceImage;
+  $('annonce-image-retirer').hidden = !annonceImage;
+}
+
+function messageAdmin(id, texte, type) {
+  const el = $(id);
+  el.textContent = texte || '';
+  el.hidden = !texte;
+  el.classList.toggle('erreur', type === 'erreur');
+}
+
+$('annonce-fichier').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';   // repartir vierge : rechoisir le même fichier redéclenche
+  if (!file) return;
+  messageAdmin('annonce-msg', 'Préparation de l\'image…');
+  try {
+    annonceImage = await preparerImage(file);
+    majApercuImage();
+    messageAdmin('annonce-msg', '');
+  } catch (err) {
+    messageAdmin('annonce-msg', messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('annonce-image-retirer').addEventListener('click', () => {
+  annonceImage = '';
+  majApercuImage();
+});
+
+$('annonce-enregistrer').addEventListener('click', async () => {
+  messageAdmin('annonce-msg', 'Enregistrement…');
+  try {
+    await Sync.enregistrerAnnonce({
+      actif: $('annonce-actif').checked,
+      bloquant: $('annonce-bloquant').checked,
+      titre: $('annonce-titre').value.trim(),
+      message: $('annonce-message').value.trim(),
+      image: annonceImage
+    });
+    messageAdmin('annonce-msg', $('annonce-actif').checked
+      ? 'Annonce publiée. Elle apparaît chez les comptes connectés.'
+      : 'Annonce enregistrée, masquée pour l\'instant.');
+  } catch (err) {
+    messageAdmin('annonce-msg', messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('admin-reserver').addEventListener('click', async () => {
+  const pseudo = $('admin-pseudo').value.trim();
+  const cible = $('admin-cible').value.trim();
+  messageAdmin('admin-pseudo-msg', 'Réservation…');
+  try {
+    await Sync.reserverPseudoPour(pseudo, cible);
+    messageAdmin('admin-pseudo-msg', `« ${pseudo} » est réservé à ce compte, lui seul pourra le porter.`);
+  } catch (err) {
+    messageAdmin('admin-pseudo-msg', messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('admin-liberer').addEventListener('click', async () => {
+  const pseudo = $('admin-pseudo').value.trim();
+  if (!pseudo) return messageAdmin('admin-pseudo-msg', messageErreur('pseudo/vide'), 'erreur');
+  messageAdmin('admin-pseudo-msg', 'Libération…');
+  try {
+    await Sync.libererPseudo(pseudo);
+    messageAdmin('admin-pseudo-msg', `« ${pseudo} » est de nouveau libre pour tous.`);
+  } catch (err) {
+    messageAdmin('admin-pseudo-msg', messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
 
 /* ============================================================
    Démarrage

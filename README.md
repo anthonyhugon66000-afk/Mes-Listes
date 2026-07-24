@@ -189,6 +189,54 @@ Menu **⋯** → **Compte** → **Ton pseudo**. Il remplace le début de ton adr
 partout où les autres te voient : l'étiquette de qui a coché quoi. Il suit le
 compte, comme le thème. Laissé vide, c'est le début de l'adresse qui s'affiche.
 
+Certains pseudos sont **réservés** : uniques, attribués à un seul compte. Tenter
+d'en prendre un qui appartient à un autre est refusé — les pseudos non réservés,
+eux, restent libres et peuvent coïncider. La réservation est posée par un admin
+(voir ci-dessous) ; elle est rangée dans la collection `pseudos`, consultable un
+par un si l'on connaît le pseudo exact, jamais listable.
+
+## Administration
+
+Certains comptes sont **administrateurs**. Ils sont désignés par leur UID
+Firebase, en dur, **à deux endroits qui doivent rester d'accord** :
+
+| Fichier | Ce qu'il porte |
+|---|---|
+| `sync.js` | la table `Sync.MARQUES` (type `admin`) |
+| `firestore.rules` | la liste de la fonction `estAdmin` |
+
+L'UID est le choix le plus sûr : c'est le seul identifiant que les règles
+vérifient sans faille, impossible à usurper. On le récupère dans la console
+Firebase : **Authentication → Users → « Identifiant utilisateur »**. Ajouter un
+admin, c'est l'ajouter aux **deux** fichiers — la table côté app pour l'interface,
+les règles pour les droits ; l'un sans l'autre laisse un admin sans pouvoir, ou
+un pouvoir sans garde-fou.
+
+Un compte peut aussi être marqué **`test`** dans `Sync.MARQUES` : il reçoit
+seulement un badge, sans aucun pouvoir d'admin.
+
+**Badge.** Un compte marqué se reconnaît partout où son nom apparaît — à côté de
+qui a coché, sur une invitation, dans la fenêtre Compte : badge **doré** pour un
+admin, **noir** pour un compte de test.
+
+**Annonce à l'entrée.** Menu **⋯** → **Administration**. Un admin y compose un
+message — titre, texte, image facultative — affiché aux comptes connectés à
+l'ouverture. Deux modes : un simple **avis** (bandeau, l'app reste utilisable),
+ou une **pause** bloquante qui gèle l'app derrière le message. L'admin, lui,
+n'est jamais bloqué : il voit le bandeau, avec un accès direct au panneau — sans
+quoi une pause l'empêcherait d'aller la lever. L'annonce vit dans
+`config/annonce`, lue par tout compte connecté, écrite par les seuls admins.
+
+*Limite assumée :* comme tout ce qui touche au compte, l'annonce ne concerne que
+les comptes **connectés**. Sans compte, l'app ne télécharge même pas Firebase :
+rien ne peut l'atteindre. L'image est réduite et ré-encodée avant l'envoi, pour
+tenir sous la limite d'un document Firestore.
+
+**Réserver un pseudo.** Toujours dans le panneau **Administration**. L'admin
+saisit un pseudo et le compte cible — par **code ami** ou directement par
+**UID** — et le pseudo lui est réservé : lui seul pourra le porter. Le pseudo
+d'un admin est protégé automatiquement dès qu'il l'enregistre.
+
 ## Nouveautés
 
 Menu **⋯** → **Nouveautés**. La fenêtre s'ouvre aussi d'elle-même au premier

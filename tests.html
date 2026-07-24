@@ -381,6 +381,92 @@ suite('Écran des articles', () => {
     ev('!!document.querySelector(".par-qui")'), false);
 });
 
+/* ---------- Comptes marqués et administration ---------- */
+
+suite('Comptes marqués et administration', async () => {
+  const GMAIL = 'jXcKGdfqQxNM8SZN3E4Y1nKX5d53';    // admin (doré)
+  const ICLOUD = 'IfPmjQ3iLyUwA8lCAiyumevQa793';   // compte test (noir)
+  ev('Sync.erreur = null; fb = null');
+
+  // Reconnaissance des comptes.
+  verifier('marque admin pour le compte Gmail', ev(`Sync.marque("${GMAIL}")`), 'admin');
+  verifier('marque test pour le compte iCloud', ev(`Sync.marque("${ICLOUD}")`), 'test');
+  verifier('aucune marque pour un inconnu', ev('Sync.marque("qui")'), '');
+  verifierVrai('le compte Gmail est admin', ev(`Sync.estAdmin("${GMAIL}")`));
+  verifier('le compte iCloud n\'est pas admin (pseudo unique seulement)',
+    ev(`Sync.estAdmin("${ICLOUD}")`), false);
+  verifier('un inconnu n\'est pas admin', ev('Sync.estAdmin("qui")'), false);
+
+  // Badge : doré pour l'admin, noir pour le test, rien pour les autres.
+  verifierVrai('badge doré pour un admin', ev(`badgeMarque("${GMAIL}").includes("badge-admin")`));
+  verifierVrai('badge noir pour un compte test', ev(`badgeMarque("${ICLOUD}").includes("badge-test")`));
+  verifier('aucun badge pour un compte ordinaire', ev('badgeMarque("qui")'), '');
+
+  // Clé d'un pseudo réservé : minuscules, sans espaces superflus, sans barre oblique.
+  verifier('la clé d\'un pseudo est ramenée en minuscules et resserrée',
+    ev('Sync.clePseudo("  Le Chef  ")'), 'le chef');
+  verifier('la barre oblique, interdite dans un identifiant, devient une espace',
+    ev('Sync.clePseudo("a/b")'), 'a b');
+
+  // Badge à côté de qui a coché, sur une liste partagée.
+  ev('Sync.user = { uid: "moi", email: "moi@example.com" }');
+  poser({ hideDone: false, lists: [{
+    id: 'L1', name: 'Courses', color: '#34c759',
+    members: ['moi', 'autre'], memberEmails: ['moi@example.com', 'autre@example.com'],
+    items: [
+      article('a', 'Pommes', { done: true, doneBy: 'Chef', doneByUid: GMAIL }),
+      article('b', 'Lait', { done: true, doneBy: 'Testeur', doneByUid: ICLOUD }),
+      article('c', 'Sel', { done: true, doneBy: 'Bob', doneByUid: 'inconnu' }),
+      article('d', 'Pain')
+    ]
+  }] });
+  ev('currentListId = "L1"; renderItems()');
+  verifierVrai('la case cochée par un admin porte le badge doré',
+    ev('!!document.querySelector(\'[data-id="a"] .par-qui .badge-admin\')'));
+  verifierVrai('la case cochée par un compte test porte le badge noir',
+    ev('!!document.querySelector(\'[data-id="b"] .par-qui .badge-test\')'));
+  verifier('la case cochée par un compte ordinaire ne porte aucun badge',
+    ev('!!document.querySelector(\'[data-id="c"] .par-qui .badge\')'), false);
+
+  // Cocher enregistre l'UID de l'auteur, décocher l'efface.
+  ev('document.querySelector(\'[data-id="d"] [data-toggle]\').click()');
+  verifier('cocher enregistre l\'UID de l\'auteur',
+    ev('state.lists[0].items[3].doneByUid'), 'moi');
+  ev('document.querySelector(\'[data-id="d"] [data-toggle]\').click()');
+  verifier('décocher efface l\'UID de l\'auteur',
+    ev('"doneByUid" in state.lists[0].items[3]'), false);
+
+  // Entrée « Administration » dans le menu ⋯ : admins seulement.
+  ev(`closeSheet(); Sync.user = { uid: "${GMAIL}", email: "chef@example.com" }`);
+  ev('document.getElementById("btn-settings").click()');
+  verifierVrai('le menu montre Administration à un admin',
+    ev('document.getElementById("sheet-body").textContent.includes("Administration")'));
+  ev('closeSheet(); Sync.user = { uid: "autre", email: "autre@example.com" }');
+  ev('document.getElementById("btn-settings").click()');
+  verifier('le menu cache Administration aux autres',
+    ev('document.getElementById("sheet-body").textContent.includes("Administration")'), false);
+  ev('closeSheet()');
+
+  // Fenêtre Compte : la marque du compte s'y affiche.
+  ev(`Sync.user = { uid: "${GMAIL}", email: "chef@example.com" }; renderAccount()`);
+  verifier('la fenêtre Compte révèle la marque d\'un compte marqué',
+    ev('document.getElementById("account-marque").hidden'), false);
+  verifierVrai('la marque affichée est le badge admin',
+    ev('document.getElementById("account-marque").innerHTML.includes("badge-admin")'));
+  ev('Sync.user = { uid: "autre", email: "autre@example.com" }; renderAccount()');
+  verifier('rien ne s\'affiche pour un compte ordinaire',
+    ev('document.getElementById("account-marque").hidden'), true);
+
+  // Les actions d'admin sont refusées aux autres, avant même de toucher au réseau.
+  ev('Sync.user = { uid: "autre", email: "autre@example.com" }');
+  await verifierLeve('réserver un pseudo est refusé à un non-admin',
+    () => ev('Sync.reserverPseudoPour("x", "12345678")'), 'admin/refuse');
+  await verifierLeve('publier une annonce est refusé à un non-admin',
+    () => ev('Sync.enregistrerAnnonce({ actif: true })'), 'admin/refuse');
+
+  ev('Sync.user = null; Sync.erreur = null');
+});
+
 /* ---------- Cochage en cascade ---------- */
 
 suite('Cochage en cascade', () => {
