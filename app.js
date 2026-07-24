@@ -1732,6 +1732,7 @@ function renderAnnonce(a) {
                         : !!(a.titre || a.message || a.image));
   const montrerBandeau = actif && !bloquant && !montrerVitrine
                        && aBandeauContenu;
+  banner.classList.toggle('annonce-banner--fixe', mode === 'bandeau');
   banner.hidden = !montrerBandeau;
   if (montrerBandeau) {
     $('annonce-b-titre').textContent = a.titre || '';

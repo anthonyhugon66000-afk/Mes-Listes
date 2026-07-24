@@ -935,6 +935,10 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   from { transform: translateY(-110%); opacity: 0; }
   to   { transform: translateY(0);     opacity: 1; }
 }
+@keyframes glisserDepuisHaut {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
 .annonce-banner {
   position: relative;
   display: flex;
@@ -947,6 +951,19 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   border-radius: 12px;
   box-shadow: var(--shadow);
   animation: glisserBas 0.3s ease;
+}
+/* Mode bandeau : barre fixe qui descend depuis le haut, par-dessus tout. */
+.annonce-banner--fixe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  margin: 0;
+  border-radius: 0 0 14px 14px;
+  border-top: none;
+  padding-top: max(12px, env(safe-area-inset-top));
+  animation: glisserDepuisHaut 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .annonce-banner-corps { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .annonce-banner-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 14px; line-height: 1.4; }
