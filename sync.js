@@ -82,6 +82,8 @@ Sync.init = async function () {
 
     if (arreterEcoute) { arreterEcoute(); arreterEcoute = null; }
     if (arreterReglages) { arreterReglages(); arreterReglages = null; }
+    Sync.oublierAvis();
+    Sync.invitations = [];
     envoye = new Map();
     envoyeReglages = null;
     Sync.etat = utilisateur ? 'envoi' : 'local';
@@ -218,10 +220,9 @@ const noterEnvoyees = () => {
 async function demarrerEcoute() {
   const { s } = fb;
 
-  // Avant tout : récupérer les listes qu'on nous a partagées, sinon elles
-  // n'apparaîtraient qu'au prochain lancement.
-  Sync.recues = [];
-  try { await accepterInvitations(); } catch (e) { signalerErreur(e, 'invitations'); }
+  // Récupérer les invitations en attente, pour les proposer sur l'écran
+  // d'accueil. On ne rejoint plus tout seul.
+  try { await chargerInvitations(); } catch (e) { signalerErreur(e, 'invitations'); }
 
   const requete = s.query(collectionListes(), s.where('members', 'array-contains', Sync.user.uid));
 
@@ -329,6 +330,13 @@ Sync.prevenirMembres = function (liste) {
   attentes.set(liste.id, setTimeout(() => envoyerAvis(liste.id, liste.name), 5000));
 };
 
+/* Un avis en attente ne doit pas partir après un changement de compte : il
+   emprunterait l'identité du compte suivant. */
+Sync.oublierAvis = function () {
+  attentes.forEach(clearTimeout);
+  attentes.clear();
+};
+
 async function envoyerAvis(listeId, nomListe) {
   attentes.delete(listeId);
   appelerWorker({
@@ -363,49 +371,112 @@ async function appelerWorker(charge) {
    courriel n'est envoyé — il n'y a pas de serveur pour le faire. */
 
 const collectionInvites = () => fb.s.collection(fb.db, 'invites');
+const collectionCodes = () => fb.s.collection(fb.db, 'codes');
 const normaliser = e => String(e || '').trim().toLowerCase();
-const idInvite = (listId, email) => `${listId}__${normaliser(email)}`;
+
+// Deux façons d'adresser une invitation : à une adresse (la personne n'a
+// peut-être pas encore de compte) ou à un identifiant de compte (invité par son
+// code ami). L'identifiant du document en découle, pour que les règles puissent
+// vérifier son existence sans requête.
+const idInviteEmail = (listId, email) => `${listId}__${normaliser(email)}`;
+const idInviteUid = (listId, uid) => `${listId}__u_${uid}`;
+
+/* ---------- Code ami ----------
+
+   Un e-mail est unique mais indiscret, un pseudo est lisible mais ambigu. Le
+   code ami tranche : un numéro court, unique, sans rien révéler de son porteur.
+   On le partage, l'autre le tape, et l'invitation part. */
+
+const normaliserCode = c => String(c || '').replace(/\D/g, '');
+const genererCode = () => String(Math.floor(10000000 + Math.random() * 90000000));
+
+// Affiché groupé — 1234-5678 se lit et se dicte mieux que 12345678.
+Sync.codeAffiche = () => state.code ? state.code.replace(/(\d{4})(\d{4})/, '$1-$2') : '';
+
+/* Réserve un code au compte, une fois. Le document `codes/{code}` ne peut être
+   créé que s'il n'existe pas déjà : une collision tombe dans le catch, et on
+   retente avec un autre numéro. */
+async function assurerCode() {
+  if (state.code || !fb || !Sync.user) return;
+  const { s } = fb;
+  for (let essai = 0; essai < 6; essai++) {
+    const code = genererCode();
+    try {
+      await s.setDoc(s.doc(collectionCodes(), code), { uid: Sync.user.uid });
+      state.code = code;
+      await s.setDoc(docReglages(), { code }, { merge: true });
+      sauverLocalement();
+      Sync.onChange();
+      return;
+    } catch { /* déjà pris : on retente */ }
+  }
+}
+
+Sync.resoudreCode = async function (codeSaisi) {
+  const code = normaliserCode(codeSaisi);
+  if (code.length !== 8) throw { code: 'code/invalide' };
+  const snap = await fb.s.getDoc(fb.s.doc(collectionCodes(), code));
+  if (!snap.exists()) throw { code: 'code/introuvable' };
+  return snap.data().uid;
+};
+
+/* ---------- Inviter ---------- */
 
 Sync.inviter = async function (listId, email, nomListe) {
   const adresse = normaliser(email);
   if (!adresse.includes('@')) throw { code: 'auth/invalid-email' };
   if (adresse === normaliser(Sync.user.email)) throw { code: 'deja-membre' };
-  await fb.s.setDoc(fb.s.doc(collectionInvites(), idInvite(listId, adresse)), {
-    listId,
-    email: adresse,
-    nomListe: nomListe || '',
-    invitePar: Sync.user.uid,
-    inviteParEmail: Sync.user.email || '',
+
+  await fb.s.setDoc(fb.s.doc(collectionInvites(), idInviteEmail(listId, adresse)), {
+    listId, nomListe: nomListe || '',
+    cibleEmail: adresse, cibleUid: '',
+    invitePar: Sync.user.uid, inviteParNom: Sync.nomAffiche(),
     creeLe: fb.s.serverTimestamp()
   });
 
-  // L'invité n'est pas encore membre : le Worker le retrouvera par son adresse.
-  // Sans cet appel, il ne l'apprendrait qu'en rouvrant l'app de lui-même.
   appelerWorker({
-    action: 'invitation',
-    listeId: listId,
-    email: adresse,
+    action: 'invitation', listeId: listId, email: adresse,
     titre: 'Une liste partagée avec toi',
     corps: `${Sync.nomAffiche()} t'invite sur « ${nomListe || 'une liste'} ».`
   });
 };
 
-Sync.annulerInvitation = (listId, email) =>
-  fb.s.deleteDoc(fb.s.doc(collectionInvites(), idInvite(listId, email)));
+Sync.inviterParCode = async function (listId, codeSaisi, nomListe) {
+  const uidCible = await Sync.resoudreCode(codeSaisi);
+  if (uidCible === Sync.user.uid) throw { code: 'deja-membre' };
+  const liste = getList(listId);
+  if (liste && (liste.members || []).includes(uidCible)) throw { code: 'deja-membre' };
+
+  await fb.s.setDoc(fb.s.doc(collectionInvites(), idInviteUid(listId, uidCible)), {
+    listId, nomListe: nomListe || '',
+    cibleEmail: '', cibleUid: uidCible,
+    invitePar: Sync.user.uid, inviteParNom: Sync.nomAffiche(),
+    creeLe: fb.s.serverTimestamp()
+  });
+
+  appelerWorker({
+    action: 'invitation', listeId: listId, cibleUid: uidCible,
+    titre: 'Une liste partagée avec toi',
+    corps: `${Sync.nomAffiche()} t'invite sur « ${nomListe || 'une liste'} ».`
+  });
+};
+
+Sync.annulerInvitation = inviteId =>
+  fb.s.deleteDoc(fb.s.doc(collectionInvites(), inviteId));
 
 /* Invitations encore en attente sur une liste, pour que celui qui invite ne
-   reste pas sans nouvelles. */
+   reste pas sans nouvelles. Le filtre sur `invitePar` n'est pas cosmétique : la
+   règle de lecture est un « ou », et Firestore n'accepte une requête que s'il
+   peut prouver l'un de ses termes à partir des filtres. */
 Sync.ecouterInvitations = function (listId, rappel) {
   if (!fb || !Sync.user) return () => {};
   const { s } = fb;
-  // Le filtre sur `invitePar` n'est pas cosmétique : la règle de lecture est un
-  // « ou », et Firestore n'accepte une requête que s'il peut prouver l'un des
-  // deux termes à partir de ses filtres. Sans lui, la requête est refusée.
   return s.onSnapshot(
     s.query(collectionInvites(),
       s.where('listId', '==', listId),
       s.where('invitePar', '==', Sync.user.uid)),
-    instantane => rappel(instantane.docs.map(d => d.data().email)),
+    instantane => rappel(instantane.docs.map(d =>
+      ({ id: d.id, label: d.data().cibleEmail || 'invité par code' }))),
     e => { signalerErreur(e, 'invitations'); rappel([]); }
   );
 };
@@ -422,33 +493,61 @@ Sync.quitter = function (listId) {
   return Sync.retirerMembre(listId, Sync.user.uid, Sync.user.email);
 };
 
-/* Au démarrage : on ramasse ce qui nous attend. L'ajout et la suppression de
-   l'invitation sont deux écritures distinctes — si la seconde échoue, la
-   prochaine ouverture retentera sans rien casser, `arrayUnion` ne duplique pas. */
-async function accepterInvitations() {
+/* ---------- Recevoir une invitation ----------
+
+   On ne rejoint plus automatiquement : rejoindre la liste d'un autre est un
+   choix. On récupère seulement ce qui nous attend, l'app l'affiche, et
+   l'utilisateur accepte ou refuse. */
+
+Sync.invitations = [];   // invitations en attente qui nous sont adressées
+Sync.modifs = [];        // modifications faites par d'autres, à signaler
+
+async function chargerInvitations() {
   const { s } = fb;
-  const adresse = normaliser(Sync.user.email);
-  if (!adresse) return;
+  Sync.invitations = [];
+  const vues = new Set();
+  const ajouter = docs => docs.forEach(d => {
+    if (vues.has(d.id)) return;
+    vues.add(d.id);
+    const v = d.data();
+    Sync.invitations.push({
+      id: d.id, listId: v.listId, nomListe: v.nomListe || 'une liste',
+      deQui: v.inviteParNom || 'quelqu\'un'
+    });
+  });
 
-  const attendues = await s.getDocs(
-    s.query(collectionInvites(), s.where('email', '==', adresse)));
-
-  for (const invitation of attendues.docs) {
-    try {
-      await s.updateDoc(s.doc(collectionListes(), invitation.data().listId), {
-        members: s.arrayUnion(Sync.user.uid),
-        memberEmails: s.arrayUnion(Sync.user.email)
-      });
-      await s.deleteDoc(invitation.ref);
-      Sync.recues.push(invitation.data().nomListe || 'une liste');
-    } catch (e) {
-      signalerErreur(e, 'invitations');
+  try {
+    const adresse = normaliser(Sync.user.email);
+    if (adresse) {
+      const parEmail = await s.getDocs(
+        s.query(collectionInvites(), s.where('cibleEmail', '==', adresse)));
+      ajouter(parEmail.docs);
     }
+    const parCode = await s.getDocs(
+      s.query(collectionInvites(), s.where('cibleUid', '==', Sync.user.uid)));
+    ajouter(parCode.docs);
+  } catch (e) {
+    signalerErreur(e, 'invitations');
   }
 }
 
-Sync.recues = [];   // listes récupérées à l'ouverture, pour le message
-Sync.modifs = [];   // modifications faites par d'autres, à signaler
+/* Rejoindre : on s'ajoute soi-même à la liste, puis on consomme l'invitation.
+   Deux écritures — si la seconde échoue, l'invitation resservira, `arrayUnion`
+   ne duplique pas. */
+Sync.rejoindre = async function (inv) {
+  const { s } = fb;
+  await s.updateDoc(s.doc(collectionListes(), inv.listId), {
+    members: s.arrayUnion(Sync.user.uid),
+    memberEmails: s.arrayUnion(Sync.user.email || '')
+  });
+  await s.deleteDoc(s.doc(collectionInvites(), inv.id));
+  Sync.invitations = Sync.invitations.filter(i => i.id !== inv.id);
+};
+
+Sync.refuser = async function (inv) {
+  await fb.s.deleteDoc(fb.s.doc(collectionInvites(), inv.id));
+  Sync.invitations = Sync.invitations.filter(i => i.id !== inv.id);
+};
 
 /* ---------- Apparence ----------
 
@@ -472,9 +571,11 @@ function ecouterReglages() {
       state.theme = distant.theme || 'auto';
       state.accent = distant.accent || null;
       state.pseudo = distant.pseudo || '';
+      if (distant.code) state.code = distant.code;
       envoyeReglages = signatureReglages();
       sauverLocalement();
       applyTheme();
+      assurerCode();   // aucun code encore ? on en réserve un
       Sync.onChange();
     } else {
       // Rien en ligne : ce premier appareil donne le ton au compte.

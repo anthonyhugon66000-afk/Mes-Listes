@@ -65,10 +65,20 @@ Ce détour vient d'une contrainte réelle : rien ne permet de traduire une adres
 en identifiant de compte avant que la personne se connecte. Publier cette
 correspondance laisserait n'importe qui parcourir les adresses de tout le monde.
 
+On peut aussi inviter par **code ami** : chaque compte reçoit un numéro court et
+unique (affiché dans ⋯ → Compte), à donner sans révéler son adresse. Il est rangé
+dans la collection `codes`, consultable un par un si l'on connaît le numéro
+exact, jamais listable — personne ne peut parcourir l'annuaire.
+
+**Une invitation ne rejoint plus automatiquement.** Elle attend sur l'écran
+d'accueil de la personne, qui **Rejoint** ou **Refuse**. Deux voies coexistent :
+par adresse (l'invitation est adressée à l'e-mail, la personne n'a pas forcément
+de compte) ou par code (adressée à l'identifiant du compte).
+
 Chacun coche de son côté, tout le monde voit les modifications. Le propriétaire
-peut retirer quelqu'un ou annuler une invitation en attente ; les autres peuvent
-quitter la liste. **Seul le propriétaire peut supprimer la liste** — sinon un
-invité effacerait le travail commun.
+peut retirer quelqu'un ou annuler une invitation en attente. **Un invité ne voit
+pas « Supprimer » — il voit « Quitter la liste »**, qui le retire sans effacer le
+travail commun. Seul le propriétaire peut supprimer pour tout le monde.
 
 ### Qui a coché quoi
 

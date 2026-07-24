@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.4';
+const VERSION = 'v17.5';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -175,13 +175,39 @@ function listMenu(id) {
   const list = getList(id);
   if (!list) return;
 
-  openSheet(list.name, [
+  const actions = [
     { label: 'Renommer', icon: '✏️', run: () => renameList(id) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(id) },
     { label: 'Partager', icon: '👥', run: () => shareModal(id) },
-    { label: 'Dupliquer', icon: '📄', run: () => duplicateList(id) },
-    { label: 'Supprimer', icon: '🗑️', danger: true, run: () => deleteList(id) }
-  ]);
+    { label: 'Dupliquer', icon: '📄', run: () => duplicateList(id) }
+  ];
+
+  // Sur une liste partagée dont on n'est pas l'hôte, supprimer effacerait le
+  // travail commun — ce n'est pas à nous. On la quitte, elle reste aux autres.
+  if (partagee(list) && !estProprietaire(list)) {
+    actions.push({ label: 'Quitter la liste', icon: '🚪', danger: true, run: () => quitterListe(id) });
+  } else {
+    actions.push({ label: 'Supprimer', icon: '🗑️', danger: true, run: () => deleteList(id) });
+  }
+
+  openSheet(list.name, actions);
+}
+
+async function quitterListe(id) {
+  const list = getList(id);
+  if (!list) return;
+  try {
+    await Sync.quitter(id);
+    // La liste vit chez les autres : on la retire de cet appareil, où elle ne
+    // serait plus qu'un doublon que rien ne met à jour.
+    state.lists = state.lists.filter(l => l.id !== id);
+    sauverLocalement();
+    if (currentListId === id) goHome();
+    renderHome();
+    toast(`Tu as quitté « ${list.name} »`);
+  } catch (e) {
+    toast(messageErreur(e?.code || String(e)));
+  }
 }
 
 function renameList(id) {
@@ -851,6 +877,12 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v17.5', titre: 'Invitations et code ami', points: [
+    'Une invitation à une liste se choisit maintenant : Rejoindre ou Refuser',
+    'Un code ami, à donner pour être ajouté sans révéler ton adresse',
+    'Quitter une liste partagée sans la supprimer pour les autres',
+    'Plus de bouton Supprimer sur une liste dont tu n\'es pas l\'hôte'
+  ] },
   { version: 'v17.4', titre: 'Notifications, pseudo et nouveautés', points: [
     'Être prévenu quand quelqu\'un modifie une liste partagée, ou t\'y invite',
     'Les notifications arrivent même quand l\'app est fermée',
@@ -915,6 +947,45 @@ function annoncerNouveautes() {
     notifier(`Mes Listes ${VERSION}`, 'De nouvelles fonctions sont disponibles. Ouvre l\'app pour les découvrir.', 'maj');
   }
 }
+
+/* ---------- Invitations reçues ----------
+
+   On ne rejoint plus une liste sans le vouloir : chaque invitation attend qu'on
+   l'accepte ou qu'on la refuse. */
+
+function renderInvitationsRecues() {
+  const el = $('invites-recues');
+  const invits = Sync.invitations || [];
+  el.innerHTML = invits.map(inv => `
+    <li class="invite-recue" data-inv="${esc(inv.id)}">
+      <span class="invite-texte"><strong>${esc(inv.deQui)}</strong> t'invite sur « ${esc(inv.nomListe)} »</span>
+      <span class="invite-actions">
+        <button class="modal-btn primary" data-rejoindre>Rejoindre</button>
+        <button class="link-btn" data-refuser>Refuser</button>
+      </span>
+    </li>`).join('');
+}
+
+$('invites-recues').addEventListener('click', async e => {
+  const ligne = e.target.closest('[data-inv]');
+  if (!ligne) return;
+  const inv = (Sync.invitations || []).find(i => i.id === ligne.dataset.inv);
+  if (!inv) return;
+
+  try {
+    if (e.target.closest('[data-rejoindre]')) {
+      await Sync.rejoindre(inv);
+      toast(`Tu as rejoint « ${inv.nomListe} »`);
+    } else if (e.target.closest('[data-refuser]')) {
+      await Sync.refuser(inv);
+      toast('Invitation refusée');
+    } else return;
+    renderInvitationsRecues();
+    renderHome();
+  } catch (err) {
+    toast(messageErreur(err?.code || String(err)));
+  }
+});
 
 /* ---------- Partage d'une liste ---------- */
 
@@ -981,11 +1052,11 @@ function renderPeople(enAttente) {
       </li>`;
   }).join('');
 
-  const invitations = invitationsEnAttente.map(email => `
+  const invitations = invitationsEnAttente.map(inv => `
     <li class="person">
-      <span class="person-name">${esc(email)}</span>
+      <span class="person-name">${esc(inv.label)}</span>
       <span class="tag">en attente</span>
-      ${proprio ? `<button class="link-btn danger" data-annuler="${esc(email)}">Annuler</button>` : ''}
+      ${proprio ? `<button class="link-btn danger" data-annuler="${esc(inv.id)}">Annuler</button>` : ''}
     </li>`).join('');
 
   const quitter = proprio ? '' : `
@@ -1007,7 +1078,7 @@ $('share-people').addEventListener('click', async e => {
       await Sync.retirerMembre(id, retirer.dataset.retirer, retirer.dataset.email);
       messagePartage('Personne retirée.');
     } else if (annuler) {
-      await Sync.annulerInvitation(id, annuler.dataset.annuler);
+      await Sync.annulerInvitation(annuler.dataset.annuler);
       messagePartage('Invitation annulée.');
     } else if (quitter) {
       await Sync.quitter(id);
@@ -1027,13 +1098,28 @@ $('share-invite').addEventListener('click', async () => {
   try {
     await Sync.inviter(listePartagee, email, liste.name);
     $('share-email').value = '';
-    messagePartage(`${email.trim()} verra la liste à sa prochaine ouverture.`);
+    messagePartage(`Invitation envoyée à ${email.trim()}.`);
+  } catch (err) {
+    messagePartage(messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('share-invite-code').addEventListener('click', async () => {
+  const code = $('share-code').value;
+  const liste = getList(listePartagee);
+  if (!liste) return;
+  messagePartage('Envoi…');
+  try {
+    await Sync.inviterParCode(listePartagee, code, liste.name);
+    $('share-code').value = '';
+    messagePartage('Invitation envoyée. La personne l\'accepte à sa prochaine ouverture.');
   } catch (err) {
     messagePartage(messageErreur(err?.code || String(err)), 'erreur');
   }
 });
 
 $('share-email').addEventListener('keydown', e => { if (e.key === 'Enter') $('share-invite').click(); });
+$('share-code').addEventListener('keydown', e => { if (e.key === 'Enter') $('share-invite-code').click(); });
 $('share-close').addEventListener('click', closeShare);
 shareBackdrop.addEventListener('click', e => { if (e.target === shareBackdrop) closeShare(); });
 
@@ -1085,7 +1171,11 @@ const ERREURS = {
   'notif/default':
     'Tu n\'as pas répondu à la demande. Réessaie quand tu veux.',
   'notif/sans-jeton':
-    "Cet appareil n'a pas pu être enregistré pour les notifications. Réessaie plus tard."
+    "Cet appareil n'a pas pu être enregistré pour les notifications. Réessaie plus tard.",
+  'code/invalide':
+    'Un code ami est un nombre à huit chiffres, comme 1234-5678.',
+  'code/introuvable':
+    "Aucun compte ne porte ce code. Vérifie les chiffres."
 };
 const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
@@ -1201,6 +1291,7 @@ function renderAccount() {
     $('account-who').textContent =
       `Connecté en tant que ${Sync.user.email || 'compte Google'}. Tes listes se synchronisent.`;
     $('account-pseudo').value = state.pseudo || '';
+    $('account-code').textContent = Sync.codeAffiche() || 'attribution…';
   }
   if (Sync.erreur) {
     const ou = { listes: 'les listes', reglages: "l'apparence",
@@ -1282,6 +1373,14 @@ $('btn-reset').addEventListener('click', () => {
   const { email } = identifiants();
   if (!email) return messageCompte('Saisis ton adresse pour recevoir le lien.', 'erreur');
   tenter('Envoi…', () => Sync.resetEmail(email), `Lien envoyé à ${email}. Regarde ta boîte mail.`);
+});
+
+$('btn-copier-code').addEventListener('click', async () => {
+  const code = Sync.codeAffiche();
+  if (!code) return;
+  try { await navigator.clipboard.writeText(code); $('btn-copier-code').textContent = 'Copié ✓'; }
+  catch { $('btn-copier-code').textContent = code; }   // presse-papier refusé : au moins on le lit
+  setTimeout(() => $('btn-copier-code').textContent = 'Copier', 2500);
 });
 
 $('btn-pseudo').addEventListener('click', () => {
@@ -1507,15 +1606,7 @@ Sync.onChange = () => {
   renderAccount();
   applyTheme();          // se connecter rend l'apparence choisie, se déconnecter la retire
 
-  // Une liste partagée par quelqu'un d'autre n'apparaîtrait sinon qu'au
-  // lancement suivant, sans qu'on sache d'où elle sort.
-  if (Sync.recues.length) {
-    const recues = Sync.recues.splice(0);
-    const noms = recues.map(n => `« ${n} »`).join(', ');
-    toast(`${noms} partagée${recues.length > 1 ? 's' : ''} avec toi`);
-    notifier(recues.length > 1 ? `${recues.length} listes partagées avec toi` : 'Une liste partagée avec toi',
-      `${noms} ${recues.length > 1 ? 'sont' : 'est'} maintenant dans ton compte.`, 'invitation');
-  }
+  renderInvitationsRecues();
 
   // Ce que les autres viennent de changer. Regroupé : trois articles cochés
   // d'affilée ne doivent pas donner trois notifications.

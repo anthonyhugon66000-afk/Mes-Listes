@@ -197,7 +197,7 @@ export default {
       return repondre({ erreur: 'corps illisible' }, 400);
     }
 
-    const { idToken, listeId, titre, corps, action, email } = corpsRequete;
+    const { idToken, listeId, titre, corps, action, email, cibleUid } = corpsRequete;
     if (!idToken || !listeId) return repondre({ erreur: 'idToken et listeId requis' }, 400);
 
     let auteur;
@@ -218,10 +218,17 @@ export default {
     let jetons = [];
 
     if (action === 'invitation') {
-      // L'invité n'est pas encore membre : on le retrouve par son adresse. Le
-      // droit d'inviter vient d'être vérifié — l'appelant, lui, est membre.
-      if (!email) return repondre({ erreur: 'email requis pour une invitation' }, 400);
-      jetons = await jetonsParEmail(projet, acces, String(email).trim().toLowerCase());
+      // L'invité n'est pas encore membre. Selon la voie, on le retrouve par son
+      // adresse ou par son identifiant. Le droit d'inviter vient d'être vérifié
+      // — l'appelant, lui, est bien membre.
+      if (cibleUid) {
+        const profil = await lireDocument(projet, acces, `users/${cibleUid}`);
+        jetons = tableau(profil?.jetons);
+      } else if (email) {
+        jetons = await jetonsParEmail(projet, acces, String(email).trim().toLowerCase());
+      } else {
+        return repondre({ erreur: 'email ou cibleUid requis pour une invitation' }, 400);
+      }
     } else {
       // On ne se notifie pas soi-même : on vient de faire la modification.
       for (const uid of membres.filter(m => m !== auteur)) {

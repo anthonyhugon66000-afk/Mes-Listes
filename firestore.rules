@@ -13,24 +13,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    /* Réglages personnels : thème et couleur d'accent. Chacun chez soi. */
+    /* Réglages personnels : thème, couleur, pseudo, code ami, jetons de
+       notification. Chacun chez soi. */
     match /users/{userId} {
       allow read, write: if connecte() && request.auth.uid == userId;
     }
 
-    /* Invitations en attente. Elles sont déposées au nom d'une adresse e-mail,
-       parce que rien ne permet de traduire une adresse en identifiant de compte
-       avant que la personne se connecte. */
+    /* Annuaire des codes ami : code -> compte. Consultable un par un si l'on
+       connaît le code exact (`get`), jamais listable — personne ne peut
+       parcourir l'annuaire. Un code, une fois pris, est définitif. */
+    match /codes/{code} {
+      allow get: if connecte();
+      allow create: if connecte() && request.resource.data.uid == request.auth.uid;
+    }
+
+    /* Invitations en attente. Adressées soit à une adresse e-mail (la personne
+       n'a peut-être pas de compte), soit à un identifiant de compte (invitée par
+       son code ami). Les deux champs existent toujours, l'un vide : l'accès
+       direct — et non `get` — est nécessaire pour que Firestore autorise les
+       requêtes filtrées dessus. */
     match /invites/{inviteId} {
 
-      // Seul un membre de la liste concernée peut inviter quelqu'un.
       allow create: if connecte()
         && request.resource.data.invitePar == request.auth.uid
         && request.auth.uid in get(/databases/$(database)/documents/lists/$(request.resource.data.listId)).data.members;
 
-      // On voit une invitation si elle nous est adressée, ou si on l'a émise.
       allow read, delete: if connecte()
-        && (resource.data.email == request.auth.token.email
+        && (resource.data.cibleEmail == request.auth.token.email
+            || resource.data.cibleUid == request.auth.uid
             || resource.data.invitePar == request.auth.uid);
     }
 
@@ -38,12 +48,8 @@ service cloud.firestore {
 
       function membresApres() { return request.resource.data.get('members', []); }
 
-      /* Accès direct, et non `get` : pour autoriser une *requête*, Firestore
-         doit prouver d'avance qu'elle est permise, en reconnaissant la forme
-         « champ filtré ↔ champ de la règle ». Un `get` la lui masque, et toute
-         lecture de liste est alors refusée. Ailleurs — modifications, portant
-         sur un seul document — la question ne se pose pas et `get` protège des
-         champs absents. */
+      // Accès direct pour la lecture : autoriser la requête `array-contains`
+      // suppose que Firestore reconnaisse le champ, ce qu'un `get` lui masque.
       function membre() {
         return connecte() && request.auth.uid in resource.data.members;
       }
@@ -52,19 +58,21 @@ service cloud.firestore {
         return connecte() && request.auth.uid == resource.data.get('owner', '');
       }
 
-      // Le contenu change, l'appartenance non : c'est le cas de loin le plus
-      // fréquent — cocher un article, renommer, réordonner.
+      // Le contenu change, l'appartenance non : cocher, renommer, réordonner.
+      // `get` avec valeur par défaut, car les listes d'avant le partage n'ont
+      // pas de `memberEmails` et lire un champ absent ferait échouer la règle.
       function contenuSeul() {
         return request.resource.data.get('owner', '') == resource.data.get('owner', '')
           && membresApres() == resource.data.members
           && request.resource.data.get('memberEmails', []) == resource.data.get('memberEmails', []);
       }
 
-      // Quelqu'un d'invité s'ajoute lui-même, et rien d'autre. L'invitation
-      // porte un identifiant déterministe, ce qui permet de la vérifier ici.
+      // Un invité s'ajoute lui-même, et rien d'autre. On vérifie qu'une
+      // invitation existe à son nom — par adresse ou par identifiant.
       function accepteInvitation() {
         return connecte()
-          && exists(/databases/$(database)/documents/invites/$(listId + '__' + request.auth.token.email))
+          && (exists(/databases/$(database)/documents/invites/$(listId + '__' + request.auth.token.email))
+              || exists(/databases/$(database)/documents/invites/$(listId + '__u_' + request.auth.uid)))
           && request.resource.data.get('owner', '') == resource.data.get('owner', '')
           && membresApres() == resource.data.members.concat([request.auth.uid]);
       }
@@ -83,12 +91,11 @@ service cloud.firestore {
 
       allow read: if membre();
 
-      // Supprimer la liste pour tout le monde reste au propriétaire. Les autres
-      // la quittent — sans quoi un invité pourrait effacer le travail commun.
+      // Supprimer pour tout le monde reste au propriétaire ; les autres quittent.
       allow delete: if proprietaire();
 
       allow update: if (membre() && contenuSeul())
-        || (proprietaire() && request.resource.data.owner == resource.data.owner)
+        || (proprietaire() && request.resource.data.get('owner', '') == resource.data.get('owner', ''))
         || accepteInvitation()
         || seRetire();
     }

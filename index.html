@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.4">
+<link rel="stylesheet" href="styles.css?v17.5">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -72,6 +72,8 @@
     <button class="link-btn" id="backup-notice-go">Sauvegarder</button>
     <button class="notice-close" id="backup-notice-close" aria-label="Masquer">×</button>
   </div>
+
+  <ul class="invites" id="invites-recues"></ul>
 
   <main class="scroll">
     <ul id="lists" class="lists"></ul>
@@ -252,6 +254,18 @@
 
         <p class="form-msg" id="account-msg-in" hidden></p>
 
+        <label class="modal-label">Ton code ami</label>
+        <div class="code-ami">
+          <span id="account-code">…</span>
+          <button type="button" class="link-btn" id="btn-copier-code">Copier</button>
+        </div>
+        <p class="auth-intro small">
+          Donne ce code à quelqu'un pour qu'il t'ajoute à une liste, sans avoir à
+          connaître ton adresse.
+        </p>
+
+        <p class="sep"><span></span></p>
+
         <label class="modal-label" for="account-pseudo">Ton pseudo</label>
         <div class="auth-field-wrap">
           <input type="text" id="account-pseudo" class="auth-field"
@@ -291,15 +305,21 @@
     <h2 id="share-title">Partager la liste</h2>
 
     <div class="modal-scroll">
+      <label class="modal-label" for="share-code">Inviter par code ami</label>
+      <input type="text" id="share-code" autocomplete="off" inputmode="numeric"
+             placeholder="1234-5678" enterkeyhint="done">
+      <button type="button" class="modal-btn primary wide" id="share-invite-code">Inviter par code</button>
+
+      <p class="sep"><span>ou</span></p>
+
       <label class="modal-label" for="share-email">Inviter par adresse e-mail</label>
       <input type="email" id="share-email" autocomplete="off" inputmode="email"
              autocapitalize="none" placeholder="adresse@exemple.fr" enterkeyhint="done">
-      <button type="button" class="modal-btn primary wide" id="share-invite">Inviter</button>
+      <button type="button" class="modal-btn primary wide" id="share-invite">Inviter par e-mail</button>
 
       <p class="sheet-note left">
-        Aucun courriel n'est envoyé : l'app n'a pas de serveur pour ça. La liste
-        apparaîtra chez la personne à sa prochaine ouverture, une fois connectée
-        avec cette adresse.
+        La personne reçoit une invitation qu'elle accepte ou refuse. Rien n'est
+        envoyé par courriel : l'invitation l'attend à sa prochaine ouverture.
       </p>
 
       <p class="form-msg" id="share-msg" hidden></p>
@@ -333,8 +353,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js?v17.4"></script>
-<script src="sync.js?v17.4"></script>
-<script src="app.js?v17.4"></script>
+<script src="firebase-config.js?v17.5"></script>
+<script src="sync.js?v17.5"></script>
+<script src="app.js?v17.5"></script>
 </body>
 </html>

@@ -612,7 +612,7 @@ suite('Convergence des réglages', () => {
       deleteDoc: () => Promise.resolve(),
       serverTimestamp: () => 'TS', query: () => ({}), where: () => ({})
     }};
-    state = { hideDone: false, lists: [], theme: 'dark', accent: '#af52de' };
+    state = { hideDone: false, lists: [], theme: 'dark', accent: '#af52de', code: '12345678' };
     envoyeReglages = null;
     ecouterReglages();
     void 0
@@ -664,10 +664,10 @@ suite('Invitations', async () => {
     ev('window.__journal[0].id'), 'L1__ami@example.fr');
   verifier('l\'invitation porte les champs attendus',
     ev('window.__journal[0].champs'),
-    ['creeLe', 'email', 'invitePar', 'inviteParEmail', 'listId', 'nomListe']);
+    ['cibleEmail', 'cibleUid', 'creeLe', 'invitePar', 'inviteParNom', 'listId', 'nomListe']);
 
-  ev('window.__journal = []; Sync.annulerInvitation("L1", "Ami@EXAMPLE.fr"); void 0');
-  verifier('l\'annulation retrouve la même invitation quelle que soit la casse',
+  ev('window.__journal = []; Sync.annulerInvitation("L1__ami@example.fr"); void 0');
+  verifier('annuler supprime l\'invitation par son identifiant',
     ev('window.__journal[0]'), { op: 'delete', id: 'L1__ami@example.fr' });
 
   await verifierLeve('s\'inviter soi-même est refusé',
@@ -938,6 +938,7 @@ suite('Notifications', () => {
 
 suite('Avis envoyés aux autres appareils', async () => {
   ev(`
+    Sync.oublierAvis();
     window.__appels = [];
     window.__vraiFetch = window.fetch;
     window.fetch = (url, opts) => {
@@ -1140,6 +1141,136 @@ suite('Écran des nouveautés', () => {
   ev('annoncerNouveautes()');
   verifier('elle ne revient pas au lancement suivant',
     ev('document.getElementById("news-backdrop").hidden'), true);
+});
+
+/* ---------- Code ami ---------- */
+
+suite('Code ami', async () => {
+  ev('Sync.user = { uid: "moi", email: "a@b.c" }');
+  poser({ hideDone: false, lists: [], code: '12345678' });
+  verifier('le code s\'affiche groupé', ev('Sync.codeAffiche()'), '1234-5678');
+  ev('state.code = ""');
+  verifier('pas de code, pas d\'affichage', ev('Sync.codeAffiche()'), '');
+
+  ev(`
+    window.__codes = { '87654321': { uid: 'ami' } };
+    window.__journal = []; window.__appels = []; window.__vraiFetch = window.fetch;
+    window.fetch = (url, opts) => { window.__appels.push(JSON.parse(opts.body)); return Promise.resolve({ ok: true, json: () => Promise.resolve({}) }); };
+    fb = {
+      auth: { currentUser: { getIdToken: () => Promise.resolve('JET') } },
+      s: {
+        collection: (db, n) => ({ nom: n }), doc: (c, id) => ({ col: (c && c.nom) || 'users', id }),
+        getDoc: ref => Promise.resolve({ exists: () => ref.id in window.__codes, data: () => window.__codes[ref.id] }),
+        setDoc: (ref, data) => { window.__journal.push({ id: ref.id, champs: Object.keys(data).sort(), data }); return Promise.resolve(); },
+        serverTimestamp: () => 'TS'
+      }
+    };
+    void 0
+  `);
+
+  await verifierLeve('un code trop court est refusé', () => ev('Sync.resoudreCode("123")'), 'code/invalide');
+  await verifierLeve('un code inconnu est refusé', () => ev('Sync.resoudreCode("00000000")'), 'code/introuvable');
+  verifier('un code valide, dicté avec un tiret, rend l\'identifiant',
+    await ev('Sync.resoudreCode("8765-4321")'), 'ami');
+
+  poser({ hideDone: false, lists: [{ id: 'L1', name: 'Courses', color: '#000', owner: 'moi', members: ['moi'], items: [] }], code: '12345678' });
+  ev('window.__journal = []');
+  await ev('Sync.inviterParCode("L1", "8765-4321", "Courses")');
+  const inv = ev('window.__journal[0]');
+  verifier('l\'invitation par code est adressée à l\'identifiant', inv.id, 'L1__u_ami');
+  verifier('elle porte l\'identifiant cible, pas d\'adresse',
+    [inv.data.cibleUid, inv.data.cibleEmail], ['ami', '']);
+
+  await new Promise(r => setTimeout(r, 40));
+  const appel = ev('window.__appels[0]');
+  verifierVrai('le Worker est prévenu', !!appel);
+  verifier('avec l\'identifiant cible, jamais de jeton', [appel.cibleUid, 'jetons' in appel], ['ami', false]);
+
+  // s'inviter soi-même par code est refusé
+  ev('window.__codes["11112222"] = { uid: "moi" }');
+  await verifierLeve('s\'inviter soi-même par code est refusé',
+    () => ev('Sync.inviterParCode("L1", "1111-2222", "Courses")'), 'deja-membre');
+
+  ev('window.fetch = window.__vraiFetch; fb = null; Sync.user = null');
+});
+
+/* ---------- Recevoir une invitation ---------- */
+
+suite('Recevoir une invitation', async () => {
+  ev(`
+    Sync.user = { uid: 'moi', email: 'a@b.c' };
+    window.__maj = []; window.__del = [];
+    window.__parEmail = [{ id: 'L9__a@b.c', data: () => ({ listId: 'L9', nomListe: 'Partagée', inviteParNom: 'Marie', cibleEmail: 'a@b.c', cibleUid: '' }) }];
+    window.__parUid = [{ id: 'L8__u_moi', data: () => ({ listId: 'L8', nomListe: 'Par code', inviteParNom: 'Léo', cibleEmail: '', cibleUid: 'moi' }) }];
+    fb = { s: {
+      collection: (db, n) => ({ nom: n }), doc: (c, id) => ({ col: (c && c.nom) || 'x', id }),
+      query: (...a) => ({ a }), where: (f, op, v) => ({ f, v }),
+      getDocs: q => {
+        const w = q.a.find(x => x && x.f);
+        if (w && w.f === 'cibleEmail') return Promise.resolve({ docs: window.__parEmail });
+        if (w && w.f === 'cibleUid') return Promise.resolve({ docs: window.__parUid });
+        return Promise.resolve({ docs: [] });
+      },
+      updateDoc: (ref, d) => { window.__maj.push({ id: ref.id, d }); return Promise.resolve(); },
+      deleteDoc: ref => { window.__del.push(ref.id); return Promise.resolve(); },
+      arrayUnion: v => ({ union: v })
+    }};
+    state = { hideDone: false, lists: [] };
+    void 0
+  `);
+
+  await ev('chargerInvitations()');
+  verifier('les invitations en attente sont récupérées', ev('Sync.invitations.length'), 2);
+  verifier('rien n\'est rejoint automatiquement', ev('window.__maj.length'), 0);
+  verifierVrai('l\'auteur est nommé',
+    ev('Sync.invitations.map(i => i.deQui).sort().join(",")') === 'Léo,Marie');
+
+  await ev('Sync.rejoindre(Sync.invitations.find(i => i.listId === "L9"))');
+  verifier('rejoindre s\'ajoute à la liste', ev('window.__maj[0].id'), 'L9');
+  verifier('et consomme l\'invitation', ev('window.__del.includes("L9__a@b.c")'), true);
+  verifier('qui disparaît des invitations en attente',
+    ev('Sync.invitations.some(i => i.listId === "L9")'), false);
+
+  await ev('Sync.refuser(Sync.invitations.find(i => i.listId === "L8"))');
+  verifier('refuser supprime sans rejoindre',
+    [ev('window.__del.includes("L8__u_moi")'), ev('window.__maj.length')], [true, 1]);
+  verifier('plus aucune invitation en attente', ev('Sync.invitations.length'), 0);
+
+  ev('fb = null; Sync.user = null');
+});
+
+/* ---------- Menu : quitter ou supprimer ---------- */
+
+suite('Menu d\'une liste : quitter ou supprimer', () => {
+  ev('Sync.user = { uid: "moi", email: "a@b.c" }');
+  poser({ hideDone: false, lists: [
+    { id: 'SOLO', name: 'Solo', color: '#000', items: [] },
+    { id: 'MIENNE', name: 'Mienne', color: '#000', items: [], owner: 'moi', members: ['moi', 'ami'] },
+    { id: 'INVITE', name: 'Invité', color: '#000', items: [], owner: 'autre', members: ['autre', 'moi'] }
+  ] });
+  ev('goHome()');
+
+  const labels = () => ev('[].map.call(document.querySelectorAll("#sheet-body [data-i]"), b => b.textContent.replace(/\\s+/g, " ").trim())');
+
+  ev('listMenu("SOLO")');
+  const solo = labels();
+  verifierVrai('liste à soi : Supprimer', solo.some(l => l.includes('Supprimer')));
+  verifierVrai('liste à soi : pas de Quitter', !solo.some(l => l.includes('Quitter')));
+  ev('closeSheet()');
+
+  ev('listMenu("MIENNE")');
+  const mienne = labels();
+  verifierVrai('liste partagée dont on est l\'hôte : Supprimer', mienne.some(l => l.includes('Supprimer')));
+  verifierVrai('l\'hôte ne voit pas Quitter', !mienne.some(l => l.includes('Quitter')));
+  ev('closeSheet()');
+
+  ev('listMenu("INVITE")');
+  const invite = labels();
+  verifierVrai('liste partagée dont on est invité : Quitter', invite.some(l => l.includes('Quitter')));
+  verifierVrai('l\'invité ne voit pas Supprimer', !invite.some(l => l.includes('Supprimer')));
+  ev('closeSheet()');
+
+  ev('Sync.user = null');
 });
 
 /* ---------- Annulation ---------- */
