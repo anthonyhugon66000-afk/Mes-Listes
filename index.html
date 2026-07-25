@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.7.11">
+<link rel="stylesheet" href="styles.css?v17.7.12">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -98,17 +98,17 @@
   <main class="scroll">
     <ul id="lists" class="lists"></ul>
 
-    <div class="annonce-vitrine" id="annonce-vitrine" hidden>
-      <img class="annonce-vitrine-image" id="annonce-v-image" alt="" hidden>
-      <p class="annonce-signe" id="annonce-v-signe"></p>
-    </div>
-
     <div id="empty-lists" class="empty">
       <p>
         Aucune liste pour l'instant.<br>
         Appuie sur <strong>+</strong> pour en créer une.
       </p>
       <button class="ghost-btn" id="btn-restore">Restaurer depuis Fichiers ou iCloud…</button>
+    </div>
+
+    <div class="annonce-vitrine" id="annonce-vitrine" hidden>
+      <img class="annonce-vitrine-image" id="annonce-v-image" alt="" hidden>
+      <p class="annonce-signe" id="annonce-v-signe"></p>
     </div>
   </main>
 
@@ -467,8 +467,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js?v17.7.11"></script>
-<script src="sync.js?v17.7.11"></script>
-<script src="app.js?v17.7.11"></script>
+<script src="firebase-config.js?v17.7.12"></script>
+<script src="sync.js?v17.7.12"></script>
+<script src="app.js?v17.7.12"></script>
 </body>
 </html>
