@@ -941,7 +941,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   to   { transform: translateY(0); }
 }
 @keyframes ticker {
-  from { transform: translateX(100vw); }
+  from { transform: translateX(50vw); }
   to   { transform: translateX(-100%); }
 }
 .annonce-banner {
@@ -961,13 +961,12 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .annonce-banner--fixe {
   position: fixed;
   top: 0;
-  left: 0;
-  right: 50%;
+  left: 25%;
+  right: 25%;
   z-index: 99;
   margin: 0;
-  border-radius: 0 0 10px 0;
+  border-radius: 0 0 10px 10px;
   border-top: none;
-  border-right: none;
   height: var(--ticker-h);
   padding: 0 12px;
   overflow: hidden;
@@ -978,7 +977,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   align-items: center;
   overflow: hidden;
   width: 100%;
-  height: 28px;
+  height: 100%;
 }
 .annonce-ticker-texte {
   display: inline-block;
