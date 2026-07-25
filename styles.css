@@ -939,6 +939,10 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   from { transform: translateY(-100%); }
   to   { transform: translateY(0); }
 }
+@keyframes ticker {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(-100%); }
+}
 .annonce-banner {
   position: relative;
   display: flex;
@@ -952,7 +956,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   box-shadow: var(--shadow);
   animation: glisserBas 0.3s ease;
 }
-/* Mode bandeau : barre fixe qui descend depuis le haut, par-dessus tout. */
+/* Mode bandeau : barre fine fixe qui descend depuis le haut. */
 .annonce-banner--fixe {
   position: fixed;
   top: 0;
@@ -960,11 +964,31 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   right: 0;
   z-index: 99;
   margin: 0;
-  border-radius: 0 0 14px 14px;
+  border-radius: 0 0 10px 10px;
   border-top: none;
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding: max(6px, env(safe-area-inset-top)) 0 6px;
+  overflow: hidden;
   animation: glisserDepuisHaut 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
+.annonce-ticker {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  width: 100%;
+  height: 28px;
+}
+.annonce-ticker-texte {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  animation: ticker var(--ticker-duree, 20s) linear infinite;
+}
+/* En mode ticker, on cache le contenu carte et on montre la piste. */
+.annonce-banner--fixe .annonce-banner-corps { display: none; }
+.annonce-banner--fixe .annonce-ticker { display: flex; }
+.annonce-banner--fixe .link-btn { display: none; }
 .annonce-banner-corps { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .annonce-banner-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 14px; line-height: 1.4; }
 .annonce-banner-texte strong { font-size: 15px; }
@@ -1030,6 +1054,31 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .annonce-apercu { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; flex: none; }
 .admin-image-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .admin-boutons { display: flex; gap: 10px; margin-top: 4px; }
+
+/* Liste des annonces dans le panneau admin */
+.annonces-liste { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.annonce-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.annonce-item-badge {
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+  background: var(--separator);
+}
+.annonce-item-badge--bandeau { background: #3a7af4; color: #fff; }
+.annonce-item-badge--vitrine { background: #2db174; color: #fff; }
+.annonce-item-badge--carte   { background: #888; color: #fff; }
+.annonce-item-titre { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.annonce-item-etat { font-size: 11px; color: var(--text-dim); flex: none; }
+.annonce-item-etat--active { color: #2db174; font-weight: 600; }
 .admin-select {
   width: 100%;
   padding: 11px 14px;

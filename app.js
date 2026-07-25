@@ -1695,55 +1695,81 @@ async function preparerImage(file) {
   throw { code: 'image/trop-grande' };
 }
 
-/* ---------- Affichage de l'annonce ----------
+/* ---------- Affichage des annonces ----------
 
    Un admin n'est jamais bloqué : sinon une pause l'empêcherait d'aller la lever.
-   Il voit le bandeau, jamais l'overlay, avec un bouton pour ouvrir le panneau. */
-function renderAnnonce(a) {
-  const overlay  = $('annonce-overlay');
-  const banner   = $('annonce-banner');
-  const vitrine  = $('annonce-vitrine');
-  const actif    = !!(a && a.actif);
-  const mode     = (a && a.mode) || 'carte';
-  const admin    = Sync.estAdmin();
+   Plusieurs annonces peuvent coexister : tous les bandeaux défilent dans le même
+   ticker, la première vitrine pose son image, la première carte s'affiche en
+   bandeau statique (ou bloque l'app si elle est marquée bloquante). */
+function renderAnnonces(annonces) {
+  annonces = Array.isArray(annonces) ? annonces : [];
+  const admin   = Sync.estAdmin();
+  const actives = annonces.filter(a => a.actif && (a.titre || a.message || a.image));
 
-  // Overlay bloquant : mode carte + bloquant + non admin.
-  const bloquant = actif && mode === 'carte' && !!a.bloquant && !admin;
-  overlay.hidden = !bloquant;
-  if (bloquant) {
-    $('annonce-o-titre').textContent = a.titre || '';
-    $('annonce-o-titre').hidden = !a.titre;
-    $('annonce-o-message').textContent = a.message || '';
-    $('annonce-o-message').hidden = !a.message;
-    poserImage($('annonce-o-image'), a.image);
-    signer($('annonce-o-signe'), a);
+  // 1. OVERLAY BLOQUANT — première carte bloquante, jamais pour l'admin.
+  const bloquante = !admin && actives.find(a => a.mode === 'carte' && a.bloquant);
+  const overlay = $('annonce-overlay');
+  overlay.hidden = !bloquante;
+  if (bloquante) {
+    $('annonce-o-titre').textContent = bloquante.titre || '';
+    $('annonce-o-titre').hidden = !bloquante.titre;
+    $('annonce-o-message').textContent = bloquante.message || '';
+    $('annonce-o-message').hidden = !bloquante.message;
+    poserImage($('annonce-o-image'), bloquante.image);
+    signer($('annonce-o-signe'), bloquante);
   }
 
-  // Vitrine : image en grand sous les listes, sans texte.
-  const montrerVitrine = actif && mode === 'vitrine' && !!a.image && !bloquant;
-  vitrine.hidden = !montrerVitrine;
-  if (montrerVitrine) {
-    poserImage($('annonce-v-image'), a.image);
-    signer($('annonce-v-signe'), a);
+  // 2. VITRINE — première annonce vitrine avec image.
+  const vitrines     = actives.filter(a => a.mode === 'vitrine' && a.image);
+  const vitrinePremiere = vitrines[0];
+  const vitrine      = $('annonce-vitrine');
+  vitrine.hidden     = !vitrinePremiere;
+  if (vitrinePremiere) {
+    poserImage($('annonce-v-image'), vitrinePremiere.image);
+    signer($('annonce-v-signe'), vitrinePremiere);
   }
 
-  // Bandeau : texte seul (mode bandeau) ou carte complète non bloquante (mode carte).
-  const aBandeauContenu = actif && (mode === 'bandeau' ? !!(a.titre || a.message)
-                        : !!(a.titre || a.message || a.image));
-  const montrerBandeau = actif && !bloquant && !montrerVitrine
-                       && aBandeauContenu;
-  banner.classList.toggle('annonce-banner--fixe', mode === 'bandeau');
-  banner.hidden = !montrerBandeau;
-  if (montrerBandeau) {
-    $('annonce-b-titre').textContent = a.titre || '';
-    $('annonce-b-titre').hidden = !a.titre;
-    $('annonce-b-message').textContent = a.message || '';
-    $('annonce-b-message').hidden = !a.message;
-    // En mode bandeau : texte seul, pas d'image.
-    poserImage($('annonce-b-image'), mode === 'bandeau' ? '' : a.image);
-    signer($('annonce-b-signe'), a);
+  // 3. TICKER — toutes les annonces bandeaux concatenées.
+  const bandeaux     = actives.filter(a => a.mode === 'bandeau' && (a.titre || a.message));
+  const montrerTicker = bandeaux.length > 0 && !bloquante;
+
+  // 4. CARTE — première carte non bloquante (si pas de ticker actif).
+  const cartes       = actives.filter(a => a.mode === 'carte' && (!a.bloquant || admin)
+                                       && (a.titre || a.message || a.image));
+  const cartePremiere = montrerTicker ? null : cartes[0];
+  const montrerCarte  = !!cartePremiere && !bloquante;
+
+  const banner = $('annonce-banner');
+  banner.classList.toggle('annonce-banner--fixe', montrerTicker);
+  banner.hidden = !(montrerTicker || montrerCarte);
+
+  if (montrerTicker) {
+    const texte = bandeaux
+      .map(a => [a.titre, a.message].filter(Boolean).join(' — '))
+      .join('     ◆     ');
+    const tickerTexte = $('annonce-ticker-texte');
+    tickerTexte.textContent = texte;
+    const duree = Math.max(8, Math.min(90, texte.length * 0.12));
+    tickerTexte.style.setProperty('--ticker-duree', duree + 's');
+    $('annonce-ticker').hidden = false;
+    $('annonce-banner-corps').hidden = true;
+    $('annonce-b-titre').hidden = true;
+    $('annonce-b-message').hidden = true;
+    poserImage($('annonce-b-image'), '');
     $('annonce-b-gerer').hidden = !admin;
-    $('annonce-b-etat').textContent = admin && a.bloquant ? ' · bloquante pour les autres' : '';
+    $('annonce-b-etat').textContent = '';
+  } else if (montrerCarte) {
+    $('annonce-ticker').hidden = true;
+    $('annonce-banner-corps').hidden = false;
+    $('annonce-b-titre').textContent = cartePremiere.titre || '';
+    $('annonce-b-titre').hidden = !cartePremiere.titre;
+    $('annonce-b-message').textContent = cartePremiere.message || '';
+    $('annonce-b-message').hidden = !cartePremiere.message;
+    poserImage($('annonce-b-image'), cartePremiere.image);
+    signer($('annonce-b-signe'), cartePremiere);
+    $('annonce-b-gerer').hidden = !admin;
+    $('annonce-b-etat').textContent = admin && cartes.some(a => a.bloquant)
+      ? ' · bloquante pour les autres' : '';
   }
 
   function poserImage(el, url) {
@@ -1753,44 +1779,100 @@ function renderAnnonce(a) {
   function signer(el, a) {
     el.innerHTML = a.parNom ? `— ${esc(a.parNom)}${badgeMarque(a.parUid)}` : '';
   }
+
+  // Rafraîchir la liste dans le panneau admin si celui-ci est ouvert.
+  if (!adminBackdrop.hidden) renderListeAnnonces();
 }
-Sync.onAnnonce = renderAnnonce;
+Sync.onAnnonces = renderAnnonces;
 
 $('annonce-mode').addEventListener('change', majModeAdmin);
-
-
 $('annonce-b-gerer').addEventListener('click', adminModal);
 
 /* ---------- Panneau d'administration ---------- */
 
 const NOTES_MODE = {
-  bandeau: `Bandeau coulissant en haut. Seuls le titre et le texte s'affichent — l'image est ignorée.`,
+  bandeau: `Bandeau coulissant en haut. Seuls le titre et le texte défilent — l'image est ignorée.`,
   carte:   `Carte avec titre, texte et image. Peut bloquer l'app si la case ci-dessous est cochée.`,
   vitrine: `Image en grand sous les listes. Le titre et le texte sont ignorés.`,
 };
 
+let annonceIdEnEdition = null;  // null = nouvelle annonce, string = id existante
+
 function majModeAdmin() {
   const mode = $('annonce-mode').value;
   $('annonce-mode-note').textContent = NOTES_MODE[mode] || '';
-  // Le blocage n'a de sens qu'en mode carte.
   $('annonce-bloquant').closest('label').hidden = mode !== 'carte';
   if (mode !== 'carte') $('annonce-bloquant').checked = false;
 }
 
-function adminModal() {
-  const a = Sync.annonce || {};
-  $('annonce-actif').checked = !!a.actif;
-  $('annonce-mode').value = a.mode || 'carte';
+/* --- Liste des annonces dans le panneau --- */
+
+const LIBELLE_MODE = { bandeau: 'bandeau', carte: 'carte', vitrine: 'vitrine' };
+
+function renderListeAnnonces() {
+  const container = $('annonces-liste');
+  const annonces  = Sync.annonces || [];
+  if (!annonces.length) {
+    container.innerHTML = '<p class="sheet-note left">Aucune annonce pour l\'instant.</p>';
+    return;
+  }
+  container.innerHTML = annonces.map(a => `
+    <div class="annonce-item">
+      <span class="annonce-item-badge annonce-item-badge--${a.mode || 'carte'}">${a.mode || 'carte'}</span>
+      <span class="annonce-item-titre">${esc((a.titre || a.message || '—').slice(0, 36))}</span>
+      <span class="annonce-item-etat${a.actif ? ' annonce-item-etat--active' : ''}">${a.actif ? 'active' : 'inact.'}</span>
+      <button type="button" class="link-btn" data-action="edit" data-id="${a.id}">Modifier</button>
+      <button type="button" class="link-btn" data-action="del"  data-id="${a.id}">Supprimer</button>
+    </div>`).join('');
+}
+
+$('annonces-liste').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id     = btn.dataset.id;
+  const action = btn.dataset.action;
+  if (action === 'edit') {
+    const a = (Sync.annonces || []).find(x => x.id === id);
+    if (a) ouvrirFormulaireAnnonce(a);
+  } else if (action === 'del') {
+    if (!confirm('Supprimer cette annonce ?')) return;
+    try { await Sync.supprimerAnnonce(id); }
+    catch (err) { alert(messageErreur(err?.code || String(err))); }
+  }
+});
+
+function ouvrirFormulaireAnnonce(a) {
+  a = a || {};
+  annonceIdEnEdition        = a.id || null;
+  $('annonce-actif').checked  = !!a.actif;
+  $('annonce-mode').value     = a.mode || 'carte';
   $('annonce-bloquant').checked = !!a.bloquant;
-  $('annonce-titre').value = a.titre || '';
-  $('annonce-message').value = a.message || '';
-  annonceImage = a.image || '';
+  $('annonce-titre').value    = a.titre || '';
+  $('annonce-message').value  = a.message || '';
+  annonceImage                = a.image || '';
   majApercuImage();
   majModeAdmin();
   messageAdmin('annonce-msg', '');
+  $('annonce-form').hidden    = false;
+  $('annonce-form-titre').textContent = annonceIdEnEdition ? 'Modifier l\'annonce' : 'Nouvelle annonce';
+}
+
+function fermerFormulaireAnnonce() {
+  $('annonce-form').hidden = true;
+  annonceIdEnEdition = null;
+}
+
+$('annonce-nouvelle').addEventListener('click', () => ouvrirFormulaireAnnonce(null));
+$('annonce-form-annuler').addEventListener('click', fermerFormulaireAnnonce);
+
+/* --- Ouverture du modal admin --- */
+
+function adminModal() {
+  renderListeAnnonces();
+  fermerFormulaireAnnonce();
   messageAdmin('admin-pseudo-msg', '');
   $('admin-pseudo').value = '';
-  $('admin-cible').value = '';
+  $('admin-cible').value  = '';
   adminBackdrop.hidden = false;
 }
 
@@ -1814,7 +1896,7 @@ function messageAdmin(id, texte, type) {
 
 $('annonce-fichier').addEventListener('change', async e => {
   const file = e.target.files[0];
-  e.target.value = '';   // repartir vierge : rechoisir le même fichier redéclenche
+  e.target.value = '';
   if (!file) return;
   messageAdmin('annonce-msg', 'Préparation de l\'image…');
   try {
@@ -1835,16 +1917,17 @@ $('annonce-enregistrer').addEventListener('click', async () => {
   messageAdmin('annonce-msg', 'Enregistrement…');
   try {
     await Sync.enregistrerAnnonce({
-      actif: $('annonce-actif').checked,
-      mode: $('annonce-mode').value,
+      actif:    $('annonce-actif').checked,
+      mode:     $('annonce-mode').value,
       bloquant: $('annonce-bloquant').checked,
-      titre: $('annonce-titre').value.trim(),
-      message: $('annonce-message').value.trim(),
-      image: annonceImage
-    });
+      titre:    $('annonce-titre').value.trim(),
+      message:  $('annonce-message').value.trim(),
+      image:    annonceImage
+    }, annonceIdEnEdition);
     messageAdmin('annonce-msg', $('annonce-actif').checked
       ? 'Annonce publiée. Elle apparaît chez les comptes connectés.'
       : 'Annonce enregistrée, masquée pour l\'instant.');
+    fermerFormulaireAnnonce();
   } catch (err) {
     messageAdmin('annonce-msg', messageErreur(err?.code || String(err)), 'erreur');
   }

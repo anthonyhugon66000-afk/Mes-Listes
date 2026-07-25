@@ -17,9 +17,9 @@ const Sync = {
   user: null,           // { uid, email } quand connecté
   erreur: null,
   etat: 'local',        // local | synchro | envoi | horsligne | erreur
-  annonce: null,        // dernière annonce globale reçue, ou null
+  annonces: [],         // annonces actives reçues de Firestore
   onChange: () => {},   // renseigné par app.js
-  onAnnonce: () => {}   // renseigné par app.js — reçoit l'annonce globale
+  onAnnonces: () => {}  // renseigné par app.js — reçoit le tableau d'annonces
 };
 window.Sync = Sync;
 
@@ -114,9 +114,9 @@ Sync.init = async function () {
     if (arreterEcoute) { arreterEcoute(); arreterEcoute = null; }
     if (arreterReglages) { arreterReglages(); arreterReglages = null; }
     if (arreterAnnonce) { arreterAnnonce(); arreterAnnonce = null; }
-    // Se déconnecter efface l'annonce : elle ne vaut que pour les connectés.
-    Sync.annonce = null;
-    Sync.onAnnonce(null);
+    // Se déconnecter efface les annonces : elles ne valent que pour les connectés.
+    Sync.annonces = [];
+    Sync.onAnnonces([]);
     Sync.oublierAvis();
     Sync.invitations = [];
     envoye = new Map();
@@ -330,9 +330,9 @@ async function demarrerEcoute() {
 
   ecouterReglages();
 
-  // L'annonce globale : un message ou une pause décidés par un admin. Son échec
+  // Les annonces globales : messages ou pauses décidés par un admin. Leur échec
   // est silencieux — l'app doit marcher même si cette lecture-là ne passe pas.
-  arreterAnnonce = Sync.ecouterAnnonce(a => { Sync.annonce = a; Sync.onAnnonce(a); });
+  arreterAnnonce = Sync.ecouterAnnonces(as => { Sync.annonces = as; Sync.onAnnonces(as); });
 }
 
 /* ---------- Notifications poussées ----------
@@ -412,7 +412,7 @@ async function appelerWorker(charge) {
 const collectionInvites = () => fb.s.collection(fb.db, 'invites');
 const collectionCodes = () => fb.s.collection(fb.db, 'codes');
 const collectionPseudos = () => fb.s.collection(fb.db, 'pseudos');
-const docAnnonce = () => fb.s.doc(fb.db, 'config', 'annonce');
+const collectionAnnonces = () => fb.s.collection(fb.db, 'annonces');
 const normaliser = e => String(e || '').trim().toLowerCase();
 
 // Deux façons d'adresser une invitation : à une adresse (la personne n'a
@@ -530,29 +530,40 @@ Sync.libererPseudo = async function (pseudo) {
 
    Un admin peut afficher un message à l'entrée de l'app — un simple avis, ou
    un écran bloquant qui met l'app en pause. Le message vit dans un unique
-   document `config/annonce`, lu par tout compte connecté et écrit par les seuls
+   collection `annonces`, lue par tout compte connecté et écrite par les seuls
    admins (voir les règles). Comme le reste, ça ne touche que les comptes
    connectés : sans compte, l'app ne charge même pas Firebase. */
-Sync.ecouterAnnonce = function (rappel) {
+Sync.ecouterAnnonces = function (rappel) {
   if (!fb) return () => {};
-  return fb.s.onSnapshot(docAnnonce(),
-    snap => rappel(snap.exists() ? snap.data() : null),
-    () => rappel(null));   // une annonce injoignable ne doit jamais bloquer l'app
+  const { s } = fb;
+  const q = s.query(collectionAnnonces(), s.orderBy('maj'));
+  return s.onSnapshot(q,
+    snap => rappel(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    () => rappel([]));   // une erreur ne doit jamais bloquer l'app
 };
 
-Sync.enregistrerAnnonce = function (annonce) {
+// id = null → nouvelle annonce ; id = string → mise à jour d'une existante.
+Sync.enregistrerAnnonce = function (annonce, id) {
   if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
-  return fb.s.setDoc(docAnnonce(), {
+  const { s } = fb;
+  const data = {
     actif: !!annonce.actif,
     mode: annonce.mode || 'carte',
     bloquant: !!annonce.bloquant,
     titre: (annonce.titre || '').slice(0, 120),
     message: (annonce.message || '').slice(0, 2000),
     image: annonce.image || '',
-    maj: fb.s.serverTimestamp(),
+    maj: s.serverTimestamp(),
     parNom: Sync.nomAffiche(),
     parUid: Sync.user.uid
-  });
+  };
+  if (id) return s.setDoc(s.doc(fb.db, 'annonces', id), data, { merge: true });
+  return s.addDoc(collectionAnnonces(), data);
+};
+
+Sync.supprimerAnnonce = function (id) {
+  if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
+  return fb.s.deleteDoc(fb.s.doc(fb.db, 'annonces', id));
 };
 
 /* ---------- Inviter ---------- */

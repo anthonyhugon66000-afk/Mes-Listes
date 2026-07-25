@@ -467,56 +467,73 @@ suite('Comptes marqués et administration', async () => {
   ev('Sync.user = null; Sync.erreur = null');
 });
 
-/* ---------- Modes d'affichage de l'annonce ---------- */
+/* ---------- Modes d'affichage des annonces ---------- */
 
-suite('Modes d\'affichage de l\'annonce', () => {
-  const GMAIL  = 'jXcKGdfqQxNM8SZN3E4Y1nKX5d53';
-  const BASE = { actif: true, titre: 'Titre', message: 'Texte', image: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==' };
+suite('Modes d\'affichage des annonces', () => {
+  const GMAIL = 'jXcKGdfqQxNM8SZN3E4Y1nKX5d53';
+  const BASE  = { id: 't1', actif: true, titre: 'Titre', message: 'Texte', image: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==' };
 
-  // Mode bandeau : texte seul, pas d'image, animation de glissement.
   ev('Sync.user = { uid: "moi", email: "moi@example.com" }');
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'bandeau' })})`);
-  verifier('bandeau : le bandeau est visible', ev('document.getElementById("annonce-banner").hidden'), false);
-  verifier('bandeau : l\'overlay est caché', ev('document.getElementById("annonce-overlay").hidden'), true);
-  verifier('bandeau : la vitrine est cachée', ev('document.getElementById("annonce-vitrine").hidden'), true);
-  verifier('bandeau : l\'image est masquée (texte seul)', ev('document.getElementById("annonce-b-image").hidden'), true);
-  verifier('bandeau : le titre est affiché', ev('document.getElementById("annonce-b-titre").hidden'), false);
 
-  // Mode carte non bloquant : bandeau avec image.
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'carte', bloquant: false })})`);
-  verifier('carte non bloquant : le bandeau est visible', ev('document.getElementById("annonce-banner").hidden'), false);
+  // Mode bandeau : ticker fixe en haut, titre et message dans le ticker, image ignorée.
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, mode: 'bandeau' })}])`);
+  verifier('bandeau : le bandeau est visible',          ev('document.getElementById("annonce-banner").hidden'), false);
+  verifier('bandeau : le bandeau est en mode fixe',     ev('document.getElementById("annonce-banner").classList.contains("annonce-banner--fixe")'), true);
+  verifier('bandeau : l\'overlay est caché',             ev('document.getElementById("annonce-overlay").hidden'), true);
+  verifier('bandeau : la vitrine est cachée',            ev('document.getElementById("annonce-vitrine").hidden'), true);
+  verifier('bandeau : l\'image carte est masquée',       ev('document.getElementById("annonce-b-image").hidden'), true);
+  verifier('bandeau : le titre est dans le ticker',      ev('document.getElementById("annonce-ticker-texte").textContent.includes("Titre")'), true);
+
+  // Plusieurs bandeaux : tous les titres défilent dans le même ticker.
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, id: 't1', mode: 'bandeau', titre: 'Info 1' })}, ${JSON.stringify({ ...BASE, id: 't2', mode: 'bandeau', titre: 'Info 2' })}])`);
+  verifier('deux bandeaux : Info 1 est dans le ticker',  ev('document.getElementById("annonce-ticker-texte").textContent.includes("Info 1")'), true);
+  verifier('deux bandeaux : Info 2 est dans le ticker',  ev('document.getElementById("annonce-ticker-texte").textContent.includes("Info 2")'), true);
+
+  // Bandeau + vitrine : les deux coexistent.
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, id: 't1', mode: 'bandeau', titre: 'Info' })}, ${JSON.stringify({ ...BASE, id: 't2', mode: 'vitrine' })}])`);
+  verifier('bandeau + vitrine : bandeau visible',        ev('!document.getElementById("annonce-banner").hidden'), true);
+  verifier('bandeau + vitrine : vitrine visible',        ev('!document.getElementById("annonce-vitrine").hidden'), true);
+
+  // Mode carte non bloquant : bandeau statique avec image.
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, mode: 'carte', bloquant: false })}])`);
+  verifier('carte non bloquant : le bandeau est visible',ev('document.getElementById("annonce-banner").hidden'), false);
+  verifier('carte non bloquant : pas de classe fixe',    ev('document.getElementById("annonce-banner").classList.contains("annonce-banner--fixe")'), false);
   verifier('carte non bloquant : l\'image est affichée', ev('document.getElementById("annonce-b-image").hidden'), false);
-  verifier('carte non bloquant : l\'overlay est caché', ev('document.getElementById("annonce-overlay").hidden'), true);
+  verifier('carte non bloquant : l\'overlay est caché',  ev('document.getElementById("annonce-overlay").hidden'), true);
 
   // Mode carte bloquant : overlay (mais pas pour un admin).
   ev(`Sync.user = { uid: "${GMAIL}", email: "chef@example.com" }`);
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'carte', bloquant: true })})`);
-  verifier('carte bloquant : l\'admin voit le bandeau, pas l\'overlay', ev('document.getElementById("annonce-overlay").hidden'), true);
-  verifier('carte bloquant (admin) : le bandeau est visible', ev('document.getElementById("annonce-banner").hidden'), false);
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, mode: 'carte', bloquant: true })}])`);
+  verifier('carte bloquant (admin) : overlay caché',     ev('document.getElementById("annonce-overlay").hidden'), true);
+  verifier('carte bloquant (admin) : bandeau visible',   ev('document.getElementById("annonce-banner").hidden'), false);
 
   ev('Sync.user = { uid: "moi", email: "moi@example.com" }');
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'carte', bloquant: true })})`);
-  verifier('carte bloquant (non-admin) : l\'overlay s\'affiche', ev('document.getElementById("annonce-overlay").hidden'), false);
-  verifier('carte bloquant (non-admin) : le bandeau est caché', ev('document.getElementById("annonce-banner").hidden'), true);
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, mode: 'carte', bloquant: true })}])`);
+  verifier('carte bloquant (non-admin) : overlay visible',ev('document.getElementById("annonce-overlay").hidden'), false);
+  verifier('carte bloquant (non-admin) : bandeau caché', ev('document.getElementById("annonce-banner").hidden'), true);
 
-  // Mode vitrine : image sous les listes, pas de bandeau ni d'overlay.
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'vitrine' })})`);
-  verifier('vitrine : la vitrine est visible', ev('document.getElementById("annonce-vitrine").hidden'), false);
-  verifier('vitrine : le bandeau est caché', ev('document.getElementById("annonce-banner").hidden'), true);
-  verifier('vitrine : l\'overlay est caché', ev('document.getElementById("annonce-overlay").hidden'), true);
-  verifier('vitrine : l\'image est affichée', ev('document.getElementById("annonce-v-image").hidden'), false);
+  // Mode vitrine : image sous les listes.
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, mode: 'vitrine' })}])`);
+  verifier('vitrine : la vitrine est visible',           ev('document.getElementById("annonce-vitrine").hidden'), false);
+  verifier('vitrine : le bandeau est caché',             ev('document.getElementById("annonce-banner").hidden'), true);
+  verifier('vitrine : l\'overlay est caché',             ev('document.getElementById("annonce-overlay").hidden'), true);
+  verifier('vitrine : l\'image est affichée',            ev('document.getElementById("annonce-v-image").hidden'), false);
 
   // Mode vitrine sans image : rien ne s'affiche.
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, mode: 'vitrine', image: '' })})`);
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, mode: 'vitrine', image: '' })}])`);
   verifier('vitrine sans image : la vitrine est cachée', ev('document.getElementById("annonce-vitrine").hidden'), true);
 
-  // Annonce inactive : tout caché.
-  ev(`renderAnnonce(${JSON.stringify({ ...BASE, actif: false, mode: 'bandeau' })})`);
-  verifier('inactive : le bandeau est caché', ev('document.getElementById("annonce-banner").hidden'), true);
-  verifier('inactive : la vitrine est cachée', ev('document.getElementById("annonce-vitrine").hidden'), true);
+  // Annonce inactive.
+  ev(`renderAnnonces([${JSON.stringify({ ...BASE, actif: false, mode: 'bandeau' })}])`);
+  verifier('inactive : le bandeau est caché',            ev('document.getElementById("annonce-banner").hidden'), true);
+  verifier('inactive : la vitrine est cachée',           ev('document.getElementById("annonce-vitrine").hidden'), true);
 
-  // Nettoyage.
-  ev('renderAnnonce(null)');
+  // Tableau vide / nettoyage.
+  ev('renderAnnonces([])');
+  verifier('vide : bandeau caché',  ev('document.getElementById("annonce-banner").hidden'), true);
+  verifier('vide : vitrine cachée', ev('document.getElementById("annonce-vitrine").hidden'), true);
+  verifier('vide : overlay caché',  ev('document.getElementById("annonce-overlay").hidden'), true);
+
   ev('Sync.user = null');
 });
 

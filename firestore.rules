@@ -25,9 +25,9 @@ service cloud.firestore {
         ];
     }
 
-    /* Configuration globale : l'annonce affichée à l'entrée de l'app. Tout compte
-       connecté la lit ; seul un admin l'écrit. */
-    match /config/{doc} {
+    /* Annonces globales : chaque document est une annonce indépendante.
+       Tout compte connecté peut lire ; seul un admin crée, modifie ou supprime. */
+    match /annonces/{id} {
       allow read: if connecte();
       allow write: if estAdmin();
     }
