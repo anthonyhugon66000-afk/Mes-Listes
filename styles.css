@@ -962,14 +962,12 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   position: fixed;
   top: 0;
   left: 0;
-  right: 52px;  /* laisse les boutons du topbar accessibles à droite */
+  right: 50%;
   z-index: 99;
   margin: 0;
   border-radius: 0 0 10px 0;
   border-top: none;
   border-right: none;
-  height: var(--ticker-h);
-  padding: 0 12px;
   overflow: hidden;
   animation: glisserDepuisHaut 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
