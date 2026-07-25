@@ -1744,6 +1744,9 @@ function renderAnnonces(annonces) {
   banner.hidden = !(montrerTicker || montrerCarte);
 
   if (montrerTicker) {
+    // Positionner juste sous le topbar pour ne pas couvrir les boutons du menu.
+    const topbar = document.querySelector('.topbar');
+    banner.style.top = topbar ? (topbar.offsetHeight + 4) + 'px' : '4px';
     const texte = bandeaux
       .map(a => [a.titre, a.message].filter(Boolean).join(' — '))
       .join('     ◆     ');
