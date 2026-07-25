@@ -10,6 +10,7 @@
   --danger:    #ff3b30;
   --bar:       rgba(242,242,247,.82);
   --shadow:    0 1px 3px rgba(0,0,0,.08);
+  --ticker-h:  30px;
 }
 
 /* Le mode est décidé en JavaScript — `auto` suit le réglage du téléphone, sinon
@@ -956,16 +957,19 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   box-shadow: var(--shadow);
   animation: glisserBas 0.3s ease;
 }
-/* Mode bandeau : pill fixe positionné juste sous le topbar (top mis à jour en JS). */
+/* Mode bandeau : barre compacte en haut, arrêtée avant les boutons du menu (droite). */
 .annonce-banner--fixe {
   position: fixed;
-  top: 0; /* remplacé en JS par offsetHeight du topbar */
-  left: 16px;
-  right: 16px;
+  top: 0;
+  left: 0;
+  right: 52px;  /* laisse les boutons du topbar accessibles à droite */
   z-index: 99;
   margin: 0;
-  border-radius: 10px;
-  padding: 6px 12px;
+  border-radius: 0 0 10px 0;
+  border-top: none;
+  border-right: none;
+  height: var(--ticker-h);
+  padding: 0 12px;
   overflow: hidden;
   animation: glisserDepuisHaut 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
