@@ -24,6 +24,33 @@ const PHOTOS_EMOJI = [
   '🏡','🌸','⚽','🎵','✈️','🎁'
 ];
 
+const PALIERS_STREAK = [
+  { jours:   10, emoji:'🌟', label:'Débutant',       couleur:'#8e8e93' },
+  { jours:   25, emoji:'⭐', label:'Régulier',        couleur:'#ffd700' },
+  { jours:   50, emoji:'💫', label:'Assidu',          couleur:'#ff9500' },
+  { jours:   75, emoji:'✨', label:'Persévérant',     couleur:'#ff6b00' },
+  { jours:  100, emoji:'🏆', label:'Champion',        couleur:'#ff3b30' },
+  { jours:  125, emoji:'🥇', label:'Expert',          couleur:'#af52de' },
+  { jours:  150, emoji:'💎', label:'Diamant',         couleur:'#00c7be' },
+  { jours:  175, emoji:'🔮', label:'Mystique',        couleur:'#5856d6' },
+  { jours:  200, emoji:'👑', label:'Légendaire',      couleur:'#007aff' },
+  { jours:  250, emoji:'🎯', label:'Précis',          couleur:'#34c759' },
+  { jours:  300, emoji:'🌈', label:'Arc-en-ciel',     couleur:'#ff2d55' },
+  { jours:  400, emoji:'🌙', label:'Nocturne',        couleur:'#5856d6' },
+  { jours:  500, emoji:'🌠', label:'Étoile filante',  couleur:'#ff9500' },
+  { jours:  600, emoji:'🌊', label:'Océan',           couleur:'#007aff' },
+  { jours:  700, emoji:'⚡', label:'Éclair',          couleur:'#ffcc00' },
+  { jours:  800, emoji:'🦋', label:'Papillon',        couleur:'#ff2d55' },
+  { jours:  900, emoji:'🌺', label:'Floraison',       couleur:'#ff3b30' },
+  { jours: 1000, emoji:'🎆', label:'Millénaire',      couleur:'#ff9500' },
+  { jours: 1250, emoji:'🦁', label:'Rugissant',       couleur:'#ff6b00' },
+  { jours: 1500, emoji:'🦄', label:'Licorne',         couleur:'#af52de' },
+  { jours: 1750, emoji:'🐉', label:'Dragon',          couleur:'#ff3b30' },
+  { jours: 2000, emoji:'🌍', label:'Mondial',         couleur:'#34c759' },
+  { jours: 2500, emoji:'🚀', label:'Spatial',         couleur:'#007aff' },
+  { jours: 3000, emoji:'💥', label:'Ultime',          couleur:'#ff2d55' },
+];
+
 const ICON = {
   chevron: '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
   handle:  '<svg viewBox="0 0 24 24"><path d="M4 8h16M4 16h16"/></svg>',
@@ -67,7 +94,7 @@ function load() {
   } catch (e) {
     console.warn('Données illisibles, réinitialisation.', e);
   }
-  return { lists: [], hideDone: false, streak: 0, lastActive: null };
+  return { lists: [], hideDone: false, streak: 0, lastActive: null, joursActifs: [] };
 }
 
 /* Les données d'avant les quantités n'ont ni `qty` ni `variants`, et rangent la
@@ -98,6 +125,7 @@ function migrate(data) {
   });
   if (data.streak === undefined) data.streak = 0;
   if (!data.lastActive) data.lastActive = null;
+  if (!Array.isArray(data.joursActifs)) data.joursActifs = [];
   return data;
 }
 
@@ -306,6 +334,12 @@ function mettreAJourStreak() {
   const hier = new Date(Date.now() - 86400000).toDateString();
   state.streak = state.lastActive === hier ? (state.streak || 0) + 1 : 1;
   state.lastActive = today;
+  if (!Array.isArray(state.joursActifs)) state.joursActifs = [];
+  if (!state.joursActifs.includes(today)) {
+    state.joursActifs.push(today);
+    const cutoff = new Date(Date.now() - 14 * 86400000);
+    state.joursActifs = state.joursActifs.filter(d => new Date(d) > cutoff);
+  }
   save();
 }
 
@@ -314,6 +348,96 @@ function renderStreak() {
   if (!el) return;
   el.dataset.count = state.streak || 0;
   el.querySelector('.streak-count').textContent = state.streak || 0;
+}
+
+$('streak-display').style.cursor = 'pointer';
+$('streak-display').addEventListener('click', streakModal);
+
+function streakModal() {
+  const streak = state.streak || 0;
+  const actifs = new Set(state.joursActifs || []);
+  const LETTRES = ['D','L','M','M','J','V','S'];
+  const today = new Date();
+
+  const weekHtml = `<div class="sk-week">` +
+    Array.from({length: 7}, (_, i) => {
+      const d = new Date(today.getTime() - (6 - i) * 86400000);
+      const ok = actifs.has(d.toDateString());
+      const isToday = i === 6;
+      return `<div class="sk-day${ok ? ' actif' : ''}${isToday ? ' auj' : ''}">
+        <span class="sk-dot">${ok ? '⭐' : ''}</span>
+        <span class="sk-day-lbl">${LETTRES[d.getDay()]}</span>
+      </div>`;
+    }).join('') + `</div>`;
+
+  const prochain = PALIERS_STREAK.find(p => p.jours > streak);
+  const prevJours = prochain
+    ? (PALIERS_STREAK.slice().reverse().find(p => p.jours <= streak)?.jours ?? 0)
+    : 0;
+  const progressPct = prochain
+    ? Math.round((streak - prevJours) / (prochain.jours - prevJours) * 100)
+    : 100;
+
+  const nextHtml = prochain
+    ? `<div class="sk-next-wrap">
+        <div class="sk-next-row">
+          <span>Prochain : <strong>${prochain.emoji} ${prochain.jours} jours</strong></span>
+          <span class="sk-reste">${prochain.jours - streak} j. restant${prochain.jours - streak > 1 ? 's' : ''}</span>
+        </div>
+        <div class="sk-progress-bar"><div class="sk-progress-fill" style="width:${progressPct}%"></div></div>
+      </div>`
+    : `<div class="sk-next-wrap"><strong>🏅 Tous les paliers débloqués !</strong></div>`;
+
+  const paliersHtml = PALIERS_STREAK.map((p, idx) => {
+    const debloque = streak >= p.jours;
+    const estProchain = !debloque && (!PALIERS_STREAK[idx - 1] || streak >= PALIERS_STREAK[idx - 1].jours);
+    const cl = debloque ? 'debloque' : estProchain ? 'prochain' : 'verrouille';
+    return `<div class="sk-palier ${cl}" style="--pc:${p.couleur};animation-delay:${Math.min(idx * 0.055, 1.1)}s">
+      <div class="sk-p-emoji">${p.emoji}</div>
+      <div class="sk-p-jours">${p.jours}</div>
+      <div class="sk-p-label">${p.label}</div>
+      ${debloque ? `<div class="sk-p-check">✓</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const isMilestone = PALIERS_STREAK.some(p => p.jours === streak);
+
+  openSheet('Ma série', [], { html: `
+    <div class="sk-modal">
+      <div class="sk-confetti-zone" id="sk-confetti"></div>
+      <div class="sk-hero">
+        <span class="sk-star">⭐</span>
+        <div class="sk-count">${streak}</div>
+        <div class="sk-sub">jour${streak > 1 ? 's' : ''} consécutif${streak > 1 ? 's' : ''}</div>
+      </div>
+      ${weekHtml}
+      ${nextHtml}
+      <div class="sk-grid-title">Paliers</div>
+      <div class="sk-paliers-grid">${paliersHtml}</div>
+    </div>`
+  });
+
+  if (isMilestone) setTimeout(() => lancerConfetti($('sk-confetti')), 150);
+}
+
+function lancerConfetti(zone) {
+  if (!zone) return;
+  const cl = ['#ff3b30','#ff9500','#ffcc00','#34c759','#007aff','#af52de','#ff2d55'];
+  for (let i = 0; i < 50; i++) {
+    const p = document.createElement('span');
+    p.className = 'sk-confetti-p';
+    const isRound = Math.random() > .5;
+    p.style.cssText =
+      `left:${Math.random() * 100}%;` +
+      `background:${cl[i % cl.length]};` +
+      `animation-delay:${Math.random() * .9}s;` +
+      `animation-duration:${.6 + Math.random() * .9}s;` +
+      `width:${5 + Math.random() * 7}px;height:${5 + Math.random() * 7}px;` +
+      `border-radius:${isRound ? '50%' : '2px'};` +
+      `--rot:${Math.floor(Math.random() * 360)}deg`;
+    zone.appendChild(p);
+    setTimeout(() => p.remove(), 2500);
+  }
 }
 
 /* ============================================================
