@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.8.0';
+const VERSION = 'v17.8.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1664,7 +1664,7 @@ $('account-pass').addEventListener('keydown', e => {
 
 /* ---------- Apparence ---------- */
 
-const MODES = [['auto', 'Automatique'], ['light', 'Clair'], ['dark', 'Sombre']];
+const MODES = [['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre'], ['photo', '🖼️ Photo']];
 const ACCENT_DEFAUT = '#007aff';
 const nuitPreferee = matchMedia('(prefers-color-scheme: dark)');
 
@@ -1679,11 +1679,21 @@ function applyTheme() {
   const choix = (perso && state.theme) || 'auto';
   const accent = perso ? state.accent : null;
   const sombre = choix === 'dark' || (choix === 'auto' && nuitPreferee.matches);
+  const bg = choix === 'photo' ? localStorage.getItem('meslistes.themebg') : null;
 
-  document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
+  if (bg) {
+    document.documentElement.classList.add('theme-photo');
+    document.documentElement.style.setProperty('--theme-bg', `url("${bg}")`);
+    document.documentElement.dataset.theme = 'light';
+  } else {
+    document.documentElement.classList.remove('theme-photo');
+    document.documentElement.style.removeProperty('--theme-bg');
+    document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
+  }
+
   if (accent) document.documentElement.style.setProperty('--accent', accent);
   else document.documentElement.style.removeProperty('--accent');
-  $('meta-theme').content = sombre ? '#000000' : '#f2f2f7';
+  $('meta-theme').content = bg ? '#f2f2f7' : (sombre ? '#000000' : '#f2f2f7');
 }
 
 // En mode automatique, l'app suit le basculement jour/nuit du téléphone sans
@@ -1692,9 +1702,28 @@ nuitPreferee.addEventListener('change', () => {
   if ((state.theme || 'auto') === 'auto') applyTheme();
 });
 
+async function compresserPhoto(fichier) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(fichier);
+    img.onload = () => {
+      const max = 1280;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > max || h > max) {
+        if (w > h) { h = Math.round(h * max / w); w = max; }
+        else { w = Math.round(w * max / h); h = max; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.78));
+    };
+    img.src = url;
+  });
+}
+
 function themePicker() {
-  // Dire pourquoi c'est fermé, et où aller. Une option grisée sans explication
-  // laisse juste croire à une panne.
   if (!themePersonnalisable()) {
     return openSheet('Apparence', [
       { label: 'Se connecter', icon: '☁️', run: accountModal }
@@ -1705,12 +1734,23 @@ function themePicker() {
     });
   }
 
+  const curTheme = state.theme || 'auto';
+  const curBg = localStorage.getItem('meslistes.themebg');
+
   const html = `
     <div class="seg">
       ${MODES.map(([valeur, libelle]) => `
         <button class="seg-btn" data-mode="${valeur}"
-                aria-checked="${(state.theme || 'auto') === valeur}">${libelle}</button>`).join('')}
+                aria-checked="${curTheme === valeur}">${libelle}</button>`).join('')}
     </div>
+    ${curTheme === 'photo' ? `
+      <p class="sheet-note">Fond d'écran</p>
+      <div class="photo-bg-wrap">
+        ${curBg ? `<div class="photo-bg-thumb" style="background-image:url(${curBg})"></div>` : ''}
+        <button class="sheet-action-btn" id="choisir-fond">${curBg ? '✏️ Changer la photo' : '📷 Choisir une photo'}</button>
+        ${curBg ? `<button class="sheet-action-btn" id="supprimer-fond" style="color:#ff3b30">🗑️ Supprimer le fond</button>` : ''}
+      </div>
+    ` : ''}
     <p class="sheet-note">Couleur des boutons</p>
     <div class="swatches">
       ${COLORS.map(c => `
@@ -1724,13 +1764,32 @@ function themePicker() {
     onClick: e => {
       const mode = e.target.closest('[data-mode]');
       const accent = e.target.closest('[data-accent]');
-      if (!mode && !accent) return;
 
+      if (e.target.id === 'choisir-fond') {
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = 'image/*';
+        inp.onchange = async () => {
+          if (!inp.files[0]) return;
+          const dataUrl = await compresserPhoto(inp.files[0]);
+          localStorage.setItem('meslistes.themebg', dataUrl);
+          state.theme = 'photo';
+          save(); applyTheme(); themePicker();
+        };
+        inp.click();
+        return;
+      }
+      if (e.target.id === 'supprimer-fond') {
+        localStorage.removeItem('meslistes.themebg');
+        if (state.theme === 'photo') state.theme = 'auto';
+        save(); applyTheme(); themePicker();
+        return;
+      }
+      if (!mode && !accent) return;
       if (mode) state.theme = mode.dataset.mode;
       if (accent) state.accent = accent.dataset.accent;
       save();
       applyTheme();
-      themePicker();      // réaffiche la feuille avec le nouveau choix coché
+      themePicker();
     }
   });
 }

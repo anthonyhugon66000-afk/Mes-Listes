@@ -1245,6 +1245,73 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
   vertical-align: middle;
 }
 
+/* ===== v17.8.1 : Fond photo (thème) ===== */
+
+html.theme-photo body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--theme-bg, none);
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  pointer-events: none;
+}
+html.theme-photo #app,
+html.theme-photo .sheet-backdrop,
+html.theme-photo #compte-backdrop { position: relative; z-index: 1; }
+
+html.theme-photo .topbar {
+  background: rgba(250,250,250,.84) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+html.theme-photo .list-card {
+  background: rgba(255,255,255,.88) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+html.theme-photo .sheet {
+  background: rgba(245,245,245,.94) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+html.theme-photo .modal-box {
+  background: rgba(245,245,245,.96) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+html[data-theme="dark"].theme-photo .topbar   { background: rgba(28,28,28,.84) !important; }
+html[data-theme="dark"].theme-photo .list-card { background: rgba(30,30,30,.88) !important; }
+html[data-theme="dark"].theme-photo .sheet     { background: rgba(20,20,20,.94) !important; }
+html[data-theme="dark"].theme-photo .modal-box { background: rgba(20,20,20,.96) !important; }
+
+.photo-bg-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 0 8px;
+}
+.photo-bg-thumb {
+  width: 100%;
+  height: 120px;
+  border-radius: 14px;
+  background-size: cover;
+  background-position: center;
+}
+.sheet-action-btn {
+  width: 100%;
+  padding: 13px 16px;
+  background: var(--surface);
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.sheet-action-btn:active { opacity: .7; }
+
 /* ===== Streak Modal (style Duolingo) ===== */
 
 @keyframes skStarPulse {
