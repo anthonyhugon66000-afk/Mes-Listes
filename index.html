@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.8.1">
+<link rel="stylesheet" href="styles.css?v17.8.2">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -444,6 +444,20 @@
         alors inutile).
       </p>
       <p class="form-msg" id="admin-pseudo-msg" hidden></p>
+
+      <p class="sep"><span></span></p>
+
+      <h3 class="admin-section">Notification push</h3>
+      <p class="sheet-note left">Envoyée à tous les appareils enregistrés.</p>
+      <label class="modal-label" for="notif-titre">Titre</label>
+      <input type="text" id="notif-titre" maxlength="100" placeholder="Ex : Nouvelle fonctionnalité 🎉">
+      <label class="modal-label" for="notif-corps">Message</label>
+      <textarea id="notif-corps" class="admin-textarea" maxlength="300" rows="3"
+                placeholder="Le texte de la notification"></textarea>
+      <div class="admin-boutons">
+        <button type="button" class="modal-btn primary" id="notif-envoyer">Envoyer à tous</button>
+      </div>
+      <p class="form-msg" id="notif-msg" hidden></p>
     </div>
 
     <div class="modal-buttons">
@@ -470,8 +484,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js?v17.8.1"></script>
-<script src="sync.js?v17.8.1"></script>
-<script src="app.js?v17.8.1"></script>
+<script src="firebase-config.js?v17.8.2"></script>
+<script src="sync.js?v17.8.2"></script>
+<script src="app.js?v17.8.2"></script>
 </body>
 </html>

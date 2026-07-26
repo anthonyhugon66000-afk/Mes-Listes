@@ -1247,19 +1247,9 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 
 /* ===== v17.8.1 : Fond photo (thème) ===== */
 
-html.theme-photo body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: var(--theme-bg, none);
-  background-size: cover;
-  background-position: center;
-  z-index: 0;
-  pointer-events: none;
-}
-html.theme-photo #app,
-html.theme-photo .sheet-backdrop,
-html.theme-photo #compte-backdrop { position: relative; z-index: 1; }
+/* Le fond est posé directement sur body via JS (backgroundImage inline).
+   On efface la background-color CSS pour qu'elle ne masque pas la photo. */
+html.theme-photo body { background-color: transparent !important; }
 
 html.theme-photo .topbar {
   background: rgba(250,250,250,.84) !important;

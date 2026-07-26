@@ -526,6 +526,20 @@ Sync.libererPseudo = async function (pseudo) {
   if (cle) await fb.s.deleteDoc(fb.s.doc(collectionPseudos(), cle));
 };
 
+/* Envoyer une notification push à tous les appareils enregistrés. */
+Sync.diffuserNotif = async function (titre, corps) {
+  if (!Sync.estAdmin() || !fb || !Sync.user) throw { code: 'admin/refuse' };
+  const idToken = await fb.auth.currentUser.getIdToken();
+  const r = await fetch(WORKER_NOTIFS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'broadcast', idToken, titre, corps: corps || '' })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw { code: data.erreur || 'notif/erreur' };
+  return data;
+};
+
 /* ---------- Annonce globale ----------
 
    Un admin peut afficher un message à l'entrée de l'app — un simple avis, ou

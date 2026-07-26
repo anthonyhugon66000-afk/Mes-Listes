@@ -175,6 +175,24 @@ async function envoyer(projet, acces, jeton, titre, corps, listeId) {
   return r.ok;
 }
 
+/* ---------- Récupérer tous les jetons (pour les diffusions globales) ---------- */
+
+async function tousLesJetons(projet, acces) {
+  const jetons = [];
+  let pageToken = null;
+  do {
+    const url = `${BASE_FS(projet)}/users?pageSize=300${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${acces}` } });
+    if (!r.ok) break;
+    const data = await r.json();
+    for (const doc of data.documents || []) {
+      tableau(doc?.fields?.jetons).forEach(j => jetons.push(j));
+    }
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+  return jetons;
+}
+
 /* ---------- Point d'entrée ---------- */
 
 export default {
@@ -198,6 +216,27 @@ export default {
     }
 
     const { idToken, listeId, titre, corps, action, email, cibleUid } = corpsRequete;
+
+    /* --- Diffusion globale (admin → tous les appareils) --- */
+    if (action === 'broadcast') {
+      if (!idToken) return repondre({ erreur: 'idToken requis' }, 400);
+      if (!titre)   return repondre({ erreur: 'titre requis' }, 400);
+
+      let auteur;
+      try { auteur = await verifierIdentite(idToken, projet); }
+      catch (e) { return repondre({ erreur: 'identité refusée' }, 401); }
+
+      const admins = (env.ADMINS || '').split(',').map(u => u.trim()).filter(Boolean);
+      if (!admins.includes(auteur)) return repondre({ erreur: 'admin requis' }, 403);
+
+      const acces  = await jetonDeService(compte);
+      const jetons = await tousLesJetons(projet, acces);
+      if (!jetons.length) return repondre({ envoyes: 0, tentes: 0, raison: 'aucun appareil enregistré' });
+
+      const resultats = await Promise.all(jetons.map(j => envoyer(projet, acces, j, titre, corps || '', '')));
+      return repondre({ envoyes: resultats.filter(Boolean).length, tentes: jetons.length });
+    }
+
     if (!idToken || !listeId) return repondre({ erreur: 'idToken et listeId requis' }, 400);
 
     let auteur;

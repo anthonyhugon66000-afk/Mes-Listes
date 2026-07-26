@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.8.1';
+const VERSION = 'v17.8.2';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1682,12 +1682,16 @@ function applyTheme() {
   const bg = choix === 'photo' ? localStorage.getItem('meslistes.themebg') : null;
 
   if (bg) {
+    document.body.style.backgroundImage = `url("${bg}")`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
     document.documentElement.classList.add('theme-photo');
-    document.documentElement.style.setProperty('--theme-bg', `url("${bg}")`);
     document.documentElement.dataset.theme = 'light';
   } else {
+    document.body.style.backgroundImage = '';
+    document.body.style.backgroundSize = '';
+    document.body.style.backgroundPosition = '';
     document.documentElement.classList.remove('theme-photo');
-    document.documentElement.style.removeProperty('--theme-bg');
     document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
   }
 
@@ -2200,6 +2204,22 @@ $('admin-liberer').addEventListener('click', async () => {
     messageAdmin('admin-pseudo-msg', `« ${pseudo} » est de nouveau libre pour tous.`);
   } catch (err) {
     messageAdmin('admin-pseudo-msg', messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
+
+$('notif-envoyer').addEventListener('click', async () => {
+  const titre = $('notif-titre').value.trim();
+  const corps  = $('notif-corps').value.trim();
+  if (!titre) return messageAdmin('notif-msg', 'Le titre est obligatoire.', 'erreur');
+  if (!confirm(`Envoyer la notification « ${titre} » à tous les utilisateurs ?`)) return;
+  messageAdmin('notif-msg', 'Envoi…');
+  try {
+    const res = await Sync.diffuserNotif(titre, corps);
+    messageAdmin('notif-msg', `Envoyée à ${res.envoyes} appareil(s) sur ${res.tentes}.`);
+    $('notif-titre').value = '';
+    $('notif-corps').value = '';
+  } catch (err) {
+    messageAdmin('notif-msg', messageErreur(err?.code || String(err)), 'erreur');
   }
 });
 
