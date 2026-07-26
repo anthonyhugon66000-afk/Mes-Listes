@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.7.12">
+<link rel="stylesheet" href="styles.css?v17.8.0">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -47,6 +47,9 @@
 <section id="screen-home" class="screen is-active">
   <header class="topbar">
     <h1>Mes listes</h1>
+    <span class="streak-badge" id="streak-display" data-count="0">
+      <span class="streak-star">⭐</span><span class="streak-count">0</span>
+    </span>
     <div class="topbar-actions">
       <button class="icon-btn" id="btn-settings" aria-label="Réglages">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
@@ -467,8 +470,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js?v17.7.12"></script>
-<script src="sync.js?v17.7.12"></script>
-<script src="app.js?v17.7.12"></script>
+<script src="firebase-config.js?v17.8.0"></script>
+<script src="sync.js?v17.8.0"></script>
+<script src="app.js?v17.8.0"></script>
 </body>
 </html>

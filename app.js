@@ -11,11 +11,17 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.7.12';
+const VERSION = 'v17.8.0';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
   '#007aff', '#5856d6', '#af52de', '#ff2d55', '#8e8e93'
+];
+
+const PHOTOS_EMOJI = [
+  '🛒','🍎','🥦','🍞','🧀','🥩','🐟','🧁','☕','🍷',
+  '🧃','🥛','📦','🧹','🧴','💊','🐾','🧸','🎮','📚',
+  '🏡','🌸','⚽','🎵','✈️','🎁'
 ];
 
 const ICON = {
@@ -61,7 +67,7 @@ function load() {
   } catch (e) {
     console.warn('Données illisibles, réinitialisation.', e);
   }
-  return { lists: [], hideDone: false };
+  return { lists: [], hideDone: false, streak: 0, lastActive: null };
 }
 
 /* Les données d'avant les quantités n'ont ni `qty` ni `variants`, et rangent la
@@ -88,7 +94,10 @@ function migrate(data) {
         v.done = !!v.done;
       });
     });
+    if (!list.photo) list.photo = '';
   });
+  if (data.streak === undefined) data.streak = 0;
+  if (!data.lastActive) data.lastActive = null;
   return data;
 }
 
@@ -129,9 +138,13 @@ function renderHome() {
       : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`)
       + (partagee ? ' · partagée' : '');
 
+    const coverHtml = list.photo
+      ? `<span class="list-photo">${list.photo}</span>`
+      : `<span class="color-bar" style="background:${list.color}"></span>`;
+
     return `
       <li class="row" data-id="${list.id}">
-        <span class="color-bar" style="background:${list.color}"></span>
+        ${coverHtml}
         <button class="row-main" data-open>
           <span class="row-text">
             <span class="row-title">${esc(list.name)}</span>
@@ -178,6 +191,7 @@ function listMenu(id) {
   const actions = [
     { label: 'Renommer', icon: '✏️', run: () => renameList(id) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(id) },
+    { label: 'Photo de la liste', icon: '🖼️', run: () => photoPicker(id) },
     { label: 'Partager', icon: '👥', run: () => shareModal(id) },
     { label: 'Dupliquer', icon: '📄', run: () => duplicateList(id) }
   ];
@@ -266,6 +280,40 @@ function colorPicker(id) {
       closeSheet();
     }
   });
+}
+
+function photoPicker(id) {
+  const list = getList(id);
+  const html = `<div class="photo-grid">` + PHOTOS_EMOJI.map(e =>
+    `<button class="photo-opt" data-emoji="${e}" aria-checked="${e === list.photo}">${e}</button>`
+  ).join('') + `</div>`;
+  openSheet('Photo de la liste', [], {
+    html,
+    onClick: e => {
+      const opt = e.target.closest('[data-emoji]');
+      if (!opt) return;
+      list.photo = list.photo === opt.dataset.emoji ? '' : opt.dataset.emoji;
+      save();
+      renderHome();
+      closeSheet();
+    }
+  });
+}
+
+function mettreAJourStreak() {
+  const today = new Date().toDateString();
+  if (state.lastActive === today) return;
+  const hier = new Date(Date.now() - 86400000).toDateString();
+  state.streak = state.lastActive === hier ? (state.streak || 0) + 1 : 1;
+  state.lastActive = today;
+  save();
+}
+
+function renderStreak() {
+  const el = $('streak-display');
+  if (!el) return;
+  el.dataset.count = state.streak || 0;
+  el.querySelector('.streak-count').textContent = state.streak || 0;
 }
 
 /* ============================================================
@@ -547,7 +595,6 @@ $('form-add-item').addEventListener('submit', e => {
   save();
   input.value = '';
   renderItems();
-  // garde le clavier ouvert pour enchaîner les ajouts
   input.focus();
 });
 
@@ -1231,6 +1278,20 @@ const messageErreur = code => ERREURS[code] || `Erreur inattendue (${code}).`;
 
 const compteBackdrop = $('account-backdrop');
 
+let authMurActif = false;
+let precedentUser = !!localStorage.getItem('meslistes.compte');
+
+function afficherMurAuth() {
+  authMurActif = true;
+  $('account-modal').setAttribute('data-force', '');
+  accountModal();
+}
+
+function libererMurAuth() {
+  authMurActif = false;
+  $('account-modal').removeAttribute('data-force');
+}
+
 /* Le message s'affiche dans le volet visible : le glisser sous un formulaire
    caché reviendrait à ne rien dire. */
 function messageCompte(texte, type) {
@@ -1375,7 +1436,7 @@ function accountModal() {
   compteBackdrop.hidden = false;
 }
 
-function closeAccount() { compteBackdrop.hidden = true; }
+function closeAccount() { if (authMurActif) return; compteBackdrop.hidden = true; }
 
 $('account-close').addEventListener('click', closeAccount);
 compteBackdrop.addEventListener('click', e => { if (e.target === compteBackdrop) closeAccount(); });
@@ -1966,6 +2027,16 @@ $('admin-liberer').addEventListener('click', async () => {
 /* La synchro prévient l'app quand le compte ou les listes changent — au retour
    du réseau, une modification faite sur l'ordinateur arrive ici toute seule. */
 Sync.onChange = () => {
+  const etaitConnecte = precedentUser;
+  precedentUser = !!Sync.user;
+
+  if (Sync.user) {
+    libererMurAuth();
+    compteBackdrop.hidden = true;
+  } else if (etaitConnecte) {
+    afficherMurAuth();
+  }
+
   renderAccount();
   applyTheme();          // se connecter rend l'apparence choisie, se déconnecter la retire
 
@@ -2016,10 +2087,16 @@ function renderEtatSync() {
   $('app-version').textContent = `${VERSION} ${ETATS[Sync.etat] || ''}${detail}`.trim();
   $('app-version').classList.toggle('alerte', Sync.etat === 'erreur');
 }
+mettreAJourStreak();
 renderEtatSync();
 applyTheme();
 renderHome();
+renderStreak();
 annoncerNouveautes();
+
+if (!localStorage.getItem('meslistes.compte')) {
+  afficherMurAuth();
+}
 
 /* Retour depuis un lien de connexion : on termine l'ouverture de session avant
    toute chose, l'app apparaîtra directement connectée. */
