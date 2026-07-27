@@ -1248,8 +1248,10 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 /* ===== v17.8.1 : Fond photo (thème) ===== */
 
 /* Le fond est posé directement sur body via JS (backgroundImage inline).
-   On efface la background-color CSS pour qu'elle ne masque pas la photo. */
-html.theme-photo body { background-color: transparent !important; }
+   body et .screen (position:fixed, inset:0) doivent être transparents pour
+   laisser la photo apparaître derrière les éléments glass. */
+html.theme-photo body    { background-color: transparent !important; }
+html.theme-photo .screen { background: transparent !important; }
 
 html.theme-photo .topbar {
   background: rgba(250,250,250,.84) !important;
