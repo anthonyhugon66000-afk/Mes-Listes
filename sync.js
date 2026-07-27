@@ -616,14 +616,18 @@ Sync.supprimerRetour = function (id) {
 };
 
 // Permet à l'utilisateur connecté de lire ses propres retours (et les réponses admin).
+// Pas d'orderBy combiné au where : évite d'exiger un index composite Firestore.
+// Le tri se fait côté client.
 Sync.ecouterMesRetours = function (rappel) {
   if (!fb || !Sync.user) return () => {};
   const { s } = fb;
-  const q = s.query(collectionFeedback(),
-    s.where('uid', '==', Sync.user.uid),
-    s.orderBy('cree', 'desc'));
+  const q = s.query(collectionFeedback(), s.where('uid', '==', Sync.user.uid));
   return s.onSnapshot(q,
-    snap => rappel(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    snap => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.cree?.seconds || 0) - (a.cree?.seconds || 0));
+      rappel(docs);
+    },
     () => rappel([]));
 };
 
