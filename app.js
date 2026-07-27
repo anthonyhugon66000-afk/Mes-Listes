@@ -990,7 +990,7 @@ $('btn-settings').addEventListener('click', () => {
     { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
     { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
   ];
-  if (Sync.user) {
+  if (Sync.user && !Sync.estAdmin()) {
     actions.push({ label: 'Nous écrire', icon: '✉️', run: feedbackModal });
     actions.push({ label: aRetours ? 'Mes retours  ●' : 'Mes retours', icon: '📬', run: mesRetoursModal });
   }
