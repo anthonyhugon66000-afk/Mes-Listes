@@ -1774,3 +1774,27 @@ html[data-theme="dark"].theme-glass .fab {
     0 6px 22px rgba(0,0,0,.48) !important;
 }
 html.theme-glass .fab:active { transform: scale(.94); }
+
+/* ===== v17.10 : Bandeau flou derrière le texte (mode photo) ===== */
+
+/* La carte devient transparente : on voit la photo derrière */
+html.theme-glass.theme-photo .row {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Seul le texte (titre + sous-titre) reçoit un bandeau flouté */
+html.theme-photo .row-text {
+  background: rgba(255,255,255,.7);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  padding: 4px 10px;
+  border-radius: 8px;
+  margin: -4px 0;
+}
+html[data-theme="dark"].theme-photo .row-text {
+  background: rgba(0,0,0,.52);
+}
