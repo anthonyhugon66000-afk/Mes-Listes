@@ -1,0 +1,77 @@
+{
+  "app.js": {
+    "mtime": 1785089652.2960281,
+    "ast_hash": "5b7ba163fcf1cd56253a99d9142f0680",
+    "semantic_hash": "5b7ba163fcf1cd56253a99d9142f0680"
+  },
+  "firebase-config.js": {
+    "mtime": 1784820259.374302,
+    "ast_hash": "bc12e3efe923af89f05beae51fe97b27",
+    "semantic_hash": "bc12e3efe923af89f05beae51fe97b27"
+  },
+  "manifest.json": {
+    "mtime": 1784729402.2300928,
+    "ast_hash": "4aef5d220a4fe1c64e55e2aa8c31377c",
+    "semantic_hash": "4aef5d220a4fe1c64e55e2aa8c31377c"
+  },
+  "sw.js": {
+    "mtime": 1785089656.8259704,
+    "ast_hash": "aba690436e06526f6b7ebab8893ea122",
+    "semantic_hash": "aba690436e06526f6b7ebab8893ea122"
+  },
+  "sync.js": {
+    "mtime": 1785089630.629417,
+    "ast_hash": "54dd78c4ffc723c650591d575a47d93d",
+    "semantic_hash": "54dd78c4ffc723c650591d575a47d93d"
+  },
+  "worker/notifier.js": {
+    "mtime": 1785089647.121714,
+    "ast_hash": "e474e1e3a3821dee783941841cc4ff97",
+    "semantic_hash": "e474e1e3a3821dee783941841cc4ff97"
+  },
+  "README.md": {
+    "mtime": 1784924247.5857916,
+    "ast_hash": "8ba2a639cbdbe2caaaf920550cdae2a4",
+    "semantic_hash": "8ba2a639cbdbe2caaaf920550cdae2a4"
+  },
+  "index.html": {
+    "mtime": 1785089657.4482176,
+    "ast_hash": "5e4affb41801f8f58f6bc95464f56bd9",
+    "semantic_hash": "5e4affb41801f8f58f6bc95464f56bd9"
+  },
+  "tests.html": {
+    "mtime": 1784968757.471069,
+    "ast_hash": "06eb028537d19075aefce29303c14c86",
+    "semantic_hash": "06eb028537d19075aefce29303c14c86"
+  },
+  "icons/icon-180.png": {
+    "mtime": 1784729384.2179868,
+    "ast_hash": "c37fbb9205c990b9d7e5a8e692b74acc",
+    "semantic_hash": "c37fbb9205c990b9d7e5a8e692b74acc"
+  },
+  "icons/icon-192.png": {
+    "mtime": 1784729384.2851765,
+    "ast_hash": "11b204fe9bdaf437a7ab541bc6c5e6fa",
+    "semantic_hash": "11b204fe9bdaf437a7ab541bc6c5e6fa"
+  },
+  "icons/icon-512-maskable.png": {
+    "mtime": 1784729386.383526,
+    "ast_hash": "479e656fa53e389229d332bb698f8693",
+    "semantic_hash": "479e656fa53e389229d332bb698f8693"
+  },
+  "icons/icon-512.png": {
+    "mtime": 1784729384.6693273,
+    "ast_hash": "89e8834512fc27c6d82fde2fe41c9cbc",
+    "semantic_hash": "89e8834512fc27c6d82fde2fe41c9cbc"
+  },
+  "icons/icon-badge.png": {
+    "mtime": 1784813297.0688403,
+    "ast_hash": "8c7afd5e152d7ec72e954bbbbf6eec19",
+    "semantic_hash": "8c7afd5e152d7ec72e954bbbbf6eec19"
+  },
+  "produits.js": {
+    "mtime": 1785074328.3957522,
+    "ast_hash": "42dc1a3869492d56a1d14128017434b7",
+    "semantic_hash": "42dc1a3869492d56a1d14128017434b7"
+  }
+}
