@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.9';
+const VERSION = 'v17.10';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1083,6 +1083,11 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v17.10', titre: 'Mode Liquid Glass', points: [
+    'Nouveau thème inspiré d\'iOS : surfaces en verre dépoli avec flou et transparence',
+    'S\'adapte automatiquement au mode clair et sombre du téléphone',
+    'Disponible dans Apparence → 🫧 Liquid Glass'
+  ] },
   { version: 'v17.9', titre: 'Commentaires et signalements de bugs', points: [
     'Envoie un commentaire ou signale un bug directement depuis l\'app',
     'Choisis d\'apparaître ou de rester anonyme',
@@ -1680,7 +1685,7 @@ $('account-pass').addEventListener('keydown', e => {
 
 /* ---------- Apparence ---------- */
 
-const MODES = [['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre'], ['photo', '🖼️ Photo']];
+const MODES = [['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre'], ['photo', '🖼️ Photo'], ['glass', '🫧 Liquid Glass']];
 const ACCENT_DEFAUT = '#007aff';
 const nuitPreferee = matchMedia('(prefers-color-scheme: dark)');
 
@@ -1694,7 +1699,7 @@ function applyTheme() {
   const perso = themePersonnalisable();
   const choix = (perso && state.theme) || 'auto';
   const accent = perso ? state.accent : null;
-  const sombre = choix === 'dark' || (choix === 'auto' && nuitPreferee.matches);
+  const sombre = choix === 'dark' || ((choix === 'auto' || choix === 'glass') && nuitPreferee.matches);
   const bg = choix === 'photo' ? localStorage.getItem('meslistes.themebg') : null;
 
   if (bg) {
@@ -1702,6 +1707,7 @@ function applyTheme() {
     document.body.style.backgroundSize = 'cover';
     document.body.style.backgroundPosition = 'center';
     document.documentElement.classList.add('theme-photo');
+    document.documentElement.classList.remove('theme-glass');
     document.documentElement.dataset.theme = 'light';
   } else {
     document.body.style.backgroundImage = '';
@@ -1709,6 +1715,7 @@ function applyTheme() {
     document.body.style.backgroundPosition = '';
     document.documentElement.classList.remove('theme-photo');
     document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
+    document.documentElement.classList.toggle('theme-glass', choix === 'glass');
   }
 
   if (accent) document.documentElement.style.setProperty('--accent', accent);
@@ -1719,7 +1726,8 @@ function applyTheme() {
 // En mode automatique, l'app suit le basculement jour/nuit du téléphone sans
 // qu'on ait à la rouvrir.
 nuitPreferee.addEventListener('change', () => {
-  if ((state.theme || 'auto') === 'auto') applyTheme();
+  const t = state.theme || 'auto';
+  if (t === 'auto' || t === 'glass') applyTheme();
 });
 
 async function compresserPhoto(fichier) {

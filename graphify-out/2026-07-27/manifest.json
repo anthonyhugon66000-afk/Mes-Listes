@@ -1,8 +1,8 @@
 {
   "app.js": {
-    "mtime": 1785158216.3391724,
-    "ast_hash": "d8ee3d948d9a01b0d202251747a90b46",
-    "semantic_hash": "d8ee3d948d9a01b0d202251747a90b46"
+    "mtime": 1785089652.2960281,
+    "ast_hash": "5b7ba163fcf1cd56253a99d9142f0680",
+    "semantic_hash": "5b7ba163fcf1cd56253a99d9142f0680"
   },
   "firebase-config.js": {
     "mtime": 1784820259.374302,
@@ -15,14 +15,14 @@
     "semantic_hash": "4aef5d220a4fe1c64e55e2aa8c31377c"
   },
   "sw.js": {
-    "mtime": 1785157578.0652752,
-    "ast_hash": "e6f858c7ceae74de93b38259a2cdcb98",
-    "semantic_hash": "e6f858c7ceae74de93b38259a2cdcb98"
+    "mtime": 1785089656.8259704,
+    "ast_hash": "aba690436e06526f6b7ebab8893ea122",
+    "semantic_hash": "aba690436e06526f6b7ebab8893ea122"
   },
   "sync.js": {
-    "mtime": 1785158731.0585804,
-    "ast_hash": "e2e65eebbd1e150f455788c93d6ab62d",
-    "semantic_hash": "e2e65eebbd1e150f455788c93d6ab62d"
+    "mtime": 1785089630.629417,
+    "ast_hash": "54dd78c4ffc723c650591d575a47d93d",
+    "semantic_hash": "54dd78c4ffc723c650591d575a47d93d"
   },
   "worker/notifier.js": {
     "mtime": 1785089647.121714,
@@ -35,9 +35,9 @@
     "semantic_hash": "8ba2a639cbdbe2caaaf920550cdae2a4"
   },
   "index.html": {
-    "mtime": 1785157561.2755346,
-    "ast_hash": "d781f12757e9b2d2dc9cbf84abac6a45",
-    "semantic_hash": "d781f12757e9b2d2dc9cbf84abac6a45"
+    "mtime": 1785089657.4482176,
+    "ast_hash": "5e4affb41801f8f58f6bc95464f56bd9",
+    "semantic_hash": "5e4affb41801f8f58f6bc95464f56bd9"
   },
   "tests.html": {
     "mtime": 1784968757.471069,
