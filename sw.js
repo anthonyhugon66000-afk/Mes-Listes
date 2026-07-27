@@ -7,7 +7,7 @@ const CACHE = 'meslistes-v17.10';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v17.10f',
+  './styles.css?v17.10g',
   './app.js?v17.10',
   './sync.js?v17.9',
   './firebase-config.js?v17.9',

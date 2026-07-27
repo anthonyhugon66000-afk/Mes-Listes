@@ -1779,12 +1779,16 @@ html.theme-glass .fab:active { transform: scale(.94); }
 /* ===== v17.10 : Bandeau flou derrière le texte (mode photo) ===== */
 
 html.theme-photo .row-text {
-  background: rgba(255,255,255,.27);
+  background: rgba(0,0,0,.52);
   padding: 4px 10px;
   border-radius: 8px;
   margin: -4px 0;
 }
+html.theme-photo .row-text .row-title,
+html.theme-photo .row-text .row-sub {
+  color: #fff !important;
+}
 html[data-theme="dark"].theme-photo .row-text {
-  background: rgba(0,0,0,.18);
+  background: rgba(0,0,0,.60);
 }
 
