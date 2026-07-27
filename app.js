@@ -992,6 +992,8 @@ $('btn-settings').addEventListener('click', () => {
   ];
   if (Sync.user && !Sync.estAdmin()) {
     actions.push({ label: 'Nous écrire', icon: '✉️', run: feedbackModal });
+  }
+  if (Sync.user) {
     actions.push({ label: aRetours ? 'Mes retours  ●' : 'Mes retours', icon: '📬', run: mesRetoursModal });
   }
   // Réservé aux admins : annonce globale et réservation de pseudos.
