@@ -993,7 +993,7 @@ $('btn-settings').addEventListener('click', () => {
   if (Sync.user && !Sync.estAdmin()) {
     actions.push({ label: 'Nous écrire', icon: '✉️', run: feedbackModal });
   }
-  if (Sync.user) {
+  if (Sync.user && !Sync.estAdmin()) {
     actions.push({ label: aRetours ? 'Mes retours  ●' : 'Mes retours', icon: '📬', run: mesRetoursModal });
   }
   // Réservé aux admins : annonce globale et réservation de pseudos.
@@ -1685,7 +1685,7 @@ $('account-pass').addEventListener('keydown', e => {
 
 /* ---------- Apparence ---------- */
 
-const MODES = [['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre'], ['photo', '🖼️ Photo'], ['glass', '🫧 Liquid Glass']];
+const MODES = [['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre'], ['photo', '🖼️ Photo']];
 const ACCENT_DEFAUT = '#007aff';
 const nuitPreferee = matchMedia('(prefers-color-scheme: dark)');
 
@@ -1699,7 +1699,7 @@ function applyTheme() {
   const perso = themePersonnalisable();
   const choix = (perso && state.theme) || 'auto';
   const accent = perso ? state.accent : null;
-  const sombre = choix === 'dark' || ((choix === 'auto' || choix === 'glass') && nuitPreferee.matches);
+  const sombre = choix === 'dark' || (choix === 'auto' && nuitPreferee.matches);
   const bg = choix === 'photo' ? localStorage.getItem('meslistes.themebg') : null;
 
   if (bg) {
@@ -1707,7 +1707,6 @@ function applyTheme() {
     document.body.style.backgroundSize = 'cover';
     document.body.style.backgroundPosition = 'center';
     document.documentElement.classList.add('theme-photo');
-    document.documentElement.classList.remove('theme-glass');
     document.documentElement.dataset.theme = 'light';
   } else {
     document.body.style.backgroundImage = '';
@@ -1715,8 +1714,9 @@ function applyTheme() {
     document.body.style.backgroundPosition = '';
     document.documentElement.classList.remove('theme-photo');
     document.documentElement.dataset.theme = sombre ? 'dark' : 'light';
-    document.documentElement.classList.toggle('theme-glass', choix === 'glass');
   }
+
+  document.documentElement.classList.add('theme-glass');
 
   if (accent) document.documentElement.style.setProperty('--accent', accent);
   else document.documentElement.style.removeProperty('--accent');
@@ -1726,8 +1726,7 @@ function applyTheme() {
 // En mode automatique, l'app suit le basculement jour/nuit du téléphone sans
 // qu'on ait à la rouvrir.
 nuitPreferee.addEventListener('change', () => {
-  const t = state.theme || 'auto';
-  if (t === 'auto' || t === 'glass') applyTheme();
+  if ((state.theme || 'auto') === 'auto') applyTheme();
 });
 
 async function compresserPhoto(fichier) {
@@ -1779,13 +1778,7 @@ function themePicker() {
         ${curBg ? `<button class="sheet-action-btn" id="supprimer-fond" style="color:#ff3b30">🗑️ Supprimer le fond</button>` : ''}
       </div>
     ` : ''}
-    <p class="sheet-note">Couleur des boutons</p>
-    <div class="swatches">
-      ${COLORS.map(c => `
-        <button class="swatch" style="--c:${c}" data-accent="${c}"
-                aria-checked="${(state.accent || ACCENT_DEFAUT) === c}"
-                aria-label="Couleur ${c}"></button>`).join('')}
-    </div>`;
+    `;
 
   openSheet('Apparence', [], {
     html,
