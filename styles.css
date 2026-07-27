@@ -1777,14 +1777,6 @@ html.theme-glass .fab:active { transform: scale(.94); }
 
 /* ===== v17.10 : Bandeau flou derrière le texte (mode photo) ===== */
 
-html.theme-glass.theme-photo .row {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
 html.theme-photo .row-text {
   background: rgba(255,255,255,.7);
   backdrop-filter: blur(18px) saturate(150%);
