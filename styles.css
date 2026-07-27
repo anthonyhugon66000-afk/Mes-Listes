@@ -1678,7 +1678,7 @@ html[data-theme="dark"].theme-glass .topbar {
 
 /* — Cartes listes & articles — */
 html.theme-glass .row {
-  background: linear-gradient(180deg, rgba(255,255,255,.26) 0%, rgba(255,255,255,.13) 100%) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.33) 0%, rgba(255,255,255,.18) 100%) !important;
   backdrop-filter: blur(10px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(10px) saturate(160%) !important;
   border: 1px solid rgba(255,255,255,.45) !important;
@@ -1778,7 +1778,7 @@ html.theme-glass .fab:active { transform: scale(.94); }
 /* ===== v17.10 : Bandeau flou derrière le texte (mode photo) ===== */
 
 html.theme-photo .row-text {
-  background: rgba(255,255,255,.20);
+  background: rgba(255,255,255,.27);
   padding: 4px 10px;
   border-radius: 8px;
   margin: -4px 0;
