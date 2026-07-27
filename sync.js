@@ -580,6 +580,65 @@ Sync.supprimerAnnonce = function (id) {
   return fb.s.deleteDoc(fb.s.doc(fb.db, 'annonces', id));
 };
 
+/* ---------- Retours utilisateurs (commentaires et bugs) ---------- */
+
+const collectionFeedback = () => fb.s.collection(fb.db, 'feedback');
+
+Sync.envoyerRetour = function (type, message, anonyme) {
+  if (!Sync.user) throw { code: 'auth/not-connected' };
+  if (!['commentaire', 'bug'].includes(type)) throw { code: 'feedback/type-invalide' };
+  const msg = (message || '').trim().slice(0, 2000);
+  if (!msg) throw { code: 'feedback/vide' };
+  const { s } = fb;
+  return s.addDoc(collectionFeedback(), {
+    type,
+    message: msg,
+    version: VERSION,
+    cree: s.serverTimestamp(),
+    uid: anonyme ? null : Sync.user.uid,
+    email: anonyme ? null : (Sync.user.email || null),
+    pseudo: anonyme ? null : (Sync.nomAffiche() || null),
+  });
+};
+
+Sync.ecouterRetours = function (rappel) {
+  if (!fb || !Sync.estAdmin()) return () => {};
+  const { s } = fb;
+  const q = s.query(collectionFeedback(), s.orderBy('cree', 'desc'));
+  return s.onSnapshot(q,
+    snap => rappel(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    () => rappel([]));
+};
+
+Sync.supprimerRetour = function (id) {
+  if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
+  return fb.s.deleteDoc(fb.s.doc(fb.db, 'feedback', id));
+};
+
+// Permet à l'utilisateur connecté de lire ses propres retours (et les réponses admin).
+Sync.ecouterMesRetours = function (rappel) {
+  if (!fb || !Sync.user) return () => {};
+  const { s } = fb;
+  const q = s.query(collectionFeedback(),
+    s.where('uid', '==', Sync.user.uid),
+    s.orderBy('cree', 'desc'));
+  return s.onSnapshot(q,
+    snap => rappel(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    () => rappel([]));
+};
+
+// Admin : répondre à un retour (ou mettre à jour la réponse existante).
+Sync.repondreRetour = function (id, texte) {
+  if (!Sync.estAdmin()) throw { code: 'admin/refuse' };
+  const { s } = fb;
+  return s.updateDoc(s.doc(collectionFeedback(), id), {
+    reponse: (texte || '').trim().slice(0, 2000),
+    repondeuNom: Sync.nomAffiche(),
+    repondeuUid: Sync.user.uid,
+    reponseLe: s.serverTimestamp(),
+  });
+};
+
 /* ---------- Inviter ---------- */
 
 Sync.inviter = async function (listId, email, nomListe) {

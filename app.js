@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.8.2';
+const VERSION = 'v17.9';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -981,6 +981,7 @@ $('btn-settings').addEventListener('click', () => {
   const notifs = { granted: 'activées', denied: 'refusées', default: 'désactivées',
                    indisponible: 'indisponibles' }[etatNotifs()];
 
+  const aRetours = $('btn-settings').classList.contains('has-retours');
   const actions = [
     { label: Sync.user ? 'Compte et synchronisation' : 'Se connecter', icon: '☁️', run: accountModal },
     { label: `Notifications — ${notifs}`, icon: '🔔', run: notifsModal },
@@ -989,6 +990,10 @@ $('btn-settings').addEventListener('click', () => {
     { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
     { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
   ];
+  if (Sync.user) {
+    actions.push({ label: 'Nous écrire', icon: '✉️', run: feedbackModal });
+    actions.push({ label: aRetours ? 'Mes retours  ●' : 'Mes retours', icon: '📬', run: mesRetoursModal });
+  }
   // Réservé aux admins : annonce globale et réservation de pseudos.
   if (Sync.estAdmin()) {
     actions.push({ label: 'Administration', icon: '✦', run: adminModal });
@@ -1076,6 +1081,15 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v17.9', titre: 'Commentaires et signalements de bugs', points: [
+    'Envoie un commentaire ou signale un bug directement depuis l\'app',
+    'Choisis d\'apparaître ou de rester anonyme',
+    'L\'équipe peut te répondre directement dans « Mes retours »'
+  ] },
+  { version: 'v17.8.1', titre: 'Streak Duolingo et fond photo', points: [
+    'Menu streak avec 24 paliers, animations et confettis',
+    'Fond photo personnalisable dans l\'apparence'
+  ] },
   { version: 'v17.7.12', titre: 'Trois façons d\'afficher une annonce', points: [
     'Bandeau coulissant en haut, texte seul',
     'Carte complète avec titre, texte et image (comme avant)',
@@ -2124,9 +2138,14 @@ function adminModal() {
   $('admin-pseudo').value = '';
   $('admin-cible').value  = '';
   adminBackdrop.hidden = false;
+  if (arreterRetours) { arreterRetours(); arreterRetours = null; }
+  arreterRetours = Sync.ecouterRetours(renderAdminRetours);
 }
 
-function closeAdmin() { adminBackdrop.hidden = true; }
+function closeAdmin() {
+  adminBackdrop.hidden = true;
+  if (arreterRetours) { arreterRetours(); arreterRetours = null; }
+}
 $('admin-close').addEventListener('click', closeAdmin);
 adminBackdrop.addEventListener('click', e => { if (e.target === adminBackdrop) closeAdmin(); });
 
@@ -2224,6 +2243,198 @@ $('notif-envoyer').addEventListener('click', async () => {
 });
 
 /* ============================================================
+   Feedback — commentaires et signalements de bugs
+   ============================================================ */
+
+const CLE_RETOURS_VUS = 'meslistes.retours_vus';
+let arreterMesRetoursGlobal = null;   // badge temps réel
+let arreterMesRetoursModal  = null;   // modal "Mes retours"
+let arreterRetours          = null;   // panel admin
+
+/* --- Envoi d'un retour --- */
+
+function feedbackModal() {
+  if (!Sync.user) return accountModal();
+  $('feedback-backdrop').hidden = false;
+  $('feedback-message').value = '';
+  $('feedback-anon').checked = false;
+  $('feedback-chars-count').textContent = '0';
+  const msgEl = $('feedback-msg');
+  msgEl.hidden = true;
+  document.querySelectorAll('.feedback-type-btn').forEach(b => {
+    b.classList.toggle('is-active', b.dataset.type === 'commentaire');
+  });
+}
+
+function closeFeedback() { $('feedback-backdrop').hidden = true; }
+$('feedback-close').addEventListener('click', closeFeedback);
+$('feedback-cancel').addEventListener('click', closeFeedback);
+$('feedback-backdrop').addEventListener('click', e => { if (e.target === $('feedback-backdrop')) closeFeedback(); });
+
+$('feedback-message').addEventListener('input', () => {
+  $('feedback-chars-count').textContent = $('feedback-message').value.length;
+});
+
+document.querySelectorAll('.feedback-type-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('is-active'));
+    btn.classList.add('is-active');
+  });
+});
+
+$('feedback-send').addEventListener('click', async () => {
+  const type = document.querySelector('.feedback-type-btn.is-active')?.dataset.type || 'commentaire';
+  const message = $('feedback-message').value.trim();
+  const anonyme = $('feedback-anon').checked;
+  const msgEl = $('feedback-msg');
+  if (!message) {
+    msgEl.textContent = 'Écris ton message avant d\'envoyer.';
+    msgEl.hidden = false; msgEl.classList.add('erreur'); return;
+  }
+  msgEl.textContent = 'Envoi…'; msgEl.hidden = false; msgEl.classList.remove('erreur');
+  try {
+    await Sync.envoyerRetour(type, message, anonyme);
+    msgEl.textContent = 'Merci ! Ton retour a bien été envoyé.';
+    $('feedback-message').value = '';
+    $('feedback-chars-count').textContent = '0';
+    setTimeout(closeFeedback, 1800);
+  } catch (err) {
+    msgEl.textContent = messageErreur(err?.code || String(err));
+    msgEl.classList.add('erreur');
+  }
+});
+
+/* --- Mes retours (réponses admin) --- */
+
+function majBadgeRetours(retours) {
+  const dernier = parseInt(localStorage.getItem(CLE_RETOURS_VUS) || '0', 10);
+  const nonVus = retours.some(r => {
+    if (!r.reponse || !r.reponseLe) return false;
+    const ts = r.reponseLe?.toDate ? r.reponseLe.toDate().getTime() : (r.reponseLe?.seconds * 1000 || 0);
+    return ts > dernier;
+  });
+  $('btn-settings').classList.toggle('has-retours', nonVus);
+}
+
+function renderMesRetours(retours) {
+  const el = $('mes-retours-liste');
+  if (!retours.length) { el.innerHTML = '<p class="empty">Aucun retour envoyé pour l\'instant.</p>'; return; }
+  el.innerHTML = retours.map(r => {
+    const date = r.cree?.toDate ? r.cree.toDate() : new Date((r.cree?.seconds || 0) * 1000);
+    const dateFmt = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+    const reponseHtml = r.reponse
+      ? `<div class="retour-reponse"><span class="retour-reponse-label">Réponse de ${esc(r.repondeuNom || 'l\'équipe')} :</span><p>${esc(r.reponse)}</p></div>`
+      : '<p class="retour-en-attente">En attente de réponse…</p>';
+    return `<div class="retour-carte">
+      <div class="retour-meta">
+        <span class="retour-type retour-type-${esc(r.type)}">${r.type === 'bug' ? '🐛 Bug' : '💬 Commentaire'}</span>
+        <span class="retour-date">${esc(dateFmt)}</span>
+        <span class="retour-version">${esc(r.version || '')}</span>
+      </div>
+      <p class="retour-message">${esc(r.message)}</p>
+      ${reponseHtml}
+    </div>`;
+  }).join('');
+}
+
+function mesRetoursModal() {
+  if (!Sync.user) return;
+  $('mes-retours-backdrop').hidden = false;
+  $('mes-retours-liste').innerHTML = '<p class="empty">Chargement…</p>';
+  localStorage.setItem(CLE_RETOURS_VUS, Date.now().toString());
+  majBadgeRetours([]);
+  if (arreterMesRetoursModal) { arreterMesRetoursModal(); arreterMesRetoursModal = null; }
+  arreterMesRetoursModal = Sync.ecouterMesRetours(retours => renderMesRetours(retours));
+}
+
+function closeMesRetours() {
+  $('mes-retours-backdrop').hidden = true;
+  if (arreterMesRetoursModal) { arreterMesRetoursModal(); arreterMesRetoursModal = null; }
+}
+
+$('mes-retours-close').addEventListener('click', closeMesRetours);
+$('mes-retours-fermer').addEventListener('click', closeMesRetours);
+$('mes-retours-backdrop').addEventListener('click', e => { if (e.target === $('mes-retours-backdrop')) closeMesRetours(); });
+
+/* --- Boîte de retours (admin) --- */
+
+function renderAdminRetours(retours) {
+  const el = $('admin-retours-liste');
+  if (!retours.length) { el.innerHTML = '<p class="empty">Aucun retour reçu.</p>'; return; }
+  el.innerHTML = retours.map(r => {
+    const date = r.cree?.toDate ? r.cree.toDate() : new Date((r.cree?.seconds || 0) * 1000);
+    const dateFmt = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const auteur = r.uid
+      ? esc(r.pseudo || r.email || r.uid)
+      : '<em>Anonyme</em>';
+    const reponseSection = r.reponse
+      ? `<div class="retour-reponse admin-reponse">
+           <span class="retour-reponse-label">Répondu par ${esc(r.repondeuNom || '?')} :</span>
+           <p>${esc(r.reponse)}</p>
+           ${r.uid ? `<button class="link-btn admin-retour-btn" data-action="modifier" data-id="${esc(r.id)}">Modifier</button>` : ''}
+         </div>`
+      : r.uid
+        ? `<button class="link-btn admin-retour-btn" data-action="repondre" data-id="${esc(r.id)}">Répondre</button>`
+        : '<p class="retour-anon-note">Anonyme — impossible de répondre.</p>';
+    return `<div class="retour-carte admin-retour-carte" data-id="${esc(r.id)}">
+      <div class="retour-meta">
+        <span class="retour-type retour-type-${esc(r.type)}">${r.type === 'bug' ? '🐛 Bug' : '💬 Commentaire'}</span>
+        <span class="retour-date">${esc(dateFmt)}</span>
+        <span class="retour-version">${esc(r.version || '')}</span>
+      </div>
+      <p class="retour-auteur">${auteur}</p>
+      <p class="retour-message">${esc(r.message)}</p>
+      ${reponseSection}
+      <div class="admin-retour-form" id="retour-form-${esc(r.id)}" hidden>
+        <textarea class="admin-textarea admin-retour-textarea" maxlength="2000" rows="3"
+                  placeholder="Ta réponse…"></textarea>
+        <div class="admin-boutons">
+          <button class="modal-btn primary admin-retour-envoyer" data-id="${esc(r.id)}">Envoyer</button>
+          <button class="modal-btn admin-retour-annuler" data-id="${esc(r.id)}">Annuler</button>
+        </div>
+        <p class="form-msg admin-retour-msg" hidden></p>
+      </div>
+      <button class="link-btn admin-retour-supprimer" data-id="${esc(r.id)}">Supprimer</button>
+    </div>`;
+  }).join('');
+}
+
+$('admin-retours-liste').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action],[data-id].admin-retour-envoyer,[data-id].admin-retour-annuler,[data-id].admin-retour-supprimer');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const form = document.getElementById(`retour-form-${id}`);
+  const msgEl = form?.querySelector('.admin-retour-msg');
+
+  if (btn.classList.contains('admin-retour-supprimer')) {
+    if (!confirm('Supprimer ce retour définitivement ?')) return;
+    try { await Sync.supprimerRetour(id); }
+    catch (err) { toast(messageErreur(err?.code || String(err))); }
+    return;
+  }
+  if (btn.classList.contains('admin-retour-annuler')) {
+    if (form) form.hidden = true; return;
+  }
+  if (btn.classList.contains('admin-retour-envoyer')) {
+    const texte = form?.querySelector('textarea')?.value.trim();
+    if (!texte) return;
+    if (msgEl) { msgEl.textContent = 'Envoi…'; msgEl.hidden = false; }
+    try {
+      await Sync.repondreRetour(id, texte);
+      if (form) form.hidden = true;
+    } catch (err) {
+      if (msgEl) { msgEl.textContent = messageErreur(err?.code || String(err)); msgEl.hidden = false; }
+    }
+    return;
+  }
+  const action = btn.dataset.action;
+  if (action === 'repondre' || action === 'modifier') {
+    if (form) form.hidden = false;
+    form?.querySelector('textarea')?.focus();
+  }
+});
+
+/* ============================================================
    Démarrage
    ============================================================ */
 
@@ -2264,6 +2475,16 @@ Sync.onChange = () => {
     Sync.enregistrerJeton().catch(() => { jetonEnregistre = false; });
   }
   if (!Sync.user) jetonEnregistre = false;
+
+  // Listener badge "Mes retours" : actif quand connecté, arrêté à la déconnexion.
+  if (Sync.user) {
+    if (!arreterMesRetoursGlobal) {
+      arreterMesRetoursGlobal = Sync.ecouterMesRetours(majBadgeRetours);
+    }
+  } else {
+    if (arreterMesRetoursGlobal) { arreterMesRetoursGlobal(); arreterMesRetoursGlobal = null; }
+    majBadgeRetours([]);
+  }
 
   if (!shareBackdrop.hidden && listePartagee) renderPeople();
   if (currentListId && !getList(currentListId)) return goHome();

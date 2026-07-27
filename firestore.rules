@@ -71,6 +71,25 @@ service cloud.firestore {
             || resource.data.invitePar == request.auth.uid);
     }
 
+    /* Retours utilisateurs (commentaires et bugs).
+       - Tout connecté peut créer.
+       - Chacun peut lire ses propres retours (pour voir les réponses admin).
+       - Seuls les admins peuvent lire tout, répondre (update limité aux champs
+         de réponse) et supprimer. */
+    match /feedback/{id} {
+      allow create: if connecte()
+        && request.resource.data.type in ['commentaire', 'bug']
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 2000;
+      allow read: if estAdmin()
+        || (connecte() && resource.data.uid == request.auth.uid);
+      allow update: if estAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['reponse', 'repondeuNom', 'repondeuUid', 'reponseLe']);
+      allow delete: if estAdmin();
+    }
+
     match /lists/{listId} {
 
       function membresApres() { return request.resource.data.get('members', []); }

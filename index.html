@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.8.2">
+<link rel="stylesheet" href="styles.css?v17.9">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -458,10 +458,74 @@
         <button type="button" class="modal-btn primary" id="notif-envoyer">Envoyer à tous</button>
       </div>
       <p class="form-msg" id="notif-msg" hidden></p>
+
+      <p class="sep"><span></span></p>
+
+      <h3 class="admin-section">Boîte de retours</h3>
+      <p class="sheet-note left">Commentaires et bugs envoyés par les utilisateurs. Pas de notification push.</p>
+      <div id="admin-retours-liste" class="admin-retours-liste">
+        <p class="empty">Aucun retour reçu.</p>
+      </div>
     </div>
 
     <div class="modal-buttons">
       <button class="modal-btn" id="admin-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MES RETOURS (réponses admin) ========== -->
+<div class="modal-backdrop" id="mes-retours-backdrop" hidden>
+  <div class="modal modal-item" id="mes-retours-modal" role="dialog" aria-modal="true">
+    <button type="button" class="modal-x" id="mes-retours-close" aria-label="Fermer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h2>Mes retours</h2>
+    <div class="modal-scroll" id="mes-retours-liste">
+      <p class="empty">Aucun retour envoyé.</p>
+    </div>
+    <div class="modal-buttons">
+      <button class="modal-btn" id="mes-retours-fermer">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== FEEDBACK (commentaire / bug) ========== -->
+<div class="modal-backdrop" id="feedback-backdrop" hidden>
+  <div class="modal modal-item" id="feedback-modal" role="dialog" aria-modal="true">
+    <button type="button" class="modal-x" id="feedback-close" aria-label="Fermer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h2>Nous écrire</h2>
+    <div class="modal-scroll">
+      <label class="modal-label">Type</label>
+      <div class="feedback-types">
+        <button type="button" class="feedback-type-btn is-active" data-type="commentaire">
+          💬 Commentaire
+        </button>
+        <button type="button" class="feedback-type-btn" data-type="bug">
+          🐛 Signaler un bug
+        </button>
+      </div>
+
+      <label class="modal-label" for="feedback-message">Ton message</label>
+      <textarea id="feedback-message" class="admin-textarea" maxlength="2000" rows="5"
+                placeholder="Décris ce que tu penses ou ce qui ne va pas…"></textarea>
+      <p class="sheet-note left feedback-chars"><span id="feedback-chars-count">0</span>/2000</p>
+
+      <label class="admin-check feedback-anon-label">
+        <input type="checkbox" id="feedback-anon">
+        Envoyer de manière anonyme
+      </label>
+      <p class="sheet-note left">
+        Anonyme : ton nom et ton adresse n'apparaissent pas. On ne pourra pas te répondre.
+      </p>
+
+      <p class="form-msg" id="feedback-msg" hidden></p>
+    </div>
+    <div class="modal-buttons">
+      <button class="modal-btn" id="feedback-cancel">Annuler</button>
+      <button class="modal-btn primary" id="feedback-send">Envoyer</button>
     </div>
   </div>
 </div>
@@ -484,8 +548,8 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="firebase-config.js?v17.8.2"></script>
-<script src="sync.js?v17.8.2"></script>
-<script src="app.js?v17.8.2"></script>
+<script src="firebase-config.js?v17.9"></script>
+<script src="sync.js?v17.9"></script>
+<script src="app.js?v17.9"></script>
 </body>
 </html>

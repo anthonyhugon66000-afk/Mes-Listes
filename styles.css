@@ -1513,3 +1513,137 @@ html[data-theme="dark"].theme-photo .modal-box { background: rgba(20,20,20,.96) 
   font-weight: 800;
   border: 1.5px solid var(--bg);
 }
+
+/* ============================================================
+   Feedback — commentaires et signalements de bugs
+   ============================================================ */
+
+/* Badge rouge sur le bouton réglages */
+#btn-settings.has-retours { position: relative; }
+#btn-settings.has-retours::after {
+  content: '';
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 8px; height: 8px;
+  background: #ff3b30;
+  border-radius: 50%;
+  border: 1.5px solid var(--bg);
+}
+
+/* Sélecteur de type */
+.feedback-types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.feedback-type-btn {
+  flex: 1;
+  padding: 10px 8px;
+  border: 1.5px solid var(--sep);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.feedback-type-btn.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Compteur de caractères */
+.feedback-chars { text-align: right; margin-top: 2px; }
+
+/* Label anonyme */
+.feedback-anon-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 4px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+/* Cartes de retour (user + admin) */
+.retour-carte {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px 14px 10px;
+  margin-bottom: 12px;
+}
+.retour-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.retour-type {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.retour-type-commentaire {
+  background: color-mix(in srgb, #007aff 15%, transparent);
+  color: #007aff;
+}
+.retour-type-bug {
+  background: color-mix(in srgb, #ff3b30 15%, transparent);
+  color: #ff3b30;
+}
+.retour-date, .retour-version {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.retour-auteur {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin: 0 0 6px;
+}
+.retour-message {
+  font-size: 15px;
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+}
+.retour-reponse {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+.retour-reponse-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.retour-reponse p { font-size: 14px; margin: 0; }
+.retour-en-attente {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 6px 0 0;
+}
+.retour-anon-note {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 6px 0 0;
+}
+
+/* Admin — carte retour */
+.admin-retours-liste { margin-top: 8px; }
+.admin-retour-carte { border: 1px solid var(--sep); }
+.admin-reponse { margin-top: 8px; }
+.admin-retour-btn { font-size: 13px; margin-top: 8px; display: inline-block; }
+.admin-retour-supprimer { font-size: 12px; color: #ff3b30; margin-top: 8px; display: block; }
+.admin-retour-textarea { margin-top: 8px; width: 100%; box-sizing: border-box; }
+.admin-retour-form { margin-top: 10px; }
+.admin-retour-msg { margin-top: 6px; }
