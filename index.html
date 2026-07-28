@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v18.1">
+<link rel="stylesheet" href="styles.css?v18.2">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -117,6 +117,11 @@
 
   <span class="version" id="app-version"></span>
 
+  <button class="fab fab-left" id="btn-msgs" aria-label="Messages" hidden>
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span class="fab-badge" id="msg-badge" hidden>0</span>
+  </button>
+
   <button class="fab" id="btn-new-list" aria-label="Nouvelle liste">
     <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
   </button>
@@ -163,6 +168,66 @@
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     </button>
   </form>
+</section>
+
+<!-- ========== ÉCRAN 3 : MESSAGES ========== -->
+<section id="screen-messages" class="screen">
+
+  <!-- Vue 1 : liste des conversations -->
+  <div class="msg-panel is-active" id="msg-list-view">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-back-msgs" aria-label="Retour">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>Messages</h1>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btn-new-msg" aria-label="Nouvelle conversation">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </header>
+    <main class="scroll">
+      <ul id="convs-list" class="conv-list"></ul>
+      <p id="empty-msgs" class="empty" hidden>Aucune conversation.<br>Appuie sur <strong>+</strong> pour en démarrer une.</p>
+    </main>
+  </div>
+
+  <!-- Vue 2 : choisir un ami -->
+  <div class="msg-panel" id="msg-picker-view">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-back-picker" aria-label="Retour">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>Choisir un ami</h1>
+    </header>
+    <main class="scroll">
+      <ul id="picker-amis-list" class="conv-list"></ul>
+      <p id="picker-empty" class="empty" hidden>Aucun ami. Ajoutes-en dans les paramètres.</p>
+    </main>
+  </div>
+
+  <!-- Vue 3 : conversation individuelle -->
+  <div class="msg-panel" id="msg-conv-view">
+    <header class="topbar">
+      <button class="icon-btn" id="btn-back-conv" aria-label="Retour">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div id="conv-header-avatar"></div>
+      <h1 id="conv-title"></h1>
+    </header>
+    <main class="scroll" id="msg-bubbles-scroll">
+      <ul id="msg-bubbles" class="bubbles"></ul>
+      <p id="empty-bubbles" class="empty" hidden>Envoie le premier message 👋</p>
+    </main>
+    <form class="composer" id="form-msg">
+      <input type="text" id="input-msg" placeholder="Message…"
+             autocomplete="off" autocapitalize="sentences" enterkeyhint="send" maxlength="1000">
+      <button type="submit" class="composer-btn" aria-label="Envoyer">
+        <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+      </button>
+    </form>
+  </div>
+
 </section>
 
 <!-- ========== FEUILLE D'ACTIONS ========== -->
@@ -614,9 +679,9 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="produits.js?v18.1"></script>
+<script src="produits.js?v18.2"></script>
 <script src="firebase-config.js?v17.9"></script>
-<script src="sync.js?v18.1"></script>
-<script src="app.js?v18.1"></script>
+<script src="sync.js?v18.2"></script>
+<script src="app.js?v18.2"></script>
 </body>
 </html>

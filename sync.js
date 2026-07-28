@@ -800,6 +800,83 @@ Sync.retirerAmi = async function (uid) {
   await s.setDoc(docAmis(), { liste: Sync.amis });
 };
 
+/* ---------- Messagerie ----------
+
+   Les conversations sont dans `conversations/{convId}` où
+   convId = [uid1, uid2].sort().join('__').
+   Chaque conversation a une sous-collection `messages/{msgId}`.
+   `nonLus : { uid: nombre }` suit les messages non lus par participant. */
+
+Sync.conversations = [];
+Sync.totalNonLus = 0;
+
+const collectionConversations = () => fb.s.collection(fb.db, 'conversations');
+const collMessages = id => fb.s.collection(fb.db, 'conversations', id, 'messages');
+const docConv = id => fb.s.doc(fb.db, 'conversations', id);
+
+Sync.convId = (uid1, uid2) => [uid1, uid2].sort().join('__');
+
+Sync.ouvrirConversation = async function (otherUid) {
+  if (!Sync.user || !fb) throw { code: 'auth/not-logged-in' };
+  const { s } = fb;
+  const id = Sync.convId(Sync.user.uid, otherUid);
+  const snap = await s.getDoc(docConv(id));
+  if (!snap.exists()) {
+    await s.setDoc(docConv(id), {
+      participants: [Sync.user.uid, otherUid],
+      dernierMsg: '',
+      dernierTs: s.serverTimestamp(),
+      nonLus: { [Sync.user.uid]: 0, [otherUid]: 0 }
+    });
+  }
+  return id;
+};
+
+Sync.ecouterConversations = function (callback) {
+  if (!Sync.user || !fb) return () => {};
+  const { s } = fb;
+  const q = s.query(collectionConversations(),
+    s.where('participants', 'array-contains', Sync.user.uid),
+    s.orderBy('dernierTs', 'desc'));
+  return s.onSnapshot(q, snap => {
+    Sync.conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    Sync.totalNonLus = Sync.conversations.reduce(
+      (n, c) => n + ((c.nonLus || {})[Sync.user.uid] || 0), 0);
+    callback(Sync.conversations, Sync.totalNonLus);
+  }, () => {});
+};
+
+Sync.ecouterMessages = function (id, callback) {
+  if (!fb) return () => {};
+  const { s } = fb;
+  const q = s.query(collMessages(id), s.orderBy('ts', 'asc'));
+  return s.onSnapshot(q, snap => {
+    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, () => {});
+};
+
+Sync.envoyerMessage = async function (id, otherUid, texte) {
+  const { s } = fb;
+  await s.addDoc(collMessages(id), {
+    de: Sync.user.uid,
+    texte: texte.trim(),
+    ts: s.serverTimestamp()
+  });
+  await s.updateDoc(docConv(id), {
+    dernierMsg: texte.trim().slice(0, 100),
+    dernierTs: s.serverTimestamp(),
+    [`nonLus.${otherUid}`]: s.increment(1)
+  });
+};
+
+Sync.marquerLu = async function (id) {
+  if (!Sync.user || !fb) return;
+  const { s } = fb;
+  await s.updateDoc(docConv(id), {
+    [`nonLus.${Sync.user.uid}`]: 0
+  }).catch(() => {});
+};
+
 /* ---------- Recevoir une invitation ----------
 
    On ne rejoint plus automatiquement : rejoindre la liste d'un autre est un

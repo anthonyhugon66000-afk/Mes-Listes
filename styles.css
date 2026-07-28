@@ -1945,3 +1945,109 @@ html[data-theme="dark"].theme-photo .row-text {
   background: rgba(0,0,0,.60);
 }
 
+/* ===== Messagerie ===== */
+
+/* Panneaux dans screen-messages */
+.msg-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.msg-panel.is-active { display: flex; }
+
+/* FAB gauche — bouton messages */
+.fab-left {
+  right: auto;
+  left: 20px;
+  font-size: 11px;
+}
+
+.fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Liste des conversations */
+.conv-list { list-style: none; margin: 0; padding: 8px 16px; }
+
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 6px;
+  background: var(--surface);
+  border-radius: 14px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.conv-item:active { opacity: .7; }
+
+.conv-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.conv-name { font-weight: 600; font-size: 14px; }
+.conv-last {
+  font-size: 13px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-badge {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* Bulles de chat */
+.bubbles { list-style: none; margin: 0; padding: 12px 16px 8px; }
+
+.bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+}
+.bubble-in {
+  background: var(--surface-2);
+  border-bottom-left-radius: 4px;
+  margin-right: auto;
+}
+.bubble-out {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  margin-left: auto;
+}
+

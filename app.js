@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v18.1';
+const VERSION = 'v18.2';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -242,6 +242,7 @@ function save() {
 const $ = id => document.getElementById(id);
 const screenHome = $('screen-home');
 const screenList = $('screen-list');
+const screenMessages = $('screen-messages');
 const elLists = $('lists');
 const elItems = $('items');
 
@@ -2543,6 +2544,9 @@ $('notif-envoyer').addEventListener('click', async () => {
    ============================================================ */
 
 const CLE_RETOURS_VUS = 'meslistes.retours_vus';
+let arreterConversations = null;
+let arreterMessages     = null;
+let convActive          = null;   // { id, otherUid }
 let arreterMesRetoursGlobal = null;   // badge temps réel
 let arreterMesRetoursModal  = null;   // modal "Mes retours"
 let arreterRetours          = null;   // panel admin
@@ -2731,6 +2735,150 @@ $('admin-retours-liste').addEventListener('click', async e => {
 });
 
 /* ============================================================
+   Messagerie
+   ============================================================ */
+
+function showMsgPanel(id) {
+  ['msg-list-view', 'msg-picker-view', 'msg-conv-view'].forEach(p =>
+    $(`${p}`).classList.toggle('is-active', p === id));
+}
+
+function renderMsgBadge(n) {
+  const badge = $('msg-badge');
+  if (!badge) return;
+  badge.hidden = !n;
+  badge.textContent = n > 9 ? '9+' : String(n);
+}
+
+function renderConversations(convs) {
+  const el = $('convs-list');
+  $('empty-msgs').hidden = convs.length > 0;
+  el.innerHTML = convs.map(conv => {
+    const otherUid = conv.participants.find(u => u !== Sync.user?.uid) || '';
+    const ami = Sync.amis.find(a => a.uid === otherUid);
+    const nom = ami ? ami.code.replace(/(\d{4})(\d{4})/, '$1-$2') : otherUid.slice(0, 8) + '…';
+    const av = avatarImg(Sync.cacheAvatars.get(otherUid) || null, 40, 'avatar-conv');
+    const nonLus = (conv.nonLus || {})[Sync.user?.uid] || 0;
+    const badge = nonLus > 0 ? `<span class="conv-badge">${nonLus > 9 ? '9+' : nonLus}</span>` : '';
+    return `<li class="conv-item" data-other="${esc(otherUid)}">
+      ${av}
+      <div class="conv-info">
+        <span class="conv-name">${esc(nom)}</span>
+        <span class="conv-last">${esc(conv.dernierMsg || '')}</span>
+      </div>
+      ${badge}
+    </li>`;
+  }).join('');
+}
+
+function renderPickerAmis() {
+  const el = $('picker-amis-list');
+  $('picker-empty').hidden = Sync.amis.length > 0;
+  el.innerHTML = Sync.amis.map(({ uid, code }) => {
+    const codeAffiche = code.replace(/(\d{4})(\d{4})/, '$1-$2');
+    const av = avatarImg(Sync.cacheAvatars.get(uid) || null, 40, 'avatar-conv');
+    return `<li class="conv-item" data-pick="${esc(uid)}">
+      ${av}
+      <div class="conv-info"><span class="conv-name">${esc(codeAffiche)}</span></div>
+    </li>`;
+  }).join('');
+}
+
+function renderBubbles(msgs) {
+  const el = $('msg-bubbles');
+  const moi = Sync.user?.uid;
+  $('empty-bubbles').hidden = msgs.length > 0;
+  el.innerHTML = msgs.map(m =>
+    `<li class="bubble ${m.de === moi ? 'bubble-out' : 'bubble-in'}">${esc(m.texte)}</li>`
+  ).join('');
+  const scroll = $('msg-bubbles-scroll');
+  requestAnimationFrame(() => { scroll.scrollTop = scroll.scrollHeight; });
+}
+
+function openMessages() {
+  if (!Sync.user) return accountModal();
+  screenHome.classList.remove('is-active');
+  screenMessages.classList.add('is-active');
+  showMsgPanel('msg-list-view');
+  renderConversations(Sync.conversations);
+  arreterConversations?.();
+  arreterConversations = Sync.ecouterConversations((convs, nonLus) => {
+    renderConversations(convs);
+    renderMsgBadge(nonLus);
+    const manquants = [...new Set(convs.flatMap(c => c.participants))].filter(u => !Sync.cacheAvatars.has(u));
+    if (manquants.length) Promise.all(manquants.map(u => Sync.avatarDe(u))).then(() => renderConversations(Sync.conversations)).catch(() => {});
+  });
+}
+
+function closeMessages() {
+  arreterConversations?.();
+  arreterConversations = null;
+  arreterMessages?.();
+  arreterMessages = null;
+  convActive = null;
+  screenMessages.classList.remove('is-active');
+  screenHome.classList.add('is-active');
+}
+
+async function openConversation(otherUid) {
+  let convId;
+  try { convId = await Sync.ouvrirConversation(otherUid); }
+  catch (e) { toast(messageErreur(e?.code || String(e))); return; }
+  convActive = { id: convId, otherUid };
+  const ami = Sync.amis.find(a => a.uid === otherUid);
+  $('conv-title').textContent = ami ? ami.code.replace(/(\d{4})(\d{4})/, '$1-$2') : otherUid.slice(0, 8) + '…';
+  $('conv-header-avatar').innerHTML = avatarImg(Sync.cacheAvatars.get(otherUid) || null, 32, 'avatar-membre');
+  showMsgPanel('msg-conv-view');
+  arreterMessages?.();
+  arreterMessages = Sync.ecouterMessages(convId, msgs => {
+    renderBubbles(msgs);
+    Sync.marquerLu(convId);
+  });
+}
+
+$('btn-msgs').addEventListener('click', openMessages);
+$('btn-back-msgs').addEventListener('click', closeMessages);
+
+$('btn-new-msg').addEventListener('click', () => {
+  renderPickerAmis();
+  showMsgPanel('msg-picker-view');
+});
+
+$('btn-back-picker').addEventListener('click', () => showMsgPanel('msg-list-view'));
+
+$('btn-back-conv').addEventListener('click', () => {
+  arreterMessages?.();
+  arreterMessages = null;
+  convActive = null;
+  showMsgPanel('msg-list-view');
+});
+
+$('convs-list').addEventListener('click', e => {
+  const item = e.target.closest('.conv-item[data-other]');
+  if (item) openConversation(item.dataset.other);
+});
+
+$('picker-amis-list').addEventListener('click', e => {
+  const item = e.target.closest('[data-pick]');
+  if (item) openConversation(item.dataset.pick);
+});
+
+$('form-msg').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!convActive || !Sync.user) return;
+  const input = $('input-msg');
+  const texte = input.value.trim();
+  if (!texte) return;
+  input.value = '';
+  try {
+    await Sync.envoyerMessage(convActive.id, convActive.otherUid, texte);
+  } catch (err) {
+    toast(messageErreur(err?.code || String(err)));
+    input.value = texte;
+  }
+});
+
+/* ============================================================
    Démarrage
    ============================================================ */
 
@@ -2787,6 +2935,11 @@ Sync.onChange = () => {
   renderHome();
   if (currentListId) renderItems();
   chargerAvatarsDesListes();
+
+  // FAB messages : visible uniquement quand connecté
+  $('btn-msgs').hidden = !Sync.user;
+  renderMsgBadge(Sync.totalNonLus);
+  if (!Sync.user && screenMessages.classList.contains('is-active')) closeMessages();
 };
 
 const ETATS = {
