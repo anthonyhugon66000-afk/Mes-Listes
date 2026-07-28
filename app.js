@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v18.0a';
+const VERSION = 'v18.0b';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -878,8 +878,10 @@ $('input-item').addEventListener('input', () => {
   acList.innerHTML = suggs.map(p => `
     <div class="autocomplete-item" data-nom="${esc(p.nom)}" data-rayon="${esc(p.rayon || '')}" data-emoji="${esc(p.emoji || '')}">
       <span class="ac-emoji">${p.emoji || ''}</span>
-      <span class="ac-nom">${esc(p.nom)}</span>
-      <span class="ac-rayon">${esc(p.rayon || '')}</span>
+      <span class="ac-info">
+        <span class="ac-nom">${esc(p.nom)}</span>
+        ${p.rayon ? `<span class="ac-rayon">${esc(p.rayon)}</span>` : ''}
+      </span>
     </div>`).join('');
   acList.hidden = false;
 });
@@ -888,14 +890,16 @@ $('input-item').addEventListener('keydown', e => {
   if (e.key === 'Escape') { $('autocomplete-list').hidden = true; pendingSuggestion = null; }
 });
 
-$('autocomplete-list').addEventListener('mousedown', e => {
-  e.preventDefault();
+function selectionnerSuggestion(e) {
   const item = e.target.closest('[data-nom]');
   if (!item) return;
+  e.preventDefault();
   $('input-item').value = item.dataset.nom;
   pendingSuggestion = { rayon: item.dataset.rayon, emoji: item.dataset.emoji };
   $('autocomplete-list').hidden = true;
-});
+}
+$('autocomplete-list').addEventListener('touchstart', selectionnerSuggestion, { passive: false });
+$('autocomplete-list').addEventListener('mousedown', selectionnerSuggestion);
 
 document.addEventListener('click', e => {
   if (!e.target.closest('#form-add-item') && !e.target.closest('#autocomplete-list')) {
