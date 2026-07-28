@@ -19,7 +19,9 @@ const Sync = {
   etat: 'local',        // local | synchro | envoi | horsligne | erreur
   annonces: [],         // annonces actives reçues de Firestore
   onChange: () => {},   // renseigné par app.js
-  onAnnonces: () => {}  // renseigné par app.js — reçoit le tableau d'annonces
+  onAnnonces: () => {}, // renseigné par app.js — reçoit le tableau d'annonces
+  monAvatar: null,          // avatar du compte courant (chargé au login)
+  cacheAvatars: new Map()   // uid → données avatar, chargés à la demande
 };
 window.Sync = Sync;
 
@@ -119,6 +121,8 @@ Sync.init = async function () {
     Sync.onAnnonces([]);
     Sync.oublierAvis();
     Sync.invitations = [];
+    Sync.monAvatar = null;
+    Sync.cacheAvatars = new Map();
     envoye = new Map();
     envoyeReglages = null;
     Sync.etat = utilisateur ? 'envoi' : 'local';
@@ -333,6 +337,9 @@ async function demarrerEcoute() {
   // Les annonces globales : messages ou pauses décidés par un admin. Leur échec
   // est silencieux — l'app doit marcher même si cette lecture-là ne passe pas.
   arreterAnnonce = Sync.ecouterAnnonces(as => { Sync.annonces = as; Sync.onAnnonces(as); });
+
+  // Charger l'avatar du compte en arrière-plan (silencieux).
+  Sync.chargerAvatar().catch(() => {});
 }
 
 /* ---------- Notifications poussées ----------
@@ -714,6 +721,49 @@ Sync.retirerMembre = function (listId, uid, email) {
 
 Sync.quitter = function (listId) {
   return Sync.retirerMembre(listId, Sync.user.uid, Sync.user.email);
+};
+
+/* ---------- Avatars ----------
+
+   Les avatars vivent dans `avatars/{uid}`, séparée de `users/{uid}` (privée),
+   pour être lisibles par tout membre connecté d'une liste partagée. */
+
+const collectionAvatars = () => fb.s.collection(fb.db, 'avatars');
+
+Sync.sauverAvatar = async function (attrs) {
+  if (!Sync.user || !fb) return;
+  const { s } = fb;
+  await s.setDoc(s.doc(collectionAvatars(), Sync.user.uid), attrs);
+  Sync.monAvatar = attrs;
+  Sync.cacheAvatars.set(Sync.user.uid, attrs);
+  Sync.onChange();
+};
+
+Sync.chargerAvatar = async function () {
+  if (!Sync.user || !fb) return null;
+  const { s } = fb;
+  try {
+    const snap = await s.getDoc(s.doc(collectionAvatars(), Sync.user.uid));
+    const attrs = snap.exists() ? snap.data() : null;
+    Sync.monAvatar = attrs;
+    if (attrs) Sync.cacheAvatars.set(Sync.user.uid, attrs);
+    Sync.onChange();
+    return attrs;
+  } catch { return null; }
+};
+
+/* Récupère l'avatar d'un autre utilisateur — depuis le cache si disponible,
+   sinon depuis Firestore. Silencieux en cas d'erreur. */
+Sync.avatarDe = async function (uid) {
+  if (!uid || !fb) return null;
+  if (Sync.cacheAvatars.has(uid)) return Sync.cacheAvatars.get(uid);
+  try {
+    const { s } = fb;
+    const snap = await s.getDoc(s.doc(collectionAvatars(), uid));
+    const attrs = snap.exists() ? snap.data() : null;
+    Sync.cacheAvatars.set(uid, attrs);
+    return attrs;
+  } catch { return null; }
 };
 
 /* ---------- Recevoir une invitation ----------

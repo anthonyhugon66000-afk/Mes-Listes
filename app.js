@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v17.10';
+const VERSION = 'v18.0';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -58,6 +58,98 @@ const ICON = {
   trash:   '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>'
 };
 
+/* ============================================================
+   Avatars — générateur SVG façon Mii
+   ============================================================ */
+
+const PEAUX = ['#FFDBB4', '#EDB98A', '#C68642', '#8D5524', '#4A2912'];
+const CHEVEUX_COULEURS = ['#1a1a1a', '#3B2010', '#8B4513', '#D4A017', '#CC5522', '#C8C8C8', '#E87DAA', '#7B5EA7'];
+const AVATAR_DEFAUT = { fond: '#007aff', peau: 0, cheveux: 0, cheveuxCouleur: 0, yeux: 0, bouche: 0, accessoire: 0 };
+
+function genererAvatar(attrs) {
+  const a = Object.assign({}, AVATAR_DEFAUT, attrs || {});
+  const fond = a.fond;
+  const peau = PEAUX[a.peau] || PEAUX[0];
+  const hc   = CHEVEUX_COULEURS[a.cheveuxCouleur] || CHEVEUX_COULEURS[0];
+  const src  = hc === '#C8C8C8' ? '#888' : hc;
+
+  const hairBehind = [
+    '',
+    '',
+    '',
+    `<path d="M26 55 Q21 30 50 26 Q79 30 74 55 L72 92 Q60 68 50 65 Q40 68 28 92Z" fill="${hc}"/>`,
+    `<ellipse cx="20" cy="54" rx="11" ry="11" fill="${hc}"/><ellipse cx="80" cy="54" rx="11" ry="11" fill="${hc}"/>`,
+    '',
+    `<path d="M68 42 Q82 38 81 56 Q80 64 70 59 Q75 50 68 46Z" fill="${hc}"/>`,
+    '',
+  ][a.cheveux] || '';
+
+  const hairFront = [
+    '',
+    `<ellipse cx="50" cy="39" rx="24" ry="15" fill="${hc}"/>`,
+    `<path d="M28 54 Q25 31 50 27 Q75 31 72 54 Q64 44 50 43 Q36 44 28 54Z" fill="${hc}"/>`,
+    `<ellipse cx="50" cy="38" rx="24" ry="14" fill="${hc}"/>`,
+    `<ellipse cx="31" cy="37" rx="13" ry="12" fill="${hc}"/><ellipse cx="50" cy="30" rx="13" ry="12" fill="${hc}"/><ellipse cx="69" cy="37" rx="13" ry="12" fill="${hc}"/>`,
+    `<ellipse cx="50" cy="38" rx="24" ry="14" fill="${hc}"/><circle cx="50" cy="17" r="11" fill="${hc}"/>`,
+    `<ellipse cx="50" cy="38" rx="24" ry="14" fill="${hc}"/>`,
+    `<ellipse cx="50" cy="37" rx="24" ry="13" fill="${hc}"/><rect x="26" y="43" width="48" height="12" rx="6" fill="${hc}"/>`,
+  ][a.cheveux] || '';
+
+  const yeux = [
+    `<circle cx="38" cy="55" r="4" fill="#111"/><circle cx="62" cy="55" r="4" fill="#111"/>
+     <circle cx="39.5" cy="53.5" r="1.3" fill="white" opacity=".6"/><circle cx="63.5" cy="53.5" r="1.3" fill="white" opacity=".6"/>`,
+    `<ellipse cx="38" cy="55" rx="5.5" ry="3.5" fill="#111"/><ellipse cx="62" cy="55" rx="5.5" ry="3.5" fill="#111"/>
+     <ellipse cx="39.5" cy="54" rx="1.5" ry="1" fill="white" opacity=".6"/><ellipse cx="63.5" cy="54" rx="1.5" ry="1" fill="white" opacity=".6"/>`,
+    `<circle cx="38" cy="55" r="6" fill="white"/><circle cx="38" cy="55" r="4.2" fill="#5B8DEF"/><circle cx="38" cy="55" r="2.5" fill="#111"/><circle cx="36.5" cy="53.5" r="1.1" fill="white" opacity=".9"/>
+     <circle cx="62" cy="55" r="6" fill="white"/><circle cx="62" cy="55" r="4.2" fill="#5B8DEF"/><circle cx="62" cy="55" r="2.5" fill="#111"/><circle cx="60.5" cy="53.5" r="1.1" fill="white" opacity=".9"/>`,
+    `<path d="M33 55 Q38 50 43 55" stroke="#333" stroke-width="2.2" fill="${peau}" stroke-linecap="round"/>
+     <path d="M57 55 Q62 50 67 55" stroke="#333" stroke-width="2.2" fill="${peau}" stroke-linecap="round"/>`,
+  ][a.yeux] || '';
+
+  const sourcils = `
+    <path d="M33 47 Q38 44 43 47" stroke="${src}" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M57 47 Q62 44 67 47" stroke="${src}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+
+  const bouche = [
+    `<path d="M42 70 Q50 78 58 70" stroke="#333" stroke-width="2.2" fill="none" stroke-linecap="round"/>`,
+    `<path d="M40 69 Q50 80 60 69" fill="#333"/><path d="M41 69 Q50 73.5 59 69" fill="white"/>`,
+    `<line x1="44" y1="70" x2="56" y2="70" stroke="#333" stroke-width="2" stroke-linecap="round"/>`,
+    `<path d="M45 73 Q50 68 55 73" stroke="#333" stroke-width="1.8" fill="none" stroke-linecap="round"/>`,
+  ][a.bouche] || '';
+
+  const accessoire = [
+    '',
+    `<circle cx="38" cy="55" r="7.5" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.2"/>
+     <circle cx="62" cy="55" r="7.5" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.2"/>
+     <line x1="45.5" y1="55" x2="54.5" y2="55" stroke="rgba(0,0,0,.45)" stroke-width="2"/>
+     <line x1="30.5" y1="53" x2="27" y2="52" stroke="rgba(0,0,0,.45)" stroke-width="2"/>
+     <line x1="69.5" y1="53" x2="73" y2="52" stroke="rgba(0,0,0,.45)" stroke-width="2"/>`,
+    `<rect x="31" y="48" width="14" height="14" rx="3" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.2"/>
+     <rect x="55" y="48" width="14" height="14" rx="3" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="2.2"/>
+     <line x1="45" y1="55" x2="55" y2="55" stroke="rgba(0,0,0,.45)" stroke-width="2"/>
+     <line x1="31" y1="53" x2="27" y2="52" stroke="rgba(0,0,0,.45)" stroke-width="2"/>
+     <line x1="69" y1="53" x2="73" y2="52" stroke="rgba(0,0,0,.45)" stroke-width="2"/>`,
+    `<polygon points="30,38 35,26 42,34 50,20 58,34 65,26 70,38" fill="#FFD700" stroke="#E0A000" stroke-width="1.5" stroke-linejoin="round"/>
+     <circle cx="35" cy="27" r="2.5" fill="#E63E3E"/><circle cx="50" cy="21" r="2.5" fill="#3E7BE6"/><circle cx="65" cy="27" r="2.5" fill="#E63E3E"/>`,
+    `<circle cx="74" cy="67" r="6.5" fill="rgba(255,150,200,.3)"/><circle cx="74" cy="67" r="3.5" fill="rgba(224,80,150,.4)"/>`,
+  ][a.accessoire] || '';
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="${fond}"/>${hairBehind}<rect x="43" y="73" width="14" height="18" rx="5" fill="${peau}"/><ellipse cx="28" cy="57" rx="4.5" ry="6" fill="${peau}"/><ellipse cx="72" cy="57" rx="4.5" ry="6" fill="${peau}"/><ellipse cx="50" cy="57" rx="22" ry="24" fill="${peau}"/>${hairFront}${sourcils}${yeux}${bouche}${accessoire}</svg>`;
+}
+
+function avatarDataUri(attrs) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(genererAvatar(attrs));
+}
+
+function avatarImg(attrs, size, extra) {
+  const s = size || 40;
+  const cl = 'avatar-img' + (extra ? ' ' + extra : '');
+  if (attrs?.type === 'photo' && attrs.photo) {
+    return `<img class="${cl}" width="${s}" height="${s}" src="${esc(attrs.photo)}" alt="">`;
+  }
+  return `<img class="${cl}" width="${s}" height="${s}" src="${avatarDataUri(attrs || AVATAR_DEFAUT)}" alt="">`;
+}
+
 /* ---------- Outils ---------- */
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -94,7 +186,7 @@ function load() {
   } catch (e) {
     console.warn('Données illisibles, réinitialisation.', e);
   }
-  return { lists: [], hideDone: false, streak: 0, lastActive: null, joursActifs: [] };
+  return { lists: [], hideDone: false, streak: 0, lastActive: null, joursActifs: [], trierParRayon: false };
 }
 
 /* Les données d'avant les quantités n'ont ni `qty` ni `variants`, et rangent la
@@ -126,6 +218,7 @@ function migrate(data) {
   if (data.streak === undefined) data.streak = 0;
   if (!data.lastActive) data.lastActive = null;
   if (!Array.isArray(data.joursActifs)) data.joursActifs = [];
+  if (data.trierParRayon === undefined) data.trierParRayon = false;
   return data;
 }
 
@@ -156,15 +249,37 @@ const elItems = $('items');
    Écran 1 — les listes
    ============================================================ */
 
+let avatarChargementPending = false;
+
+async function chargerAvatarsDesListes() {
+  if (!Sync.user || !window.fb || avatarChargementPending) return;
+  const uids = [...new Set(state.lists.flatMap(l => l.members || []))]
+    .filter(u => u && !Sync.cacheAvatars.has(u));
+  if (!uids.length) return;
+  avatarChargementPending = true;
+  try {
+    await Promise.all(uids.map(u => Sync.avatarDe(u)));
+    renderHome();
+  } catch { } finally { avatarChargementPending = false; }
+}
+
 function renderHome() {
   elLists.innerHTML = state.lists.map(list => {
     const total = list.items.length;
     const done = list.items.filter(itemDone).length;
-    const partagee = (list.members || []).length > 1;
+    const estPartagee = (list.members || []).length > 1;
+
+    let subSuffix = '';
+    if (estPartagee) {
+      const autresUids = (list.members || []).filter(u => u !== Sync.user?.uid).slice(0, 3);
+      const miniAv = autresUids.map(u => avatarImg(Sync.cacheAvatars.get(u) || null, 22, 'avatar-mini')).join('');
+      subSuffix = ` · partagée ${miniAv}`;
+    }
+
     const sub = (total === 0
       ? 'Vide'
       : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`)
-      + (partagee ? ' · partagée' : '');
+      + subSuffix;
 
     const coverHtml = list.photo
       ? `<span class="list-photo">${list.photo}</span>`
@@ -481,58 +596,78 @@ function parQui(nom, list, uid) {
   return `<span class="par-qui">${esc(String(nom).split('@')[0])}${badgeMarque(uid)}</span>`;
 }
 
+function renderItemHtml(item, list) {
+  const done = itemDone(item);
+  const total = itemQty(item);
+  const seule = item.variants.length === 1 ? item.variants[0] : null;
+  const emojiPfx = item.emoji ? `<span aria-hidden="true">${item.emoji} </span>` : '';
+  return `
+  <li class="row item ${done ? 'done' : ''}" data-id="${item.id}">
+    <div class="item-head">
+      <button class="check-hit" data-toggle
+              aria-label="${done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
+        <span class="check" style="background:${done ? list.color : 'transparent'}">${ICON.check}</span>
+      </button>
+      <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
+        <span class="row-text">
+          <span class="row-title">${emojiPfx}${esc(item.text)}</span>
+          ${seule ? `<span class="row-sub">${esc(seule.name)}</span>` : ''}
+        </span>
+      </button>
+      ${done ? parQui(item.doneBy, list, item.doneByUid) : ''}
+      ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
+      <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
+      <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
+    </div>
+    ${item.variants.length > 1 ? `
+    <ul class="variants">
+      ${item.variants.map(v => `
+      <li class="variant ${v.done ? 'done' : ''}" data-vid="${v.id}">
+        <button class="variant-hit" data-vtoggle
+                aria-label="${v.done ? 'Décocher' : 'Cocher'} ${esc(v.name)}">
+          <span class="check check-sm" style="background:${v.done ? list.color : 'transparent'}">${ICON.check}</span>
+        </button>
+        <span class="variant-name">${esc(v.name)}</span>
+        ${v.done ? parQui(v.doneBy, list, v.doneByUid) : ''}
+        ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
+      </li>`).join('')}
+    </ul>` : ''}
+  </li>`;
+}
+
 function renderItems() {
   const list = getList(currentListId);
   if (!list) return goHome();
 
   const visible = state.hideDone ? list.items.filter(i => !itemDone(i)) : list.items;
 
-  elItems.innerHTML = visible.map(item => {
-    const done = itemDone(item);
-    const total = itemQty(item);
-    // Une variante seule tient sur la ligne du dessous, comme un sous-titre : lui
-    // donner sa propre case à cocher ferait doublon avec celle de l'article.
-    const seule = item.variants.length === 1 ? item.variants[0] : null;
+  if (state.trierParRayon) {
+    const groups = new Map();
+    visible.forEach(item => {
+      const k = item.rayon || '';
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(item);
+    });
+    const sorted = [...groups.entries()].sort(([a], [b]) => {
+      if (!a) return 1; if (!b) return -1;
+      return a.localeCompare(b, 'fr');
+    });
+    elItems.innerHTML = sorted.map(([rayon, items]) =>
+      (rayon ? `<li class="rayon-header">${esc(rayon)}</li>` : '') +
+      items.map(i => renderItemHtml(i, list)).join('')
+    ).join('');
+  } else {
+    elItems.innerHTML = visible.map(i => renderItemHtml(i, list)).join('');
+  }
 
-    return `
-    <li class="row item ${done ? 'done' : ''}" data-id="${item.id}">
-      <div class="item-head">
-        <button class="check-hit" data-toggle
-                aria-label="${done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
-          <span class="check" style="background:${done ? list.color : 'transparent'}">${ICON.check}</span>
-        </button>
-        <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
-          <span class="row-text">
-            <span class="row-title">${esc(item.text)}</span>
-            ${seule ? `<span class="row-sub">${esc(seule.name)}</span>` : ''}
-          </span>
-        </button>
-        ${done ? parQui(item.doneBy, list, item.doneByUid) : ''}
-        ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
-        <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
-        <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
-      </div>
-      ${item.variants.length > 1 ? `
-      <ul class="variants">
-        ${item.variants.map(v => `
-        <li class="variant ${v.done ? 'done' : ''}" data-vid="${v.id}">
-          <button class="variant-hit" data-vtoggle
-                  aria-label="${v.done ? 'Décocher' : 'Cocher'} ${esc(v.name)}">
-            <span class="check check-sm" style="background:${v.done ? list.color : 'transparent'}">${ICON.check}</span>
-          </button>
-          <span class="variant-name">${esc(v.name)}</span>
-          ${v.done ? parQui(v.doneBy, list, v.doneByUid) : ''}
-          ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
-        </li>`).join('')}
-      </ul>` : ''}
-    </li>`;
-  }).join('');
+  elItems.classList.toggle('rayon-mode', !!state.trierParRayon);
 
   const done = list.items.filter(itemDone).length;
   const pieces = list.items.reduce((n, i) => n + itemQty(i), 0);
   $('list-progress').textContent = `${done} sur ${list.items.length}`
     + (pieces !== list.items.length ? ` · ${pieces} au total` : '');
   $('btn-toggle-done').textContent = state.hideDone ? 'Afficher les cochés' : 'Masquer les cochés';
+  $('btn-trier-rayon').classList.toggle('is-active', !!state.trierParRayon);
   $('empty-items').classList.toggle('is-visible', visible.length === 0);
 }
 
@@ -710,22 +845,71 @@ $('item-cancel').addEventListener('click', closeItemEditor);
 itemBackdrop.addEventListener('click', e => { if (e.target === itemBackdrop) closeItemEditor(); });
 $('item-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('item-ok').click(); });
 
+let pendingSuggestion = null;
+
 $('form-add-item').addEventListener('submit', e => {
   e.preventDefault();
   const input = $('input-item');
   const text = input.value.trim();
   if (!text) return;
-  getList(currentListId).items.push({ id: uid(), text, qty: 1, done: false, variants: [] });
+  $('autocomplete-list').hidden = true;
+  const item = { id: uid(), text, qty: 1, done: false, variants: [] };
+  if (pendingSuggestion?.rayon) item.rayon = pendingSuggestion.rayon;
+  if (pendingSuggestion?.emoji) item.emoji = pendingSuggestion.emoji;
+  pendingSuggestion = null;
+  getList(currentListId).items.push(item);
   save();
   input.value = '';
   renderItems();
   input.focus();
 });
 
+/* ---------- Autocomplete produits ---------- */
+
+$('input-item').addEventListener('input', () => {
+  const val = $('input-item').value;
+  const acList = $('autocomplete-list');
+  const suggs = typeof chercherProduit === 'function' ? chercherProduit(val, 5) : [];
+  if (!suggs.length) { acList.hidden = true; return; }
+  acList.innerHTML = suggs.map(p => `
+    <div class="autocomplete-item" data-nom="${esc(p.nom)}" data-rayon="${esc(p.rayon || '')}" data-emoji="${esc(p.emoji || '')}">
+      <span class="ac-emoji">${p.emoji || ''}</span>
+      <span class="ac-nom">${esc(p.nom)}</span>
+      <span class="ac-rayon">${esc(p.rayon || '')}</span>
+    </div>`).join('');
+  acList.hidden = false;
+});
+
+$('input-item').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('autocomplete-list').hidden = true; pendingSuggestion = null; }
+});
+
+$('autocomplete-list').addEventListener('mousedown', e => {
+  e.preventDefault();
+  const item = e.target.closest('[data-nom]');
+  if (!item) return;
+  $('input-item').value = item.dataset.nom;
+  pendingSuggestion = { rayon: item.dataset.rayon, emoji: item.dataset.emoji };
+  $('autocomplete-list').hidden = true;
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#form-add-item') && !e.target.closest('#autocomplete-list')) {
+    const acList = $('autocomplete-list');
+    if (acList) acList.hidden = true;
+  }
+});
+
 $('btn-back').addEventListener('click', goHome);
 
 $('btn-toggle-done').addEventListener('click', () => {
   state.hideDone = !state.hideDone;
+  save();
+  renderItems();
+});
+
+$('btn-trier-rayon').addEventListener('click', () => {
+  state.trierParRayon = !state.trierParRayon;
   save();
   renderItems();
 });
@@ -1186,14 +1370,23 @@ function annoncerNouveautes() {
 function renderInvitationsRecues() {
   const el = $('invites-recues');
   const invits = Sync.invitations || [];
-  el.innerHTML = invits.map(inv => `
+  el.innerHTML = invits.map(inv => {
+    const av = avatarImg(Sync.cacheAvatars.get(inv.invitePar) || null, 36, 'avatar-invite');
+    return `
     <li class="invite-recue" data-inv="${esc(inv.id)}">
+      ${av}
       <span class="invite-texte"><strong>${esc(inv.deQui)}${badgeMarque(inv.invitePar)}</strong> t'invite sur « ${esc(inv.nomListe)} »</span>
       <span class="invite-actions">
         <button class="modal-btn primary" data-rejoindre>Rejoindre</button>
         <button class="link-btn" data-refuser>Refuser</button>
       </span>
-    </li>`).join('');
+    </li>`;
+  }).join('');
+
+  const manquants = invits.map(i => i.invitePar).filter(u => u && !Sync.cacheAvatars.has(u));
+  if (manquants.length) {
+    Promise.all(manquants.map(u => Sync.avatarDe(u))).then(() => renderInvitationsRecues()).catch(() => {});
+  }
 }
 
 $('invites-recues').addEventListener('click', async e => {
@@ -1242,6 +1435,12 @@ function shareModal(id) {
   // disparaître la ligne chez l'autre.
   arreterInvitations?.();
   arreterInvitations = Sync.ecouterInvitations(id, renderPeople);
+
+  // Charger les avatars des membres manquants puis rafraîchir.
+  const uidsManquants = (liste.members || []).filter(u => u && !Sync.cacheAvatars.has(u));
+  if (uidsManquants.length) {
+    Promise.all(uidsManquants.map(u => Sync.avatarDe(u))).then(() => renderPeople()).catch(() => {});
+  }
 }
 
 function closeShare() {
@@ -1273,8 +1472,10 @@ function renderPeople(enAttente) {
     const email = (liste.memberEmails || [])[i] || 'compte sans adresse';
     const soi = uid === moi;
     const retirable = proprio && !soi;
+    const av = avatarImg(Sync.cacheAvatars.get(uid) || null, 32, 'avatar-membre');
     return `
       <li class="person">
+        ${av}
         <span class="person-name">${esc(email)}${soi ? ' (toi)' : ''}</span>
         ${uid === liste.owner ? '<span class="tag">propriétaire</span>' : ''}
         ${retirable ? `<button class="link-btn danger" data-retirer="${esc(uid)}"
@@ -1544,6 +1745,13 @@ function renderAccount() {
   $('account-out').hidden = connecte;
   $('account-in').hidden = !connecte;
   if (connecte) {
+    // Avatar
+    const avEl = $('account-avatar');
+    if (avEl) {
+      avEl.innerHTML = avatarImg(Sync.monAvatar, 80) +
+        `<button type="button" class="avatar-edit-btn" id="btn-edit-avatar" aria-label="Modifier l'avatar">✏️</button>`;
+    }
+
     $('account-who').textContent =
       `Connecté en tant que ${Sync.user.email || 'compte Google'}. Tes listes se synchronisent.`;
     $('account-pseudo').value = state.pseudo || '';
@@ -2044,7 +2252,9 @@ function renderAnnonces(annonces) {
     if (url) el.src = url;
   }
   function signer(el, a) {
-    el.innerHTML = a.parNom ? `— ${esc(a.parNom)}${badgeMarque(a.parUid)}` : '';
+    if (!a.parNom) { el.innerHTML = ''; return; }
+    const av = a.parUid ? avatarImg(Sync.cacheAvatars.get(a.parUid) || null, 24, 'avatar-signe') : '';
+    el.innerHTML = `${av}— ${esc(a.parNom)}${badgeMarque(a.parUid)}`;
   }
 
   // Rafraîchir la liste dans le panneau admin si celui-ci est ouvert.
@@ -2493,6 +2703,7 @@ Sync.onChange = () => {
   if (currentListId && !getList(currentListId)) return goHome();
   renderHome();
   if (currentListId) renderItems();
+  chargerAvatarsDesListes();
 };
 
 const ETATS = {
@@ -2545,6 +2756,129 @@ if (location.href.includes('apiKey=') || location.href.includes('oobCode=')) {
       messageCompte(messageErreur(e?.code || String(e)), 'erreur');
     });
 }
+
+/* ============================================================
+   Constructeur d'avatar
+   ============================================================ */
+
+const avatarModalBackdrop = $('avatar-modal-backdrop');
+let avatarEdite = null;
+
+function ouvrirBuilderAvatar() {
+  if (!Sync.user) return;
+  avatarEdite = Object.assign({}, AVATAR_DEFAUT, Sync.monAvatar || {});
+  if (avatarEdite.type === 'photo') {
+    // En mode photo on masque les pickers SVG
+  }
+  renderBuilderAvatar();
+  avatarModalBackdrop.hidden = false;
+}
+
+function fermerBuilderAvatar() {
+  avatarModalBackdrop.hidden = true;
+}
+
+function renderBuilderAvatar() {
+  const preview = $('avatar-builder-preview');
+  if (preview) {
+    preview.innerHTML = avatarImg(avatarEdite, 120);
+  }
+  renderPickerCouleur('picker-fond', COLORS, 'fond', avatarEdite.fond);
+  renderPickerCouleur('picker-peau', PEAUX, 'peau', avatarEdite.peau);
+  renderPickerStyle('picker-cheveux', 8, 'cheveux', avatarEdite.cheveux);
+  renderPickerCouleur('picker-chcoul', CHEVEUX_COULEURS, 'cheveuxCouleur', avatarEdite.cheveuxCouleur);
+  renderPickerStyle('picker-yeux', 4, 'yeux', avatarEdite.yeux);
+  renderPickerStyle('picker-bouche', 4, 'bouche', avatarEdite.bouche);
+  renderPickerStyle('picker-access', 5, 'accessoire', avatarEdite.accessoire);
+
+  const estPhoto = avatarEdite?.type === 'photo' && avatarEdite.photo;
+  $('avatar-photo-btn').hidden = !!estPhoto;
+  $('avatar-genere-btn').hidden = !estPhoto;
+}
+
+function renderPickerCouleur(id, couleurs, key, actuel) {
+  const el = $(id);
+  if (!el) return;
+  el.innerHTML = couleurs.map((c, i) => {
+    const val = key === 'fond' || key === 'cheveuxCouleur' && typeof actuel === 'string' ? c : i;
+    const actif = key === 'fond' ? actuel === c : actuel === i;
+    return `<button class="picker-color${actif ? ' is-active' : ''}" type="button"
+                    data-key="${key}" data-val="${esc(String(i))}" data-color="${esc(c)}"
+                    style="background:${c}" aria-label="Couleur ${i + 1}"></button>`;
+  }).join('');
+}
+
+function renderPickerStyle(id, count, key, actuel) {
+  const el = $(id);
+  if (!el) return;
+  el.innerHTML = Array.from({ length: count }, (_, i) => {
+    const preview = Object.assign({}, avatarEdite, { [key]: i, type: 'genere' });
+    const uri = avatarDataUri(preview);
+    return `<button class="picker-style${actuel === i ? ' is-active' : ''}" type="button"
+                    data-key="${key}" data-val="${i}">
+              <img src="${uri}" width="52" height="52" alt="">
+            </button>`;
+  }).join('');
+}
+
+avatarModalBackdrop.addEventListener('click', e => {
+  if (e.target === avatarModalBackdrop) fermerBuilderAvatar();
+});
+$('avatar-builder-close').addEventListener('click', fermerBuilderAvatar);
+$('avatar-cancel-btn').addEventListener('click', fermerBuilderAvatar);
+
+/* Délégation globale pour les boutons des pickers */
+document.addEventListener('click', e => {
+  if (!avatarEdite || avatarModalBackdrop.hidden) return;
+  const btn = e.target.closest('[data-key][data-val]');
+  if (!btn || !avatarModalBackdrop.contains(btn)) return;
+  const key = btn.dataset.key;
+  const rawVal = btn.dataset.val;
+  avatarEdite[key] = key === 'fond' ? (btn.dataset.color || rawVal) : +rawVal;
+  if (avatarEdite.type === 'photo') avatarEdite.type = 'genere';
+  renderBuilderAvatar();
+});
+
+/* Clic sur le bouton édition d'avatar (rendu dynamiquement dans renderAccount) */
+$('account-in').addEventListener('click', e => {
+  if (e.target.closest('#btn-edit-avatar')) ouvrirBuilderAvatar();
+});
+
+$('avatar-save-btn').addEventListener('click', async () => {
+  if (!avatarEdite) return;
+  try {
+    $('avatar-save-btn').disabled = true;
+    await Sync.sauverAvatar(avatarEdite);
+    renderAccount();
+    fermerBuilderAvatar();
+  } catch (e) {
+    toast(messageErreur(e?.code || String(e)));
+  } finally {
+    $('avatar-save-btn').disabled = false;
+  }
+});
+
+$('avatar-photo-btn').addEventListener('click', () => $('avatar-photo-input').click());
+
+$('avatar-photo-input').addEventListener('change', async e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const compressed = await compresserPhoto(file, 80);
+    avatarEdite = Object.assign({}, avatarEdite || AVATAR_DEFAUT, { type: 'photo', photo: compressed });
+    renderBuilderAvatar();
+  } catch (err) {
+    toast(messageErreur(err?.code || String(err)));
+  }
+  e.target.value = '';
+});
+
+$('avatar-genere-btn').addEventListener('click', () => {
+  if (!avatarEdite) return;
+  const { photo, ...rest } = avatarEdite;
+  avatarEdite = Object.assign({}, AVATAR_DEFAUT, rest, { type: 'genere' });
+  renderBuilderAvatar();
+});
 
 /* `tests.html` charge l'app avec ce paramètre. Le rechargement automatique
    ci-dessous viderait alors le cadre en pleine séance : c'est exactement ce qui

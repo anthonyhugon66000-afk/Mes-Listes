@@ -90,6 +90,13 @@ service cloud.firestore {
       allow delete: if estAdmin();
     }
 
+    /* Avatars : visible par tout compte connecté (pour afficher la photo d'un
+       membre dans une liste partagée) ; seul le propriétaire peut modifier. */
+    match /avatars/{userId} {
+      allow read: if connecte();
+      allow write: if connecte() && request.auth.uid == userId;
+    }
+
     match /lists/{listId} {
 
       function membresApres() { return request.resource.data.get('members', []); }

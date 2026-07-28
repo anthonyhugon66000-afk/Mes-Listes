@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v17.10g">
+<link rel="stylesheet" href="styles.css?v18.0">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -138,7 +138,10 @@
 
   <div class="subbar">
     <span id="list-progress">0 sur 0</span>
-    <button class="link-btn" id="btn-toggle-done">Masquer les cochés</button>
+    <span class="subbar-actions">
+      <button class="link-btn" id="btn-trier-rayon">Par rayon</button>
+      <button class="link-btn" id="btn-toggle-done">Masquer les cochés</button>
+    </span>
   </div>
 
   <main class="scroll">
@@ -150,6 +153,8 @@
       la quantité ou lui ajouter des variantes.
     </p>
   </main>
+
+  <div class="autocomplete-list" id="autocomplete-list" hidden></div>
 
   <form class="composer" id="form-add-item">
     <input type="text" id="input-item" placeholder="Ajouter un article…"
@@ -277,6 +282,9 @@
 
       <!-- Connecté -->
       <div id="account-in" hidden>
+        <div class="account-avatar-wrap">
+          <div id="account-avatar"></div>
+        </div>
         <h2 class="auth-title">Ton compte</h2>
         <p class="auth-intro" id="account-who"></p>
         <p class="auth-intro" id="account-marque" hidden></p>
@@ -546,10 +554,56 @@
   <button id="toast-undo">Annuler</button>
 </div>
 
+<!-- ========== CONSTRUCTEUR D'AVATAR ========== -->
+<div class="modal-backdrop" id="avatar-modal-backdrop" hidden>
+  <div class="modal modal-item" id="avatar-modal" role="dialog" aria-modal="true">
+    <button type="button" class="modal-x" id="avatar-builder-close" aria-label="Fermer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h2>Mon avatar</h2>
+    <div class="modal-scroll">
+      <div class="avatar-preview-zone">
+        <div id="avatar-builder-preview"></div>
+        <div class="avatar-preview-btns">
+          <button type="button" class="link-btn" id="avatar-photo-btn">📷 Photo de profil</button>
+          <input type="file" id="avatar-photo-input" accept="image/*" hidden>
+          <button type="button" class="link-btn" id="avatar-genere-btn" hidden>🎨 Utiliser un avatar</button>
+        </div>
+      </div>
+
+      <label class="modal-label">Couleur de fond</label>
+      <div class="picker-row" id="picker-fond"></div>
+
+      <label class="modal-label">Teinte de peau</label>
+      <div class="picker-row" id="picker-peau"></div>
+
+      <label class="modal-label">Coiffure</label>
+      <div class="picker-row" id="picker-cheveux"></div>
+
+      <label class="modal-label">Couleur des cheveux</label>
+      <div class="picker-row" id="picker-chcoul"></div>
+
+      <label class="modal-label">Yeux</label>
+      <div class="picker-row" id="picker-yeux"></div>
+
+      <label class="modal-label">Bouche</label>
+      <div class="picker-row" id="picker-bouche"></div>
+
+      <label class="modal-label">Accessoire</label>
+      <div class="picker-row" id="picker-access"></div>
+    </div>
+    <div class="modal-buttons">
+      <button class="modal-btn" id="avatar-cancel-btn">Annuler</button>
+      <button class="modal-btn primary" id="avatar-save-btn">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
+<script src="produits.js?v18.0"></script>
 <script src="firebase-config.js?v17.9"></script>
-<script src="sync.js?v17.9"></script>
-<script src="app.js?v17.10"></script>
+<script src="sync.js?v18.0"></script>
+<script src="app.js?v18.0"></script>
 </body>
 </html>
