@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v18.0';
+const VERSION = 'v18.0a';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -601,6 +601,10 @@ function renderItemHtml(item, list) {
   const total = itemQty(item);
   const seule = item.variants.length === 1 ? item.variants[0] : null;
   const emojiPfx = item.emoji ? `<span aria-hidden="true">${item.emoji} </span>` : '';
+  const subParts = [];
+  if (seule) subParts.push(esc(seule.name));
+  if (item.rayon && !state.trierParRayon) subParts.push(esc(item.rayon));
+  const subHtml = subParts.length ? `<span class="row-sub">${subParts.join(' · ')}</span>` : '';
   return `
   <li class="row item ${done ? 'done' : ''}" data-id="${item.id}">
     <div class="item-head">
@@ -611,7 +615,7 @@ function renderItemHtml(item, list) {
       <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
         <span class="row-text">
           <span class="row-title">${emojiPfx}${esc(item.text)}</span>
-          ${seule ? `<span class="row-sub">${esc(seule.name)}</span>` : ''}
+          ${subHtml}
         </span>
       </button>
       ${done ? parQui(item.doneBy, list, item.doneByUid) : ''}

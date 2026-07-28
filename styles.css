@@ -1853,8 +1853,8 @@ html.theme-photo .row-text .row-sub {
 .autocomplete-item:last-child { border-bottom: none; }
 .autocomplete-item:active { background: var(--surface-2); }
 .ac-emoji { font-size: 22px; width: 30px; text-align: center; flex: none; }
-.ac-nom { font-size: 16px; font-weight: 500; flex: 1; }
-.ac-rayon { font-size: 12px; color: var(--text-dim); flex: none; }
+.ac-nom { font-size: 16px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-rayon { font-size: 12px; color: var(--text-dim); flex: none; white-space: nowrap; }
 
 /* ===== v18 : Tri par rayon ===== */
 
@@ -1902,13 +1902,12 @@ html.theme-photo .row-text .row-sub {
 .picker-wrap {
   display: inline-flex;
   border-radius: 50%;
-  border: 2.5px solid transparent;
   padding: 3px;
   flex: none;
-  transition: border-color .15s;
 }
 .picker-wrap.is-active {
-  border-color: var(--accent);
+  outline: 2.5px solid var(--accent);
+  outline-offset: 1px;
 }
 .picker-color {
   width: 36px; height: 36px;
