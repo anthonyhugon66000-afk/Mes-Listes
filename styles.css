@@ -1905,13 +1905,13 @@ html.theme-photo .row-text .row-sub {
   border: none;
   flex: none;
   cursor: pointer;
-  transition: box-shadow .18s, transform .18s;
-  outline: none;
   padding: 0;
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  transition: outline-color .15s;
 }
 .picker-color.is-active {
-  box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 5px var(--text);
-  transform: scale(1.06);
+  outline-color: var(--text);
 }
 .picker-style {
   width: 60px; height: 60px;
@@ -1921,13 +1921,13 @@ html.theme-photo .row-text .row-sub {
   cursor: pointer;
   padding: 0;
   overflow: hidden;
-  transition: box-shadow .18s, transform .18s;
-  outline: none;
   background: none;
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  transition: outline-color .15s;
 }
 .picker-style.is-active {
-  box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 5px var(--accent);
-  transform: scale(1.06);
+  outline-color: var(--accent);
 }
 .picker-style img { border-radius: 50%; display: block; }
 html[data-theme="dark"].theme-photo .row-text {
