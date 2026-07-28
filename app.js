@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v18.0b';
+const VERSION = 'v18.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1615,6 +1615,10 @@ const ERREURS = {
     'Un code ami est un nombre à huit chiffres, comme 1234-5678.',
   'code/introuvable':
     "Aucun compte ne porte ce code. Vérifie les chiffres.",
+  'ami/soi-meme':
+    "C'est ton propre code — impossible de s'ajouter soi-même.",
+  'ami/deja-ajoute':
+    'Cet ami est déjà dans ta liste.',
   'pseudo/reserve':
     'Ce pseudo est réservé à un autre compte. Choisis-en un autre.',
   'pseudo/vide':
@@ -1779,6 +1783,24 @@ function renderAccount() {
   }
 }
 
+function renderAmis() {
+  const el = $('amis-list');
+  if (!el) return;
+  if (!Sync.amis.length) {
+    el.innerHTML = `<li class="person"><span class="person-name" style="color:var(--text-dim)">Aucun ami pour l'instant.</span></li>`;
+    return;
+  }
+  el.innerHTML = Sync.amis.map(({ uid, code }) => {
+    const av = Sync.cacheAvatars.get(uid) || null;
+    const codeAffiche = String(code).replace(/(\d{4})(\d{4})/, '$1-$2');
+    return `<li class="person">
+      ${avatarImg(av, 32, 'avatar-membre')}
+      <span class="person-name">${esc(codeAffiche)}</span>
+      <button class="link-btn danger" data-retirer-ami="${esc(uid)}">Retirer</button>
+    </li>`;
+  }).join('');
+}
+
 /* Prévenir avant l'échec plutôt que l'expliquer après : c'est exactement la
    configuration où la connexion Google casse. */
 const iOS = /iP(hone|ad|od)/.test(navigator.userAgent)
@@ -1795,6 +1817,13 @@ function accountModal() {
   modeAuth = 'connexion';    // rouvrir la fenêtre repart de l'écran d'accueil
   renderAuthMode();
   compteBackdrop.hidden = false;
+  if (Sync.user) {
+    renderAmis();
+    Sync.chargerAmis().then(() => {
+      const manquants = Sync.amis.filter(a => !Sync.cacheAvatars.has(a.uid)).map(a => a.uid);
+      return manquants.length ? Promise.all(manquants.map(u => Sync.avatarDe(u))) : Promise.resolve();
+    }).then(() => renderAmis()).catch(() => renderAmis());
+  }
 }
 
 function closeAccount() { if (authMurActif) return; compteBackdrop.hidden = true; }
@@ -1891,6 +1920,44 @@ $('btn-setpass').addEventListener('click', () => {
 });
 
 $('account-newpass').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-setpass').click(); });
+
+/* ---------- Amis ---------- */
+
+$('btn-ajouter-ami').addEventListener('click', async () => {
+  const code = $('ami-code').value.trim();
+  const btn = $('btn-ajouter-ami');
+  btn.disabled = true;
+  messageCompte('Ajout…');
+  try {
+    await Sync.ajouterAmi(code);
+    $('ami-code').value = '';
+    const dernier = Sync.amis[Sync.amis.length - 1];
+    if (dernier && !Sync.cacheAvatars.has(dernier.uid)) await Sync.avatarDe(dernier.uid).catch(() => {});
+    renderAmis();
+    messageCompte('Ami ajouté !');
+    setTimeout(() => messageCompte(''), 2500);
+  } catch (e) {
+    messageCompte(messageErreur(e?.code || String(e)), 'erreur');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('ami-code').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-ajouter-ami').click(); });
+
+$('amis-list').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-retirer-ami]');
+  if (!btn) return;
+  const uid = btn.dataset.retirerAmi;
+  btn.disabled = true;
+  try {
+    await Sync.retirerAmi(uid);
+    renderAmis();
+  } catch (err) {
+    messageCompte(messageErreur(err?.code || String(err)), 'erreur');
+    btn.disabled = false;
+  }
+});
 
 $('btn-signout').addEventListener('click', () =>
   tenter('Déconnexion…', () => Sync.signOut()));

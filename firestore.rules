@@ -97,6 +97,11 @@ service cloud.firestore {
       allow write: if connecte() && request.auth.uid == userId;
     }
 
+    /* Liste d'amis : chacun chez soi. Contient `liste: [{ uid, code }]`. */
+    match /amis/{userId} {
+      allow read, write: if connecte() && request.auth.uid == userId;
+    }
+
     match /lists/{listId} {
 
       function membresApres() { return request.resource.data.get('members', []); }

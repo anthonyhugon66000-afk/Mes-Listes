@@ -766,6 +766,40 @@ Sync.avatarDe = async function (uid) {
   } catch { return null; }
 };
 
+/* ---------- Amis ----------
+
+   Les amis sont stockés dans `amis/{uid}` sous la forme `{ liste: [{ uid, code }] }`.
+   Le code (8 chiffres) est conservé pour l'affichage sans avoir à accéder au
+   compte privé de l'ami. */
+
+Sync.amis = [];
+
+const docAmis = () => fb.s.doc(fb.db, 'amis', Sync.user.uid);
+
+Sync.chargerAmis = async function () {
+  if (!Sync.user || !fb) { Sync.amis = []; return; }
+  try {
+    const snap = await fb.s.getDoc(docAmis());
+    Sync.amis = snap.exists() ? (snap.data().liste || []) : [];
+  } catch { Sync.amis = []; }
+};
+
+Sync.ajouterAmi = async function (codeSaisi) {
+  const code = normaliserCode(codeSaisi);
+  const uid = await Sync.resoudreCode(codeSaisi);
+  if (uid === Sync.user.uid) throw { code: 'ami/soi-meme' };
+  if (Sync.amis.some(a => a.uid === uid)) throw { code: 'ami/deja-ajoute' };
+  const { s } = fb;
+  Sync.amis = [...Sync.amis, { uid, code }];
+  await s.setDoc(docAmis(), { liste: Sync.amis });
+};
+
+Sync.retirerAmi = async function (uid) {
+  const { s } = fb;
+  Sync.amis = Sync.amis.filter(a => a.uid !== uid);
+  await s.setDoc(docAmis(), { liste: Sync.amis });
+};
+
 /* ---------- Recevoir une invitation ----------
 
    On ne rejoint plus automatiquement : rejoindre la liste d'un autre est un
