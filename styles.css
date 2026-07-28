@@ -1902,32 +1902,32 @@ html.theme-photo .row-text .row-sub {
 .picker-color {
   width: 36px; height: 36px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: none;
   flex: none;
   cursor: pointer;
-  transition: border-color .15s, transform .1s;
+  transition: box-shadow .18s, transform .18s;
   outline: none;
   padding: 0;
 }
 .picker-color.is-active {
-  border-color: var(--text);
-  transform: scale(1.18);
+  box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 5px var(--text);
+  transform: scale(1.06);
 }
 .picker-style {
   width: 60px; height: 60px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: none;
   flex: none;
   cursor: pointer;
   padding: 0;
   overflow: hidden;
-  transition: border-color .15s, transform .1s;
+  transition: box-shadow .18s, transform .18s;
   outline: none;
   background: none;
 }
 .picker-style.is-active {
-  border-color: var(--accent);
-  transform: scale(1.1);
+  box-shadow: 0 0 0 2.5px var(--surface), 0 0 0 5px var(--accent);
+  transform: scale(1.06);
 }
 .picker-style img { border-radius: 50%; display: block; }
 html[data-theme="dark"].theme-photo .row-text {
