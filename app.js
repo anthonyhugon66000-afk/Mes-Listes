@@ -252,7 +252,7 @@ const elItems = $('items');
 let avatarChargementPending = false;
 
 async function chargerAvatarsDesListes() {
-  if (!Sync.user || !window.fb || avatarChargementPending) return;
+  if (!Sync.user || avatarChargementPending) return;
   const uids = [...new Set(state.lists.flatMap(l => l.members || []))]
     .filter(u => u && !Sync.cacheAvatars.has(u));
   if (!uids.length) return;
@@ -2260,7 +2260,15 @@ function renderAnnonces(annonces) {
   // Rafraîchir la liste dans le panneau admin si celui-ci est ouvert.
   if (!adminBackdrop.hidden) renderListeAnnonces();
 }
-Sync.onAnnonces = renderAnnonces;
+Sync.onAnnonces = (annonces) => {
+  renderAnnonces(annonces);
+  const uids = (annonces || []).map(a => a.parUid).filter(u => u && !Sync.cacheAvatars.has(u));
+  if (uids.length) {
+    Promise.all(uids.map(u => Sync.avatarDe(u)))
+      .then(() => renderAnnonces(Sync.annonces))
+      .catch(() => {});
+  }
+};
 
 $('annonce-mode').addEventListener('change', majModeAdmin);
 $('annonce-b-gerer').addEventListener('click', adminModal);
