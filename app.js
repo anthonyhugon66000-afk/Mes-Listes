@@ -2808,11 +2808,12 @@ function renderPickerCouleur(id, couleurs, key, actuel) {
   const el = $(id);
   if (!el) return;
   el.innerHTML = couleurs.map((c, i) => {
-    const val = key === 'fond' || key === 'cheveuxCouleur' && typeof actuel === 'string' ? c : i;
     const actif = key === 'fond' ? actuel === c : actuel === i;
-    return `<button class="picker-color${actif ? ' is-active' : ''}" type="button"
-                    data-key="${key}" data-val="${esc(String(i))}" data-color="${esc(c)}"
-                    style="background:${c}" aria-label="Couleur ${i + 1}"></button>`;
+    return `<span class="picker-wrap${actif ? ' is-active' : ''}">
+      <button class="picker-color" type="button"
+              data-key="${key}" data-val="${esc(String(i))}" data-color="${esc(c)}"
+              style="background:${c}" aria-label="Couleur ${i + 1}"></button>
+    </span>`;
   }).join('');
 }
 
@@ -2822,10 +2823,11 @@ function renderPickerStyle(id, count, key, actuel) {
   el.innerHTML = Array.from({ length: count }, (_, i) => {
     const preview = Object.assign({}, avatarEdite, { [key]: i, type: 'genere' });
     const uri = avatarDataUri(preview);
-    return `<button class="picker-style${actuel === i ? ' is-active' : ''}" type="button"
-                    data-key="${key}" data-val="${i}">
-              <img src="${uri}" width="52" height="52" alt="">
-            </button>`;
+    return `<span class="picker-wrap${actuel === i ? ' is-active' : ''}">
+      <button class="picker-style" type="button" data-key="${key}" data-val="${i}">
+        <img src="${uri}" width="52" height="52" alt="">
+      </button>
+    </span>`;
   }).join('');
 }
 
