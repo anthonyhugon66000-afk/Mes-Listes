@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.1f';
+const VERSION = 'v19.2';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -3227,12 +3227,107 @@ function renderEtatSync() {
   $('app-version').textContent = `${VERSION} ${ETATS[Sync.etat] || ''}${detail}`.trim();
   $('app-version').classList.toggle('alerte', Sync.etat === 'erreur');
 }
+/* ===== Onboarding ===== */
+
+const ONBOARDING_QUESTIONS = [
+  {
+    id: 'usage',
+    question: 'À quoi va te servir Mes Listes ?',
+    options: [
+      { value: 'courses',     label: 'Faire mes courses',    icon: '🛒' },
+      { value: 'taches',      label: 'Gérer mes tâches',     icon: '✅' },
+      { value: 'collections', label: 'Mes collections',      icon: '📦' },
+      { value: 'visites',     label: 'Lieux à visiter',      icon: '📍' },
+      { value: 'tout',        label: 'Tout ça à la fois',    icon: '🔀' },
+    ]
+  },
+  {
+    id: 'contexte',
+    question: 'Tu l\'utilises plutôt…',
+    options: [
+      { value: 'seul',    label: 'Tout seul(e)',   icon: '👤' },
+      { value: 'famille', label: 'En famille',     icon: '👨‍👩‍👧' },
+      { value: 'amis',    label: 'Entre amis',     icon: '👥' },
+      { value: 'travail', label: 'Pour le boulot', icon: '💼' },
+    ]
+  }
+];
+
+function afficherOnboarding() {
+  if (state.onboardingDone) return;
+
+  const reponses = {};
+  let etape = 0;
+  const total = ONBOARDING_QUESTIONS.length;
+
+  function renderEtape() {
+    const q = ONBOARDING_QUESTIONS[etape];
+    const dernier = etape === total - 1;
+
+    $('onboarding-content').innerHTML = `
+      <div class="onboarding-header">
+        <div class="onboarding-progress">
+          ${ONBOARDING_QUESTIONS.map((_, i) =>
+            `<span class="onboarding-dot${i <= etape ? ' is-active' : ''}"></span>`
+          ).join('')}
+        </div>
+        <p class="onboarding-step">Question ${etape + 1} sur ${total}</p>
+        <h2 class="onboarding-question">${esc(q.question)}</h2>
+      </div>
+      <div class="onboarding-options">
+        ${q.options.map(opt => `
+          <button class="onboarding-option${reponses[q.id] === opt.value ? ' is-selected' : ''}" data-val="${opt.value}">
+            <span class="onboarding-icon">${opt.icon}</span>
+            <span class="onboarding-label">${esc(opt.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="onboarding-footer">
+        <button class="modal-btn primary wide" id="onboarding-next"${!reponses[q.id] ? ' disabled' : ''}>
+          ${dernier ? 'C\'est parti !' : 'Suivant →'}
+        </button>
+        <button class="link-btn" id="onboarding-skip">Passer</button>
+      </div>
+    `;
+
+    $('onboarding-content').querySelectorAll('.onboarding-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        reponses[q.id] = btn.dataset.val;
+        $('onboarding-next').disabled = false;
+        $('onboarding-content').querySelectorAll('.onboarding-option').forEach(b =>
+          b.classList.toggle('is-selected', b.dataset.val === btn.dataset.val)
+        );
+      });
+    });
+
+    $('onboarding-next').addEventListener('click', () => {
+      if (!reponses[q.id]) return;
+      if (etape < total - 1) { etape++; renderEtape(); }
+      else terminerOnboarding(reponses);
+    });
+
+    $('onboarding-skip').addEventListener('click', () => terminerOnboarding(reponses));
+  }
+
+  $('onboarding-backdrop').hidden = false;
+  renderEtape();
+}
+
+function terminerOnboarding(reponses) {
+  state.onboardingDone = true;
+  state.onboardingReponses = reponses;
+  sauverLocalement();
+  $('onboarding-backdrop').hidden = true;
+  Sync.sauverOnboarding(reponses);
+}
+
 mettreAJourStreak();
 renderEtatSync();
 applyTheme();
 renderHome();
 renderStreak();
 annoncerNouveautes();
+afficherOnboarding();
 
 if (!localStorage.getItem('meslistes.compte')) {
   afficherMurAuth();

@@ -350,6 +350,20 @@ async function demarrerEcoute() {
    L'app ne transmet jamais de jeton : elle dit quelle liste a changé, rien de
    plus, et le Worker vérifie qu'on en est bien membre. */
 
+Sync.sauverOnboarding = async function (reponses) {
+  if (!fb || !Sync.user) return;
+  try {
+    const { s, db } = fb;
+    await s.setDoc(s.doc(db, 'onboarding', Sync.user.uid), {
+      ...reponses,
+      uid: Sync.user.uid,
+      cree: s.serverTimestamp()
+    }, { merge: true });
+  } catch (e) {
+    console.error('[onboarding]', e);
+  }
+};
+
 Sync.enregistrerJeton = async function () {
   if (!Sync.user) return null;
   const { s } = fb || await chargerSDK();
