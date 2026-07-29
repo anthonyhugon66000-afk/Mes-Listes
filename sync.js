@@ -1213,6 +1213,48 @@ Sync.push = function () {
   });
 };
 
+/* ===== Analytics ===== */
+
+Sync.logVisite = async function () {
+  if (!fb || !Sync.user) return;
+  const { s, db } = fb;
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    await s.setDoc(s.doc(db, 'stats_daily', today), { visites: s.increment(1) }, { merge: true });
+  } catch (e) {}
+};
+
+Sync.chargerAnalytics = async function () {
+  if (!fb || !Sync.estAdmin()) return null;
+  const { s, db } = fb;
+  try {
+    const debut = new Date();
+    debut.setDate(debut.getDate() - 364);
+    const debutStr = debut.toISOString().slice(0, 10);
+    const [statsSnap, onbSnap] = await Promise.all([
+      s.getDocs(s.query(s.collection(db, 'stats_daily'), s.orderBy(s.documentId()), s.startAt(debutStr))),
+      s.getDocs(s.collection(db, 'onboarding'))
+    ]);
+    const visites = {};
+    statsSnap.forEach(d => { visites[d.id] = d.data().visites || 0; });
+    const prefs = { usage: {}, contexte: {} };
+    onbSnap.forEach(d => {
+      const v = d.data();
+      if (v.usage)    prefs.usage[v.usage]       = (prefs.usage[v.usage]       || 0) + 1;
+      if (v.contexte) prefs.contexte[v.contexte] = (prefs.contexte[v.contexte] || 0) + 1;
+    });
+    return { visites, prefs, totalUtilisateurs: onbSnap.size };
+  } catch (e) { console.error('[analytics]', e); return null; }
+};
+
+Sync.sauverOnboarding = async function (reponses) {
+  if (!fb || !Sync.user) return;
+  const { s, db } = fb;
+  try {
+    await s.setDoc(s.doc(db, 'onboarding', Sync.user.uid), reponses, { merge: true });
+  } catch (e) {}
+};
+
 /* Un compte a déjà servi ici, ou l'on revient d'une redirection : on rebranche
    la synchro au démarrage. Sans le second cas, le retour de Google serait ignoré
    pour quelqu'un qui ne s'est encore jamais connecté — c'est-à-dire à la seule
