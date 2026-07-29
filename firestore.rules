@@ -46,6 +46,13 @@ service cloud.firestore {
       allow read, write: if connecte() && request.auth.uid == userId;
     }
 
+    /* Réponses au questionnaire d'onboarding. Chacun écrit chez soi ;
+       les admins peuvent tout lire pour les analytics. */
+    match /onboarding/{userId} {
+      allow create, update: if connecte() && request.auth.uid == userId;
+      allow read: if connecte() && (request.auth.uid == userId || estAdmin());
+    }
+
     /* Annuaire des codes ami : code -> compte. Consultable un par un si l'on
        connaît le code exact (`get`), jamais listable — personne ne peut
        parcourir l'annuaire. Un code, une fois pris, est définitif. */
