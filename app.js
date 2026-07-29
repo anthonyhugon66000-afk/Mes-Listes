@@ -11,12 +11,18 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v18.3';
+const VERSION = 'v19.0';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
   '#007aff', '#5856d6', '#af52de', '#ff2d55', '#8e8e93'
 ];
+
+const TYPES_LISTE = {
+  normale:    { label: 'Liste normale',    icon: '📝', desc: 'Courses, tâches, todo…' },
+  collection: { label: 'Collection',       icon: '📦', desc: 'Objets, livres, films, jeux…' },
+  visite:     { label: 'Lieux à visiter',  icon: '📍', desc: 'Restaurants, musées, voyages…' },
+};
 
 const PHOTOS_EMOJI = [
   '🛒','🍎','🥦','🍞','🧀','🥩','🐟','🧁','☕','🍷',
@@ -269,6 +275,7 @@ function renderHome() {
     const total = list.items.length;
     const done = list.items.filter(itemDone).length;
     const estPartagee = (list.members || []).length > 1;
+    const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
     let subSuffix = '';
     if (estPartagee) {
@@ -276,8 +283,14 @@ function renderHome() {
       const miniAv = autresUids.map(u => avatarImg(Sync.cacheAvatars.get(u) || null, 22, 'avatar-mini')).join('');
       subSuffix = ` · partagée ${miniAv}`;
     }
+    const lieeCount = (list.linkedLists || []).length;
+    if (lieeCount) subSuffix += ` · 🔗 ${lieeCount}`;
 
-    const sub = (total === 0
+    const typeBadge = list.type && list.type !== 'normale'
+      ? `<span class="type-badge">${typeInfo.icon}</span> `
+      : '';
+
+    const sub = typeBadge + (total === 0
       ? 'Vide'
       : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`)
       + subSuffix;
@@ -320,9 +333,11 @@ elLists.addEventListener('click', e => {
 
 $('btn-new-list').addEventListener('click', () => {
   askText('Nouvelle liste', '', name => {
-    state.lists.push({ id: uid(), name, color: COLORS[state.lists.length % COLORS.length], items: [] });
-    save();
-    renderHome();
+    ouvrirTypeListePicker(type => {
+      state.lists.push({ id: uid(), name, color: COLORS[state.lists.length % COLORS.length], type, items: [], linkedLists: [] });
+      save();
+      renderHome();
+    });
   });
 });
 
@@ -331,11 +346,14 @@ $('btn-new-list').addEventListener('click', () => {
 function listMenu(id) {
   const list = getList(id);
   if (!list) return;
+  const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
   const actions = [
     { label: 'Renommer', icon: '✏️', run: () => renameList(id) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(id) },
     { label: 'Photo de la liste', icon: '🖼️', run: () => photoPicker(id) },
+    { label: `Type : ${typeInfo.icon} ${typeInfo.label}`, icon: '', run: () => changerTypeListe(id) },
+    { label: 'Lier à une liste', icon: '🔗', run: () => lierListeModal(id) },
     { label: 'Partager', icon: '👥', run: () => shareModal(id) },
     { label: 'Dupliquer', icon: '📄', run: () => duplicateList(id) }
   ];
@@ -349,6 +367,91 @@ function listMenu(id) {
   }
 
   openSheet(list.name, actions);
+}
+
+/* ---------- Type de liste ---------- */
+
+function ouvrirTypeListePicker(cb) {
+  const actions = Object.entries(TYPES_LISTE).map(([key, t]) => ({
+    label: `${t.icon}  ${t.label}`,
+    run: () => cb(key)
+  }));
+  openSheet('Type de liste', actions);
+}
+
+function changerTypeListe(id) {
+  ouvrirTypeListePicker(type => {
+    const list = getList(id);
+    if (!list) return;
+    list.type = type;
+    save();
+    renderHome();
+    if (currentListId === id) renderListesLiees(id);
+  });
+}
+
+/* ---------- Liaison entre listes ---------- */
+
+function lierListeModal(id) {
+  const list = getList(id);
+  if (!list) return;
+
+  const autres = state.lists.filter(l => l.id !== id);
+  if (!autres.length) { toast('Aucune autre liste à lier.'); return; }
+
+  const liees = new Set(list.linkedLists || []);
+
+  const actions = autres.map(l => {
+    const t = TYPES_LISTE[l.type || 'normale'] || TYPES_LISTE.normale;
+    const estLiee = liees.has(l.id);
+    return {
+      label: `${estLiee ? '✓ ' : ''}${t.icon} ${l.name}`,
+      run: () => {
+        const cible = getList(l.id);
+        if (!cible) return;
+        if (estLiee) {
+          list.linkedLists = (list.linkedLists || []).filter(x => x !== l.id);
+          cible.linkedLists = (cible.linkedLists || []).filter(x => x !== id);
+        } else {
+          list.linkedLists = [...(list.linkedLists || []), l.id];
+          cible.linkedLists = [...(cible.linkedLists || []), id];
+        }
+        save();
+        renderHome();
+        if (currentListId === id || currentListId === l.id) renderListesLiees(currentListId);
+      }
+    };
+  });
+
+  openSheet('Lier à une liste', actions);
+}
+
+function renderListesLiees(id) {
+  const el = $('liees-bar');
+  if (!el) return;
+  const list = getList(id);
+  const liees = (list?.linkedLists || []).map(lid => getList(lid)).filter(Boolean);
+
+  if (!liees.length) { el.hidden = true; return; }
+
+  el.hidden = false;
+  el.innerHTML = `<span class="liees-label">Lié à</span>` +
+    liees.map(l => {
+      const t = TYPES_LISTE[l.type || 'normale'] || TYPES_LISTE.normale;
+      const done = l.items.filter(itemDone).length;
+      const total = l.items.length;
+      const estPartagee = (l.members || []).length > 1;
+      const partageIcon = estPartagee ? ' 👥' : '';
+      return `<button class="liee-chip" data-lid="${esc(l.id)}">
+        <span class="liee-chip-icon">${t.icon}</span>
+        <span class="liee-chip-name">${esc(l.name)}</span>
+        <span class="liee-chip-count">${done}/${total}${partageIcon}</span>
+      </button>`;
+    }).join('');
+
+  el.querySelectorAll('.liee-chip').forEach(btn => {
+    btn.addEventListener('click', () => openList(btn.dataset.lid));
+  });
 }
 
 async function quitterListe(id) {
@@ -567,6 +670,7 @@ function openList(id) {
   screenHome.classList.remove('is-active');
   screenList.classList.add('is-active');
   renderItems();
+  renderListesLiees(id);
 }
 
 function goHome() {
@@ -934,10 +1038,13 @@ $('btn-trier-rayon').addEventListener('click', () => {
 $('btn-list-menu').addEventListener('click', () => {
   const list = getList(currentListId);
   const doneCount = list.items.filter(itemDone).length;
+  const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
   openSheet(list.name, [
     { label: 'Renommer la liste', icon: '✏️', run: () => renameList(currentListId) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(currentListId) },
+    { label: `Type : ${typeInfo.icon} ${typeInfo.label}`, icon: '', run: () => changerTypeListe(currentListId) },
+    { label: 'Lier à une liste', icon: '🔗', run: () => lierListeModal(currentListId) },
     { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
         snapshot();

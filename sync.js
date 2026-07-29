@@ -250,7 +250,7 @@ const docReglages = () => fb.s.doc(fb.db, 'users', Sync.user.uid);
 /* Ce qui distingue deux versions d'une liste. L'ordre en fait partie : déplacer
    une liste est une modification comme une autre. */
 const signature = (liste, i) =>
-  JSON.stringify([liste.name, liste.color, liste.items]) + '|' + i;
+  JSON.stringify([liste.name, liste.color, liste.type || 'normale', liste.linkedLists || [], liste.items]) + '|' + i;
 
 const noterEnvoyees = () => {
   envoye = new Map(state.lists.map((l, i) => [l.id, signature(l, i)]));
@@ -1106,12 +1106,11 @@ function contenu(liste, ordre) {
   return {
     name: liste.name,
     color: liste.color,
+    type: liste.type || 'normale',
+    linkedLists: liste.linkedLists || [],
     items: liste.items,
     ordre,
     majLe: fb.s.serverTimestamp(),
-    // Qui vient d'écrire. Sans cette trace, impossible de distinguer la
-    // modification d'un autre du simple écho de la sienne : on se notifierait
-    // soi-même à chaque case cochée.
     majPar: Sync.user.uid,
     majParNom: Sync.nomAffiche()
   };
