@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.1c';
+const VERSION = 'v19.1d';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -387,7 +387,10 @@ function changerTypeListe(id) {
     list.type = type;
     save();
     renderHome();
-    if (currentListId === id) renderListesLiees(id);
+    if (currentListId === id) {
+      renderItems();
+      renderListesLiees(id);
+    }
   });
 }
 
