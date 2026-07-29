@@ -2262,6 +2262,8 @@ html[data-theme="dark"].theme-photo .row-text {
 .analytics-donut {
   min-width: 0;
   overflow: hidden;
+  height: 200px;
+  position: relative;
 }
 .analytics-donut-label {
   font-size: 12px;
