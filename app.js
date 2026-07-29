@@ -287,12 +287,14 @@ function renderHome() {
     const lieeCount = (list.linkedLists || []).length;
     if (lieeCount) subSuffix += ` · 🔗 ${lieeCount}`;
 
-    const typeBadge = `<span class="type-badge">${typeInfo.icon}</span> `;
+    const typePrefix = list.type && list.type !== 'normale'
+      ? `${typeInfo.icon} ${typeInfo.label} · `
+      : '';
 
     const articleText = list.type === 'collection'
       ? (total === 0 ? 'Vide' : `${total} article${total > 1 ? 's' : ''}`)
       : (total === 0 ? 'Vide' : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`);
-    const sub = typeBadge + articleText + subSuffix;
+    const sub = typePrefix + articleText + subSuffix;
 
     const coverHtml = list.photo
       ? `<span class="list-photo">${list.photo}</span>`
