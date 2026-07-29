@@ -824,6 +824,12 @@ Sync.envoyerDemandeAmi = async function (codeSaisi) {
     codeCible: code,
     cree: s.serverTimestamp()
   });
+  appelerWorker({
+    action: 'message',
+    cibleUid: uid,
+    titre: Sync.nomAffiche(),
+    corps: 'te demande en ami'
+  });
 };
 
 Sync.ecouterDemandes = function (callback) {
