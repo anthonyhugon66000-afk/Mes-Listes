@@ -835,15 +835,17 @@ Sync.ouvrirConversation = async function (otherUid) {
 Sync.ecouterConversations = function (callback) {
   if (!Sync.user || !fb) return () => {};
   const { s } = fb;
+  // Pas d'orderBy combiné au where : évite d'exiger un index composite Firestore.
+  // Tri côté client sur dernierTs.
   const q = s.query(collectionConversations(),
-    s.where('participants', 'array-contains', Sync.user.uid),
-    s.orderBy('dernierTs', 'desc'));
+    s.where('participants', 'array-contains', Sync.user.uid));
   return s.onSnapshot(q, snap => {
-    Sync.conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    Sync.conversations = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.dernierTs?.seconds ?? 0) - (a.dernierTs?.seconds ?? 0));
     Sync.totalNonLus = Sync.conversations.reduce(
       (n, c) => n + ((c.nonLus || {})[Sync.user.uid] || 0), 0);
     callback(Sync.conversations, Sync.totalNonLus);
-  }, () => {});
+  }, e => console.error('[convs] onSnapshot error:', e));
 };
 
 Sync.ecouterMessages = function (id, callback) {
