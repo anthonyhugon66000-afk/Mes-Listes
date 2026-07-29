@@ -287,9 +287,7 @@ function renderHome() {
     const lieeCount = (list.linkedLists || []).length;
     if (lieeCount) subSuffix += ` · 🔗 ${lieeCount}`;
 
-    const typeBadge = list.type && list.type !== 'normale'
-      ? `<span class="type-badge">${typeInfo.icon}</span> `
-      : '';
+    const typeBadge = `<span class="type-badge">${typeInfo.icon}</span> `;
 
     const articleText = list.type === 'collection'
       ? (total === 0 ? 'Vide' : `${total} article${total > 1 ? 's' : ''}`)
@@ -427,7 +425,7 @@ function lierListeModal(id) {
   openSheet('Lier à une liste', actions);
 }
 
-$('btn-ajouter-section').addEventListener('click', () => {
+$('btn-ajouter-section')?.addEventListener('click', () => {
   askText('Nom de la section', '', name => {
     const list = getList(currentListId);
     if (!list || !name) return;
@@ -788,12 +786,17 @@ function renderItems() {
   const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
   const typeLabel = $('list-type-label');
-  typeLabel.textContent = `${typeInfo.icon} ${typeInfo.label}`;
-  typeLabel.hidden = false;
+  if (typeLabel) {
+    typeLabel.textContent = `${typeInfo.icon} ${typeInfo.label}`;
+    typeLabel.hidden = false;
+  }
 
-  $('btn-toggle-done').hidden = isCollection;
-  $('btn-trier-rayon').hidden = isCollection;
-  $('btn-ajouter-section').hidden = !isCollection;
+  const _btnToggleDone = $('btn-toggle-done');
+  const _btnTrierRayon = $('btn-trier-rayon');
+  const _btnAjouterSection = $('btn-ajouter-section');
+  if (_btnToggleDone) _btnToggleDone.hidden = isCollection;
+  if (_btnTrierRayon) _btnTrierRayon.hidden = isCollection;
+  if (_btnAjouterSection) _btnAjouterSection.hidden = !isCollection;
 
   const visible = isCollection
     ? list.items
@@ -829,10 +832,10 @@ function renderItems() {
   } else {
     $('list-progress').textContent = `${done} sur ${realItems.length}`
       + (pieces !== realItems.length ? ` · ${pieces} au total` : '');
-    $('btn-toggle-done').textContent = state.hideDone ? 'Afficher les cochés' : 'Masquer les cochés';
+    if (_btnToggleDone) _btnToggleDone.textContent = state.hideDone ? 'Afficher les cochés' : 'Masquer les cochés';
   }
 
-  $('btn-trier-rayon').classList.toggle('is-active', !isCollection && !!state.trierParRayon);
+  if (_btnTrierRayon) _btnTrierRayon.classList.toggle('is-active', !isCollection && !!state.trierParRayon);
   $('empty-items').classList.toggle('is-visible', visible.filter(i => !i._section).length === 0);
 }
 
