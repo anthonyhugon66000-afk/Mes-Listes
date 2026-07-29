@@ -955,6 +955,12 @@ Sync.envoyerMessage = async function (id, otherUid, texte) {
     dernierTs: s.serverTimestamp(),
     [`nonLus.${otherUid}`]: s.increment(1)
   });
+  appelerWorker({
+    action: 'message',
+    cibleUid: otherUid,
+    titre: Sync.nomAffiche(),
+    corps: texte.trim().slice(0, 100)
+  });
 };
 
 Sync.marquerLu = async function (id) {

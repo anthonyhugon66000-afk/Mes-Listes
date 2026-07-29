@@ -237,6 +237,27 @@ export default {
       return repondre({ envoyes: resultats.filter(Boolean).length, tentes: jetons.length });
     }
 
+    /* --- Notification de message privé --- */
+    if (action === 'message') {
+      if (!idToken || !cibleUid) return repondre({ erreur: 'idToken et cibleUid requis' }, 400);
+
+      let auteur;
+      try { auteur = await verifierIdentite(idToken, projet); }
+      catch (e) { return repondre({ erreur: 'identité refusée' }, 401); }
+
+      if (cibleUid === auteur) return repondre({ envoyes: 0, raison: 'ne peut pas se notifier soi-même' });
+
+      const acces = await jetonDeService(compte);
+      const profil = await lireDocument(projet, acces, `users/${cibleUid}`);
+      const jetons = tableau(profil?.jetons);
+      if (!jetons.length) return repondre({ envoyes: 0, raison: 'aucun appareil enregistré' });
+
+      const resultats = await Promise.all(jetons.map(j =>
+        envoyer(projet, acces, j, titre || 'Nouveau message', corps || '', '')));
+
+      return repondre({ envoyes: resultats.filter(Boolean).length, tentes: jetons.length });
+    }
+
     if (!idToken || !listeId) return repondre({ erreur: 'idToken et listeId requis' }, 400);
 
     let auteur;
