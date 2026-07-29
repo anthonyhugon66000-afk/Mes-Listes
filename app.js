@@ -1466,6 +1466,20 @@ const NOUVEAUTES = [
     'Questionnaire de bienvenue au premier lancement pour personnaliser ton expérience',
     'Panneau analytics admin : visites par jour/semaine/mois/an et préférences des utilisateurs'
   ] },
+  { version: 'v19.1', titre: 'Types de liste', points: [
+    'Chaque liste a un type : Normale, Courses, Collection, Tâches ou Lieux à visiter',
+    'Les collections peuvent être organisées en sections',
+    'Le type s\'affiche dans l\'accueil et dans la liste'
+  ] },
+  { version: 'v18.3', titre: 'Notifications push', points: [
+    'Reçois une notif quand un ami t\'envoie un message',
+    'Notif quand quelqu\'un te fait une demande d\'ami ou accepte la tienne'
+  ] },
+  { version: 'v18', titre: 'Amis et messagerie', points: [
+    'Ajoute des amis avec un code ou par e-mail',
+    'Messagerie directe entre amis',
+    'Invitations à rejoindre une liste partagée via le code ami'
+  ] },
   { version: 'v17.10', titre: 'Mode Liquid Glass', points: [
     'Nouveau thème inspiré d\'iOS : surfaces en verre dépoli avec flou et transparence',
     'S\'adapte automatiquement au mode clair et sombre du téléphone',
