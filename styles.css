@@ -2028,6 +2028,51 @@ html[data-theme="dark"].theme-photo .row-text {
   text-align: center;
 }
 
+/* ===== Subbar gauche (type + progress empilés) ===== */
+.subbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.list-type-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+/* ===== En-têtes de section (listes collection) ===== */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 4px 6px;
+  margin-top: 4px;
+}
+.section-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.section-edit-btn {
+  background: none;
+  border: 0;
+  font-size: 14px;
+  padding: 4px 6px;
+  cursor: pointer;
+  opacity: .5;
+  flex: none;
+}
+.section-edit-btn:active { opacity: 1; }
+
 /* ===== Types de listes ===== */
 .type-badge {
   font-size: 12px;

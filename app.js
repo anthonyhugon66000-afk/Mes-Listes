@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.0';
+const VERSION = 'v19.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -272,8 +272,9 @@ async function chargerAvatarsDesListes() {
 
 function renderHome() {
   elLists.innerHTML = state.lists.map(list => {
-    const total = list.items.length;
-    const done = list.items.filter(itemDone).length;
+    const realItems = list.items.filter(i => !i._section);
+    const total = realItems.length;
+    const done = realItems.filter(itemDone).length;
     const estPartagee = (list.members || []).length > 1;
     const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
@@ -290,10 +291,10 @@ function renderHome() {
       ? `<span class="type-badge">${typeInfo.icon}</span> `
       : '';
 
-    const sub = typeBadge + (total === 0
-      ? 'Vide'
-      : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`)
-      + subSuffix;
+    const articleText = list.type === 'collection'
+      ? (total === 0 ? 'Vide' : `${total} article${total > 1 ? 's' : ''}`)
+      : (total === 0 ? 'Vide' : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`);
+    const sub = typeBadge + articleText + subSuffix;
 
     const coverHtml = list.photo
       ? `<span class="list-photo">${list.photo}</span>`
@@ -426,6 +427,16 @@ function lierListeModal(id) {
   openSheet('Lier à une liste', actions);
 }
 
+$('btn-ajouter-section').addEventListener('click', () => {
+  askText('Nom de la section', '', name => {
+    const list = getList(currentListId);
+    if (!list || !name) return;
+    list.items.push({ id: uid(), text: name, _section: true, variants: [] });
+    save();
+    renderItems();
+  });
+});
+
 function renderListesLiees(id) {
   const el = $('liees-bar');
   if (!el) return;
@@ -438,8 +449,9 @@ function renderListesLiees(id) {
   el.innerHTML = `<span class="liees-label">Lié à</span>` +
     liees.map(l => {
       const t = TYPES_LISTE[l.type || 'normale'] || TYPES_LISTE.normale;
-      const done = l.items.filter(itemDone).length;
-      const total = l.items.length;
+      const realItems = l.items.filter(i => !i._section);
+      const done = realItems.filter(itemDone).length;
+      const total = realItems.length;
       const estPartagee = (l.members || []).length > 1;
       const partageIcon = estPartagee ? ' 👥' : '';
       return `<button class="liee-chip" data-lid="${esc(l.id)}">
@@ -710,6 +722,18 @@ function parQui(nom, list, uid) {
 }
 
 function renderItemHtml(item, list) {
+  const isCollection = list.type === 'collection';
+
+  if (item._section) {
+    return `
+  <li class="section-header" data-id="${item.id}">
+    <span class="section-name">${esc(item.text)}</span>
+    <button class="section-edit-btn" data-section-edit aria-label="Renommer">✏️</button>
+    <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
+    <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
+  </li>`;
+  }
+
   const done = itemDone(item);
   const total = itemQty(item);
   const seule = item.variants.length === 1 ? item.variants[0] : null;
@@ -718,20 +742,24 @@ function renderItemHtml(item, list) {
   if (seule) subParts.push(esc(seule.name));
   if (item.rayon && !state.trierParRayon) subParts.push(esc(item.rayon));
   const subHtml = subParts.length ? `<span class="row-sub">${subParts.join(' · ')}</span>` : '';
-  return `
-  <li class="row item ${done ? 'done' : ''}" data-id="${item.id}">
-    <div class="item-head">
+
+  const checkHtml = isCollection ? '' : `
       <button class="check-hit" data-toggle
               aria-label="${done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
         <span class="check" style="background:${done ? list.color : 'transparent'}">${ICON.check}</span>
-      </button>
+      </button>`;
+
+  return `
+  <li class="row item ${done && !isCollection ? 'done' : ''}" data-id="${item.id}">
+    <div class="item-head">
+      ${checkHtml}
       <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
         <span class="row-text">
           <span class="row-title">${emojiPfx}${esc(item.text)}</span>
           ${subHtml}
         </span>
       </button>
-      ${done ? parQui(item.doneBy, list, item.doneByUid) : ''}
+      ${done && !isCollection ? parQui(item.doneBy, list, item.doneByUid) : ''}
       ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
       <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
       <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
@@ -739,13 +767,13 @@ function renderItemHtml(item, list) {
     ${item.variants.length > 1 ? `
     <ul class="variants">
       ${item.variants.map(v => `
-      <li class="variant ${v.done ? 'done' : ''}" data-vid="${v.id}">
-        <button class="variant-hit" data-vtoggle
+      <li class="variant ${v.done && !isCollection ? 'done' : ''}" data-vid="${v.id}">
+        ${isCollection ? '' : `<button class="variant-hit" data-vtoggle
                 aria-label="${v.done ? 'Décocher' : 'Cocher'} ${esc(v.name)}">
           <span class="check check-sm" style="background:${v.done ? list.color : 'transparent'}">${ICON.check}</span>
-        </button>
+        </button>`}
         <span class="variant-name">${esc(v.name)}</span>
-        ${v.done ? parQui(v.doneBy, list, v.doneByUid) : ''}
+        ${v.done && !isCollection ? parQui(v.doneBy, list, v.doneByUid) : ''}
         ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
       </li>`).join('')}
     </ul>` : ''}
@@ -756,9 +784,26 @@ function renderItems() {
   const list = getList(currentListId);
   if (!list) return goHome();
 
-  const visible = state.hideDone ? list.items.filter(i => !itemDone(i)) : list.items;
+  const isCollection = list.type === 'collection';
+  const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
-  if (state.trierParRayon) {
+  const typeLabel = $('list-type-label');
+  if (list.type && list.type !== 'normale') {
+    typeLabel.textContent = `${typeInfo.icon} ${typeInfo.label}`;
+    typeLabel.hidden = false;
+  } else {
+    typeLabel.hidden = true;
+  }
+
+  $('btn-toggle-done').hidden = isCollection;
+  $('btn-trier-rayon').hidden = isCollection;
+  $('btn-ajouter-section').hidden = !isCollection;
+
+  const visible = isCollection
+    ? list.items
+    : (state.hideDone ? list.items.filter(i => !itemDone(i)) : list.items);
+
+  if (!isCollection && state.trierParRayon) {
     const groups = new Map();
     visible.forEach(item => {
       const k = item.rayon || '';
@@ -777,15 +822,22 @@ function renderItems() {
     elItems.innerHTML = visible.map(i => renderItemHtml(i, list)).join('');
   }
 
-  elItems.classList.toggle('rayon-mode', !!state.trierParRayon);
+  elItems.classList.toggle('rayon-mode', !isCollection && !!state.trierParRayon);
 
-  const done = list.items.filter(itemDone).length;
-  const pieces = list.items.reduce((n, i) => n + itemQty(i), 0);
-  $('list-progress').textContent = `${done} sur ${list.items.length}`
-    + (pieces !== list.items.length ? ` · ${pieces} au total` : '');
-  $('btn-toggle-done').textContent = state.hideDone ? 'Afficher les cochés' : 'Masquer les cochés';
-  $('btn-trier-rayon').classList.toggle('is-active', !!state.trierParRayon);
-  $('empty-items').classList.toggle('is-visible', visible.length === 0);
+  const realItems = list.items.filter(i => !i._section);
+  const done = realItems.filter(itemDone).length;
+  const pieces = realItems.reduce((n, i) => n + itemQty(i), 0);
+
+  if (isCollection) {
+    $('list-progress').textContent = `${realItems.length} article${realItems.length > 1 ? 's' : ''}`;
+  } else {
+    $('list-progress').textContent = `${done} sur ${realItems.length}`
+      + (pieces !== realItems.length ? ` · ${pieces} au total` : '');
+    $('btn-toggle-done').textContent = state.hideDone ? 'Afficher les cochés' : 'Masquer les cochés';
+  }
+
+  $('btn-trier-rayon').classList.toggle('is-active', !isCollection && !!state.trierParRayon);
+  $('empty-items').classList.toggle('is-visible', visible.filter(i => !i._section).length === 0);
 }
 
 elItems.addEventListener('click', e => {
@@ -795,9 +847,23 @@ elItems.addEventListener('click', e => {
   const item = list.items.find(i => i.id === row.dataset.id);
   if (!item) return;
 
-  // Qui a coché, pour les listes à plusieurs. Décocher efface la signature :
-  // une case vide n'appartient à personne.
-  // Le nom pour l'afficher, l'UID pour reconnaître un compte marqué (badge).
+  if (item._section) {
+    if (e.target.closest('[data-section-edit]')) {
+      askText('Renommer la section', item.text, name => {
+        if (!name) return;
+        item.text = name;
+        save();
+        renderItems();
+      });
+    } else if (e.target.closest('[data-del]')) {
+      snapshot();
+      list.items = list.items.filter(i => i.id !== item.id);
+      save();
+      renderItems();
+    }
+    return;
+  }
+
   const signer = (cible, etat) => {
     if (etat) {
       cible.doneBy = Sync.user ? Sync.nomAffiche() : null;
@@ -1049,6 +1115,7 @@ $('btn-list-menu').addEventListener('click', () => {
     { label: 'Tout décocher', icon: '↩️', run: () => {
         snapshot();
         list.items.forEach(i => {
+          if (i._section) return;
           i.done = false; delete i.doneBy; delete i.doneByUid;
           i.variants.forEach(v => { v.done = false; delete v.doneBy; delete v.doneByUid; });
         });
@@ -1057,7 +1124,7 @@ $('btn-list-menu').addEventListener('click', () => {
     { label: `Supprimer les articles cochés (${doneCount})`, icon: '🧹', danger: true, run: () => {
         if (!doneCount) return;
         snapshot();
-        list.items = list.items.filter(i => !itemDone(i));
+        list.items = list.items.filter(i => i._section || !itemDone(i));
         save(); renderItems();
         toast(`${doneCount} article${doneCount > 1 ? 's' : ''} supprimé${doneCount > 1 ? 's' : ''}`, true);
       } },
