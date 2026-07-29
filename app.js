@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.4d';
+const VERSION = 'v19.4e';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -2709,6 +2709,9 @@ function adminModal() {
   adminBackdrop.hidden = false;
   if (arreterRetours) { arreterRetours(); arreterRetours = null; }
   arreterRetours = Sync.ecouterRetours(renderAdminRetours);
+  afficherAnalytics();
+  if (_analyticsTimer) clearInterval(_analyticsTimer);
+  _analyticsTimer = setInterval(afficherAnalytics, 60_000);
 }
 
 function closeAdmin() {
@@ -2900,9 +2903,6 @@ async function afficherAnalytics() {
   donut('chart-contexte', data.prefs.contexte, LBL_CTX);
 
   _analyticsEnCours = false;
-  if (!_analyticsTimer) {
-    _analyticsTimer = setInterval(afficherAnalytics, 60_000);
-  }
 }
 
 $('analytics-charger').addEventListener('click', afficherAnalytics);
