@@ -102,6 +102,25 @@ service cloud.firestore {
       allow read, write: if connecte() && request.auth.uid == userId;
     }
 
+    /* Demandes d'amitié.
+       demandeId = ${deUid}__${versUid} — direction explicite.
+       L'expéditeur crée ; les deux peuvent lire et supprimer ;
+       le destinataire peut marquer accepte + codeVers pour finaliser. */
+    match /demandes/{demandeId} {
+      allow create: if connecte()
+        && request.resource.data.de == request.auth.uid
+        && request.resource.data.vers is string
+        && request.resource.data.vers != request.auth.uid;
+      allow read: if connecte()
+        && (resource.data.de == request.auth.uid || resource.data.vers == request.auth.uid);
+      allow update: if connecte()
+        && resource.data.vers == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['accepte', 'codeVers']);
+      allow delete: if connecte()
+        && (resource.data.de == request.auth.uid || resource.data.vers == request.auth.uid);
+    }
+
     /* Messagerie entre amis.
        convId = [uid1, uid2].sort().join('__')
        Seuls les participants peuvent lire et écrire. */

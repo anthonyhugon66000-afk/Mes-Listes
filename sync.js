@@ -800,6 +800,88 @@ Sync.retirerAmi = async function (uid) {
   await s.setDoc(docAmis(), { liste: Sync.amis });
 };
 
+/* ---------- Demandes d'amitié ----------
+
+   demandeId = ${deUid}__${versUid}
+   Cycle : create → (update accepte+codeVers par destinataire) → delete par expéditeur. */
+
+Sync.demandesRecues  = [];
+Sync.demandesEnvoyees = [];
+
+const collDemandes = () => fb.s.collection(fb.db, 'demandes');
+
+Sync.envoyerDemandeAmi = async function (codeSaisi) {
+  if (!Sync.user || !fb) throw { code: 'auth/not-logged-in' };
+  const code = normaliserCode(codeSaisi);
+  const uid  = await Sync.resoudreCode(codeSaisi);
+  if (uid === Sync.user.uid) throw { code: 'ami/soi-meme' };
+  if (Sync.amis.some(a => a.uid === uid)) throw { code: 'ami/deja-ajoute' };
+  const { s } = fb;
+  await s.setDoc(s.doc(collDemandes(), `${Sync.user.uid}__${uid}`), {
+    de: Sync.user.uid,
+    vers: uid,
+    codeDe:    state.code || '',
+    codeCible: code,
+    cree: s.serverTimestamp()
+  });
+};
+
+Sync.ecouterDemandes = function (callback) {
+  if (!Sync.user || !fb) return () => {};
+  const { s } = fb;
+  const myUid = Sync.user.uid;
+  let recues = [], envoyees = [];
+  const fire = () => {
+    Sync.demandesRecues  = recues;
+    Sync.demandesEnvoyees = envoyees;
+    callback(recues, envoyees);
+  };
+  const unsubR = s.onSnapshot(
+    s.query(collDemandes(), s.where('vers', '==', myUid)),
+    snap => { recues = snap.docs.map(d => ({ id: d.id, ...d.data() })); fire(); },
+    e => console.error('[demandes-recues]', e)
+  );
+  const unsubE = s.onSnapshot(
+    s.query(collDemandes(), s.where('de', '==', myUid)),
+    snap => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.filter(d => d.accepte).forEach(d => Sync._finaliserAcceptation(d).catch(() => {}));
+      envoyees = docs.filter(d => !d.accepte);
+      fire();
+    },
+    e => console.error('[demandes-envoyees]', e)
+  );
+  return () => { unsubR(); unsubE(); };
+};
+
+Sync._finaliserAcceptation = async function (demande) {
+  const { s } = fb;
+  await Sync.chargerAmis();
+  if (demande.codeVers && !Sync.amis.some(a => a.uid === demande.vers)) {
+    Sync.amis = [...Sync.amis, { uid: demande.vers, code: demande.codeVers }];
+    await s.setDoc(docAmis(), { liste: Sync.amis });
+  }
+  await s.deleteDoc(s.doc(fb.db, 'demandes', demande.id));
+  Sync.onChange();
+};
+
+Sync.accepterDemande = async function (demande) {
+  const { s } = fb;
+  await Sync.chargerAmis();
+  if (!Sync.amis.some(a => a.uid === demande.de)) {
+    Sync.amis = [...Sync.amis, { uid: demande.de, code: demande.codeDe }];
+    await s.setDoc(docAmis(), { liste: Sync.amis });
+  }
+  await s.updateDoc(s.doc(fb.db, 'demandes', demande.id), {
+    accepte: true,
+    codeVers: state.code || ''
+  });
+};
+
+Sync.refuserDemande = async function (demandeId) {
+  await fb.s.deleteDoc(fb.s.doc(fb.db, 'demandes', demandeId));
+};
+
 /* ---------- Messagerie ----------
 
    Les conversations sont dans `conversations/{convId}` où

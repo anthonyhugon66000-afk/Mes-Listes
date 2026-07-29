@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v18.2';
+const VERSION = 'v18.3';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1620,6 +1620,8 @@ const ERREURS = {
     "C'est ton propre code — impossible de s'ajouter soi-même.",
   'ami/deja-ajoute':
     'Cet ami est déjà dans ta liste.',
+  'ami/demande-deja-envoyee':
+    'Tu as déjà envoyé une demande à cette personne.',
   'pseudo/reserve':
     'Ce pseudo est réservé à un autre compte. Choisis-en un autre.',
   'pseudo/vide':
@@ -1784,6 +1786,35 @@ function renderAccount() {
   }
 }
 
+function renderDemandes() {
+  const blocR = $('bloc-demandes-recues');
+  const blocE = $('bloc-demandes-envoyees');
+  if (!blocR) return;
+  const recues   = Sync.demandesRecues  || [];
+  const envoyees = Sync.demandesEnvoyees || [];
+  blocR.hidden = recues.length === 0;
+  blocE.hidden = envoyees.length === 0;
+  $('demandes-recues-list').innerHTML = recues.map(d => {
+    const av = avatarImg(Sync.cacheAvatars.get(d.de) || null, 32, 'avatar-membre');
+    const nom = String(d.codeDe || '').replace(/(\d{4})(\d{4})/, '$1-$2') || d.de.slice(0, 8);
+    return `<li class="person">
+      ${av}
+      <span class="person-name">${esc(nom)}</span>
+      <button class="link-btn" data-accepter="${esc(d.id)}">Accepter</button>
+      <button class="link-btn danger" data-refuser="${esc(d.id)}">Refuser</button>
+    </li>`;
+  }).join('');
+  $('demandes-envoyees-list').innerHTML = envoyees.map(d => {
+    const av = avatarImg(Sync.cacheAvatars.get(d.vers) || null, 32, 'avatar-membre');
+    const nom = String(d.codeCible || '').replace(/(\d{4})(\d{4})/, '$1-$2') || d.vers.slice(0, 8);
+    return `<li class="person">
+      ${av}
+      <span class="person-name">${esc(nom)}</span>
+      <button class="link-btn danger" data-annuler="${esc(d.id)}">Annuler</button>
+    </li>`;
+  }).join('');
+}
+
 function renderAmis() {
   const el = $('amis-list');
   if (!el) return;
@@ -1820,6 +1851,7 @@ function accountModal() {
   compteBackdrop.hidden = false;
   if (Sync.user) {
     renderAmis();
+    renderDemandes();
     Sync.chargerAmis().then(() => {
       const manquants = Sync.amis.filter(a => !Sync.cacheAvatars.has(a.uid)).map(a => a.uid);
       return manquants.length ? Promise.all(manquants.map(u => Sync.avatarDe(u))) : Promise.resolve();
@@ -1928,14 +1960,11 @@ $('btn-ajouter-ami').addEventListener('click', async () => {
   const code = $('ami-code').value.trim();
   const btn = $('btn-ajouter-ami');
   btn.disabled = true;
-  messageCompte('Ajout…');
+  messageCompte('Envoi…');
   try {
-    await Sync.ajouterAmi(code);
+    await Sync.envoyerDemandeAmi(code);
     $('ami-code').value = '';
-    const dernier = Sync.amis[Sync.amis.length - 1];
-    if (dernier && !Sync.cacheAvatars.has(dernier.uid)) await Sync.avatarDe(dernier.uid).catch(() => {});
-    renderAmis();
-    messageCompte('Ami ajouté !');
+    messageCompte('Demande envoyée !');
     setTimeout(() => messageCompte(''), 2500);
   } catch (e) {
     messageCompte(messageErreur(e?.code || String(e)), 'erreur');
@@ -1954,6 +1983,45 @@ $('amis-list').addEventListener('click', async e => {
   try {
     await Sync.retirerAmi(uid);
     renderAmis();
+  } catch (err) {
+    messageCompte(messageErreur(err?.code || String(err)), 'erreur');
+    btn.disabled = false;
+  }
+});
+
+$('demandes-recues-list').addEventListener('click', async e => {
+  const btnA = e.target.closest('[data-accepter]');
+  if (btnA) {
+    const demande = Sync.demandesRecues.find(d => d.id === btnA.dataset.accepter);
+    if (!demande) return;
+    btnA.disabled = true;
+    try {
+      await Sync.accepterDemande(demande);
+      renderAmis();
+    } catch (err) {
+      messageCompte(messageErreur(err?.code || String(err)), 'erreur');
+      btnA.disabled = false;
+    }
+    return;
+  }
+  const btnR = e.target.closest('[data-refuser]');
+  if (btnR) {
+    btnR.disabled = true;
+    try {
+      await Sync.refuserDemande(btnR.dataset.refuser);
+    } catch (err) {
+      messageCompte(messageErreur(err?.code || String(err)), 'erreur');
+      btnR.disabled = false;
+    }
+  }
+});
+
+$('demandes-envoyees-list').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-annuler]');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await Sync.refuserDemande(btn.dataset.annuler);
   } catch (err) {
     messageCompte(messageErreur(err?.code || String(err)), 'erreur');
     btn.disabled = false;
@@ -2546,6 +2614,7 @@ $('notif-envoyer').addEventListener('click', async () => {
 const CLE_RETOURS_VUS = 'meslistes.retours_vus';
 let arreterConversations = null;
 let arreterMessages     = null;
+let arreterDemandes     = null;
 let convActive          = null;   // { id, otherUid }
 let arreterMesRetoursGlobal = null;   // badge temps réel
 let arreterMesRetoursModal  = null;   // modal "Mes retours"
@@ -2928,6 +2997,19 @@ Sync.onChange = () => {
   } else {
     if (arreterMesRetoursGlobal) { arreterMesRetoursGlobal(); arreterMesRetoursGlobal = null; }
     majBadgeRetours([]);
+  }
+
+  // Listener demandes d'amitié : actif quand connecté pour la finalisation auto.
+  if (Sync.user) {
+    if (!arreterDemandes) {
+      arreterDemandes = Sync.ecouterDemandes(() => {
+        if (!compteBackdrop.hidden) renderDemandes();
+      });
+    }
+  } else {
+    if (arreterDemandes) { arreterDemandes(); arreterDemandes = null; }
+    Sync.demandesRecues  = [];
+    Sync.demandesEnvoyees = [];
   }
 
   if (!shareBackdrop.hidden && listePartagee) renderPeople();
