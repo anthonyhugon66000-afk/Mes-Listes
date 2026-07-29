@@ -1046,6 +1046,10 @@ function ecouterReglages() {
       state.pseudoReserve = distant.pseudoReserve || '';
       if (distant.code) state.code = distant.code;
       envoyeReglages = signatureReglages();
+      // Rendre le nom public lisible par les autres (avatars est public).
+      // pousserReglages() ne passe pas ici (signature déjà à jour), donc on écrit directement.
+      fb.s.setDoc(fb.s.doc(collectionAvatars(), Sync.user.uid),
+        { nom: Sync.nomAffiche() }, { merge: true }).catch(() => {});
       sauverLocalement();
       applyTheme();
       assurerCode();   // aucun code encore ? on en réserve un
