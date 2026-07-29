@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.1';
+const VERSION = 'v19.1a';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -788,12 +788,8 @@ function renderItems() {
   const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
   const typeLabel = $('list-type-label');
-  if (list.type && list.type !== 'normale') {
-    typeLabel.textContent = `${typeInfo.icon} ${typeInfo.label}`;
-    typeLabel.hidden = false;
-  } else {
-    typeLabel.hidden = true;
-  }
+  typeLabel.textContent = `${typeInfo.icon} ${typeInfo.label}`;
+  typeLabel.hidden = false;
 
   $('btn-toggle-done').hidden = isCollection;
   $('btn-trier-rayon').hidden = isCollection;
