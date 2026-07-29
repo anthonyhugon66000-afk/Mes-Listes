@@ -116,12 +116,14 @@ service cloud.firestore {
         && request.auth.uid in resource.data.participants;
 
       match /messages/{msgId} {
-        allow read: if connecte()
-          && request.auth.uid in
-             get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+        // convId = [uid1, uid2].sort().join('__') — on vérifie l'UID sans get() cross-doc.
+        function participantConv() {
+          return convId.matches(request.auth.uid + '__.*')
+              || convId.matches('.*__' + request.auth.uid);
+        }
+        allow read: if connecte() && participantConv();
         allow create: if connecte()
-          && request.auth.uid in
-             get(/databases/$(database)/documents/conversations/$(convId)).data.participants
+          && participantConv()
           && request.resource.data.de == request.auth.uid
           && request.resource.data.texte is string
           && request.resource.data.texte.size() > 0
