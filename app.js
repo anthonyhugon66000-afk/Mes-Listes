@@ -582,6 +582,14 @@ const partagee = list => (list.members || []).length > 1;
    liste partagée, sur une invitation, dans la fenêtre Compte. Doré pour un
    admin, noir pour un compte de test. Le libellé dit lequel. */
 const MARQUES_LIBELLE = { admin: 'admin', test: 'test' };
+function nomPour(uid) {
+  const attrs = Sync.cacheAvatars.get(uid);
+  if (attrs?.nom) return attrs.nom;
+  const ami = Sync.amis.find(a => a.uid === uid);
+  if (ami?.code) return ami.code.replace(/(\d{4})(\d{4})/, '$1-$2');
+  return uid.slice(0, 8) + '…';
+}
+
 function badgeMarque(uid) {
   const type = Sync.marque(uid);
   if (!type) return '';
@@ -2832,7 +2840,7 @@ function renderConversations(convs) {
     return `<li class="conv-item" data-other="${esc(otherUid)}">
       ${av}
       <div class="conv-info">
-        <span class="conv-name">${esc(nom)}</span>
+        <span class="conv-name">${esc(nomPour(otherUid))}${badgeMarque(otherUid)}</span>
         <span class="conv-last">${esc(conv.dernierMsg || '')}</span>
       </div>
       ${badge}
@@ -2843,12 +2851,11 @@ function renderConversations(convs) {
 function renderPickerAmis() {
   const el = $('picker-amis-list');
   $('picker-empty').hidden = Sync.amis.length > 0;
-  el.innerHTML = Sync.amis.map(({ uid, code }) => {
-    const codeAffiche = code.replace(/(\d{4})(\d{4})/, '$1-$2');
+  el.innerHTML = Sync.amis.map(({ uid }) => {
     const av = avatarImg(Sync.cacheAvatars.get(uid) || null, 40, 'avatar-conv');
     return `<li class="conv-item" data-pick="${esc(uid)}">
       ${av}
-      <div class="conv-info"><span class="conv-name">${esc(codeAffiche)}</span></div>
+      <div class="conv-info"><span class="conv-name">${esc(nomPour(uid))}${badgeMarque(uid)}</span></div>
     </li>`;
   }).join('');
 }
@@ -2894,8 +2901,7 @@ async function openConversation(otherUid) {
   try { convId = await Sync.ouvrirConversation(otherUid); }
   catch (e) { toast(messageErreur(e?.code || String(e))); return; }
   convActive = { id: convId, otherUid };
-  const ami = Sync.amis.find(a => a.uid === otherUid);
-  $('conv-title').textContent = ami ? ami.code.replace(/(\d{4})(\d{4})/, '$1-$2') : otherUid.slice(0, 8) + '…';
+  $('conv-title').innerHTML = esc(nomPour(otherUid)) + badgeMarque(otherUid);
   $('conv-header-avatar').innerHTML = avatarImg(Sync.cacheAvatars.get(otherUid) || null, 32, 'avatar-membre');
   showMsgPanel('msg-conv-view');
   arreterMessages?.();

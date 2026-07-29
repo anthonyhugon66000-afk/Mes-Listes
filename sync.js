@@ -1071,6 +1071,9 @@ function pousserReglages() {
     email: normaliser(Sync.user.email)
   }, { merge: true }
   ).catch(e => signalerErreur(e, 'reglages'));
+  // Rendre le nom affiché lisible par les autres (avatars est public).
+  fb.s.setDoc(fb.s.doc(collectionAvatars(), Sync.user.uid),
+    { nom: Sync.nomAffiche() }, { merge: true }).catch(() => {});
 }
 
 /* Le contenu, et lui seul. Une liste partagée est écrite par plusieurs
