@@ -2259,6 +2259,10 @@ html[data-theme="dark"].theme-photo .row-text {
   gap: 12px;
   margin-bottom: 8px;
 }
+.analytics-donut {
+  min-width: 0;
+  overflow: hidden;
+}
 .analytics-donut-label {
   font-size: 12px;
   font-weight: 600;
