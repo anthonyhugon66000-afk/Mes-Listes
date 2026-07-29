@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.2';
+const VERSION = 'v19.3';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -2698,6 +2698,174 @@ function closeAdmin() {
   if (arreterRetours) { arreterRetours(); arreterRetours = null; }
 }
 $('admin-close').addEventListener('click', closeAdmin);
+
+/* ===== Analytics ===== */
+
+let _chartJsCharge = false;
+async function chargerChartJs() {
+  if (_chartJsCharge || window.Chart) { _chartJsCharge = true; return; }
+  await new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
+    s.onload = () => { _chartJsCharge = true; ok(); };
+    s.onerror = ko;
+    document.head.appendChild(s);
+  });
+}
+
+async function afficherAnalytics() {
+  const section = $('analytics-section');
+  section.innerHTML = '<p class="empty">Chargement…</p>';
+
+  const data = await Sync.chargerAnalytics();
+  if (!data) {
+    section.innerHTML = '<p class="empty">Impossible de charger les analytics. Vérifie les règles Firestore.</p>';
+    return;
+  }
+
+  const dateStr = d => d.toISOString().slice(0, 10);
+  const today = dateStr(new Date());
+  const mois  = today.slice(0, 7);
+
+  const visitesToday = data.visites[today] || 0;
+  const visitesMonth = Object.entries(data.visites)
+    .filter(([d]) => d.startsWith(mois)).reduce((s, [, v]) => s + v, 0);
+  const visitesTotal = Object.values(data.visites).reduce((s, v) => s + v, 0);
+
+  let periode = 30;
+  let chartVisites = null;
+
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  const gridColor  = isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)';
+  const tickColor  = isDark ? '#aaa' : '#666';
+
+  section.innerHTML = `
+    <div class="analytics-cards">
+      <div class="analytics-card">
+        <span class="analytics-card-val">${data.totalUtilisateurs}</span>
+        <span class="analytics-card-lbl">utilisateurs</span>
+      </div>
+      <div class="analytics-card">
+        <span class="analytics-card-val">${visitesToday}</span>
+        <span class="analytics-card-lbl">visites aujourd'hui</span>
+      </div>
+      <div class="analytics-card">
+        <span class="analytics-card-val">${visitesMonth}</span>
+        <span class="analytics-card-lbl">ce mois-ci</span>
+      </div>
+      <div class="analytics-card">
+        <span class="analytics-card-val">${visitesTotal}</span>
+        <span class="analytics-card-lbl">total</span>
+      </div>
+    </div>
+    <div class="analytics-period-wrap">
+      <button class="analytics-period-btn is-active" data-p="30">30j</button>
+      <button class="analytics-period-btn" data-p="7">7j</button>
+      <button class="analytics-period-btn" data-p="90">3 mois</button>
+      <button class="analytics-period-btn" data-p="365">1 an</button>
+    </div>
+    <div class="analytics-chart-wrap">
+      <canvas id="chart-visites"></canvas>
+    </div>
+    <h4 class="admin-section analytics-h4">Préférences (onboarding)</h4>
+    <div class="analytics-donuts">
+      <div class="analytics-donut">
+        <p class="analytics-donut-label">Usage principal</p>
+        <canvas id="chart-usage"></canvas>
+      </div>
+      <div class="analytics-donut">
+        <p class="analytics-donut-label">Contexte</p>
+        <canvas id="chart-contexte"></canvas>
+      </div>
+    </div>
+  `;
+
+  section.querySelectorAll('.analytics-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      periode = +btn.dataset.p;
+      section.querySelectorAll('.analytics-period-btn').forEach(b =>
+        b.classList.toggle('is-active', b === btn));
+      dessinerVisites(periode);
+    });
+  });
+
+  await chargerChartJs();
+
+  function creerPoints(n) {
+    const pts = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const k = dateStr(d);
+      pts.push({ label: n <= 30 ? k.slice(5) : k.slice(0, 7), val: data.visites[k] || 0 });
+    }
+    if (n > 90) {
+      // regrouper par mois
+      const par_mois = {};
+      pts.forEach(p => { par_mois[p.label] = (par_mois[p.label] || 0) + p.val; });
+      return Object.entries(par_mois).map(([label, val]) => ({ label, val }));
+    }
+    return pts;
+  }
+
+  function dessinerVisites(n) {
+    const pts = creerPoints(n);
+    if (chartVisites) chartVisites.destroy();
+    chartVisites = new Chart($('chart-visites'), {
+      type: 'line',
+      data: {
+        labels: pts.map(p => p.label),
+        datasets: [{
+          data: pts.map(p => p.val),
+          borderColor: '#007aff',
+          backgroundColor: 'rgba(0,122,255,.15)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: n <= 30 ? 3 : 0,
+          pointHoverRadius: 5,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: tickColor, maxTicksLimit: 8 }, grid: { color: gridColor } },
+          y: { beginAtZero: true, ticks: { color: tickColor, precision: 0 }, grid: { color: gridColor } }
+        }
+      }
+    });
+  }
+
+  dessinerVisites(periode);
+
+  const PALETTE = ['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5ac8fa'];
+
+  function donut(id, obj, labels) {
+    const keys = Object.keys(obj);
+    if (!keys.length) { $(id).closest('.analytics-donut').innerHTML = '<p class="analytics-donut-label" style="opacity:.5">Aucune donnée</p>'; return; }
+    new Chart($(id), {
+      type: 'doughnut',
+      data: {
+        labels: keys.map(k => labels[k] || k),
+        datasets: [{ data: keys.map(k => obj[k]), backgroundColor: PALETTE, borderWidth: 0 }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: tickColor, font: { size: 11 }, boxWidth: 12, padding: 8 } }
+        }
+      }
+    });
+  }
+
+  const LBL_USAGE = { courses: '🛒 Courses', taches: '✅ Tâches', collections: '📦 Collections', visites: '📍 Visites', tout: '🔀 Tout' };
+  const LBL_CTX   = { seul: '👤 Seul(e)', famille: '👨‍👩‍👧 Famille', amis: '👥 Amis', travail: '💼 Boulot' };
+
+  donut('chart-usage',   data.prefs.usage,    LBL_USAGE);
+  donut('chart-contexte', data.prefs.contexte, LBL_CTX);
+}
+
+$('analytics-charger').addEventListener('click', afficherAnalytics);
 adminBackdrop.addEventListener('click', e => { if (e.target === adminBackdrop) closeAdmin(); });
 
 function majApercuImage() {

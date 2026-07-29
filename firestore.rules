@@ -46,6 +46,13 @@ service cloud.firestore {
       allow read, write: if connecte() && request.auth.uid == userId;
     }
 
+    /* Compteurs de visites journaliers. Chaque utilisateur connecté incrémente
+       le compteur du jour ; seuls les admins peuvent lire les stats. */
+    match /stats_daily/{date} {
+      allow write: if connecte() && date.matches('\\d{4}-\\d{2}-\\d{2}');
+      allow read:  if estAdmin();
+    }
+
     /* Réponses au questionnaire d'onboarding. Chacun écrit chez soi ;
        les admins peuvent tout lire pour les analytics. */
     match /onboarding/{userId} {
