@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.4c';
+const VERSION = 'v19.4d';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -2714,11 +2714,14 @@ function adminModal() {
 function closeAdmin() {
   adminBackdrop.hidden = true;
   if (arreterRetours) { arreterRetours(); arreterRetours = null; }
+  if (_analyticsTimer) { clearInterval(_analyticsTimer); _analyticsTimer = null; }
 }
 $('admin-close').addEventListener('click', closeAdmin);
 
 /* ===== Analytics ===== */
 
+let _analyticsTimer = null;
+let _analyticsEnCours = false;
 let _chartJsCharge = false;
 async function chargerChartJs() {
   if (_chartJsCharge || window.Chart) { _chartJsCharge = true; return; }
@@ -2732,12 +2735,15 @@ async function chargerChartJs() {
 }
 
 async function afficherAnalytics() {
+  if (_analyticsEnCours) return;
+  _analyticsEnCours = true;
   const section = $('analytics-section');
   section.innerHTML = '<p class="empty">Chargement…</p>';
 
   const data = await Sync.chargerAnalytics();
   if (!data) {
     section.innerHTML = '<p class="empty">Impossible de charger les analytics. Vérifie les règles Firestore.</p>';
+    _analyticsEnCours = false;
     return;
   }
 
@@ -2892,6 +2898,11 @@ async function afficherAnalytics() {
 
   donut('chart-usage',   data.prefs.usage,    LBL_USAGE);
   donut('chart-contexte', data.prefs.contexte, LBL_CTX);
+
+  _analyticsEnCours = false;
+  if (!_analyticsTimer) {
+    _analyticsTimer = setInterval(afficherAnalytics, 60_000);
+  }
 }
 
 $('analytics-charger').addEventListener('click', afficherAnalytics);
