@@ -882,6 +882,12 @@ Sync.accepterDemande = async function (demande) {
     accepte: true,
     codeVers: state.code || ''
   });
+  appelerWorker({
+    action: 'message',
+    cibleUid: demande.de,
+    titre: Sync.nomAffiche(),
+    corps: 'a accepté ta demande d\'ami'
+  });
 };
 
 Sync.refuserDemande = async function (demandeId) {
