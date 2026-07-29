@@ -109,7 +109,10 @@ service cloud.firestore {
       allow create: if connecte()
         && request.auth.uid in request.resource.data.participants
         && request.resource.data.participants.size() == 2;
-      allow read, update: if connecte()
+      // resource == null quand le document n'existe pas encore (getDoc avant création)
+      allow read: if connecte()
+        && (resource == null || request.auth.uid in resource.data.participants);
+      allow update: if connecte()
         && request.auth.uid in resource.data.participants;
 
       match /messages/{msgId} {
