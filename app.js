@@ -1462,6 +1462,10 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v19.4', titre: 'Onboarding et analytics', points: [
+    'Questionnaire de bienvenue au premier lancement pour personnaliser ton expérience',
+    'Panneau analytics admin : visites par jour/semaine/mois/an et préférences des utilisateurs'
+  ] },
   { version: 'v17.10', titre: 'Mode Liquid Glass', points: [
     'Nouveau thème inspiré d\'iOS : surfaces en verre dépoli avec flou et transparence',
     'S\'adapte automatiquement au mode clair et sombre du téléphone',
