@@ -849,10 +849,14 @@ Sync.ecouterConversations = function (callback) {
 Sync.ecouterMessages = function (id, callback) {
   if (!fb) return () => {};
   const { s } = fb;
-  const q = s.query(collMessages(id), s.orderBy('ts', 'asc'));
+  // Pas de orderBy : serverTimestamp() crée un pending-write avec ts=null qui
+  // peut être exclu d'un orderBy avant confirmation serveur. On trie côté client.
+  const q = s.query(collMessages(id));
   return s.onSnapshot(q, snap => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  }, () => {});
+    const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    callback(msgs);
+  }, e => console.error('[msg] onSnapshot error:', e));
 };
 
 Sync.envoyerMessage = async function (id, otherUid, texte) {
@@ -860,7 +864,7 @@ Sync.envoyerMessage = async function (id, otherUid, texte) {
   await s.addDoc(collMessages(id), {
     de: Sync.user.uid,
     texte: texte.trim(),
-    ts: s.serverTimestamp()
+    ts: Date.now()   // timestamp client : jamais null, évite le bug serverTimestamp+orderBy
   });
   await s.updateDoc(docConv(id), {
     dernierMsg: texte.trim().slice(0, 100),
