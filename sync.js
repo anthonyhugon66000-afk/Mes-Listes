@@ -306,6 +306,7 @@ async function demarrerEcoute() {
       .map(d => {
         const v = d.data();
         return { id: d.id, name: v.name, color: v.color, items: v.items || [], ordre: v.ordre,
+                 type: v.type || 'normale', linkedLists: v.linkedLists || [],
                  owner: v.owner, members: v.members || [], memberEmails: v.memberEmails || [],
                  majPar: v.majPar, majParNom: v.majParNom };
       })
