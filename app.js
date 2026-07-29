@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.4';
+const VERSION = 'v19.4a';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -2774,7 +2774,7 @@ async function afficherAnalytics() {
         <canvas id="chart-usage"></canvas>
       </div>
       <div class="analytics-donut">
-        <p class="analytics-donut-label">Contexte</p>
+        <p class="analytics-donut-label">Avec qui ?</p>
         <canvas id="chart-contexte"></canvas>
       </div>
     </div>
@@ -2841,21 +2841,31 @@ async function afficherAnalytics() {
   const PALETTE = ['#007aff', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5ac8fa'];
 
   function donut(id, obj, labels) {
+    const el = $(id);
+    if (!el) return;
     const keys = Object.keys(obj);
-    if (!keys.length) { $(id).closest('.analytics-donut').innerHTML = '<p class="analytics-donut-label" style="opacity:.5">Aucune donnée</p>'; return; }
-    new Chart($(id), {
-      type: 'doughnut',
-      data: {
-        labels: keys.map(k => labels[k] || k),
-        datasets: [{ data: keys.map(k => obj[k]), backgroundColor: PALETTE, borderWidth: 0 }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'bottom', labels: { color: tickColor, font: { size: 11 }, boxWidth: 12, padding: 8 } }
+    if (!keys.length) {
+      const msg = document.createElement('p');
+      msg.textContent = 'Aucune donnée';
+      msg.style.cssText = 'text-align:center;opacity:.5;font-size:13px;padding:20px 0 0';
+      el.replaceWith(msg);
+      return;
+    }
+    try {
+      new Chart(el, {
+        type: 'doughnut',
+        data: {
+          labels: keys.map(k => labels[k] || k),
+          datasets: [{ data: keys.map(k => obj[k]), backgroundColor: PALETTE, borderWidth: 0 }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: tickColor, font: { size: 11 }, boxWidth: 12, padding: 8 } }
+          }
         }
-      }
-    });
+      });
+    } catch (e) { console.error('[donut]', id, e); }
   }
 
   const LBL_USAGE = { courses: '🛒 Courses', taches: '✅ Tâches', collections: '📦 Collections', visites: '📍 Visites', tout: '🔀 Tout' };
