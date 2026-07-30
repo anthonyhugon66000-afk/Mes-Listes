@@ -2297,3 +2297,14 @@ html[data-theme="dark"].theme-photo .row-text {
   margin-left: auto;
 }
 
+/* IA — Suggestions */
+.ia-msg {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--text2);
+  margin: 0;
+}
+.ia-chargement { opacity: .6; font-style: italic; }
+.ia-sugg { transition: opacity .15s; }
+.ia-ajoute { opacity: .45; text-decoration: line-through; }
+

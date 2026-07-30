@@ -3687,6 +3687,104 @@ $('avatar-genere-btn').addEventListener('click', () => {
   renderBuilderAvatar();
 });
 
+/* ============================================================
+   IA — Suggestions d'articles (v20.1)
+   ============================================================ */
+
+async function demanderIA(mode, options = {}) {
+  if (!Sync.user) {
+    messageCompte('Les suggestions IA nécessitent un compte connecté.');
+    return null;
+  }
+  try {
+    const idToken = await fb.auth.currentUser.getIdToken();
+    const r = await fetch(WORKER_NOTIFS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, action: 'ia', mode, ...options })
+    });
+    const data = await r.json();
+    if (data.erreur) throw new Error(data.erreur);
+    return data.suggestions || [];
+  } catch (e) {
+    toast('IA indisponible : ' + e.message);
+    return null;
+  }
+}
+
+function afficherSuggestionsIA(suggestions, list) {
+  const existants = new Set(list.items.filter(i => !i._section).map(i => i.text.toLowerCase()));
+  const nouveaux = suggestions.filter(s => !existants.has(s.toLowerCase()));
+
+  if (!nouveaux.length) {
+    sheetBody.innerHTML = '<p class="ia-msg">Ta liste semble déjà bien complète !</p>';
+    sheetBody.onclick = null;
+    return;
+  }
+
+  sheetBody.innerHTML = `
+    <p class="ia-msg">Appuie pour ajouter :</p>
+    ${nouveaux.map((s, i) => `<button class="sheet-action ia-sugg" data-ia="${i}">${esc(s)}</button>`).join('')}
+  `;
+  sheetBody.onclick = e => {
+    const btn = e.target.closest('[data-ia]');
+    if (!btn || btn.disabled) return;
+    const nom = nouveaux[+btn.dataset.ia];
+    getList(currentListId).items.push({ id: uid(), text: nom, qty: 1, done: false, variants: [] });
+    save();
+    renderItems();
+    btn.classList.add('ia-ajoute');
+    btn.disabled = true;
+    btn.textContent = '✓ ' + nom;
+  };
+}
+
+async function ouvrirIA() {
+  const list = getList(currentListId);
+  if (!list) return;
+
+  openSheet('✨ Suggestions IA', [
+    {
+      icon: '💡',
+      label: 'Compléter la liste',
+      run: async () => {
+        $('sheet-title').textContent = '✨ Analyse…';
+        sheetBody.innerHTML = '<p class="ia-msg ia-chargement">L\'IA analyse ta liste…</p>';
+        sheetBody.onclick = null;
+
+        const articles = list.items.filter(i => !i._section && i.text).map(i => i.text);
+        const suggestions = await demanderIA('completer', { articles, typeListe: list.type || 'normale' });
+        if (!suggestions) { closeSheet(); return; }
+
+        $('sheet-title').textContent = '✨ Suggestions';
+        afficherSuggestionsIA(suggestions, list);
+      }
+    },
+    {
+      icon: '✍️',
+      label: 'Depuis un texte…',
+      run: () => {
+        closeSheet();
+        askText('Décris ta liste', '', async texte => {
+          if (!texte.trim()) return;
+          $('sheet-title').textContent = '✨ Génération…';
+          sheetBody.innerHTML = '<p class="ia-msg ia-chargement">L\'IA prépare ta liste…</p>';
+          sheetBody.onclick = null;
+          sheetBackdrop.hidden = false;
+
+          const suggestions = await demanderIA('creer', { texte });
+          if (!suggestions) { closeSheet(); return; }
+
+          $('sheet-title').textContent = '✨ Articles générés';
+          afficherSuggestionsIA(suggestions, list);
+        });
+      }
+    }
+  ]);
+}
+
+$('btn-ia').addEventListener('click', ouvrirIA);
+
 /* `tests.html` charge l'app avec ce paramètre. Le rechargement automatique
    ci-dessous viderait alors le cadre en pleine séance : c'est exactement ce qui
    arrive quand on teste juste après une mise à jour, donc au pire moment. */

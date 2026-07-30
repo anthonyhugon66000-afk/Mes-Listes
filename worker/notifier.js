@@ -217,6 +217,75 @@ export default {
 
     const { idToken, listeId, titre, corps, action, email, cibleUid } = corpsRequete;
 
+    /* --- Suggestions IA via Cloudflare Workers AI --- */
+    if (action === 'ia') {
+      if (!idToken) return repondre({ erreur: 'idToken requis' }, 400);
+
+      let auteur;
+      try { auteur = await verifierIdentite(idToken, projet); }
+      catch (e) { return repondre({ erreur: 'identité refusée' }, 401); }
+
+      if (!env.GROQ_API_KEY) return repondre({ erreur: 'GROQ_API_KEY absent — ajoute-le dans les Secrets du Worker' }, 500);
+
+      const { mode = 'completer', articles = [], typeListe = 'normale', texte = '' } = corpsRequete;
+
+      const typeDesc = { normale: 'liste générale', courses: 'liste de courses', collection: 'collection d\'objets', visite: 'lieux à visiter' }[typeListe] || 'liste';
+
+      let instruction;
+      if (mode === 'creer' && texte.trim()) {
+        instruction = `Génère une liste d'articles pour : "${texte.trim()}". Réponds UNIQUEMENT avec un tableau JSON de chaînes en français, max 12 articles. Exemple : ["pain","lait","œufs"]`;
+      } else {
+        const ctx = articles.length
+          ? `Articles déjà présents : ${articles.slice(0, 20).join(', ')}.`
+          : 'La liste est encore vide.';
+        instruction = `Type : ${typeDesc}. ${ctx} Suggère 6 à 10 articles manquants pertinents. Réponds UNIQUEMENT avec un tableau JSON de chaînes en français. Exemple : ["article1","article2"]`;
+      }
+
+      try {
+        const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide de chaînes, sans aucun texte autour.' },
+              { role: 'user', content: instruction }
+            ],
+            max_tokens: 300,
+            temperature: 0.7
+          })
+        });
+
+        if (!r.ok) {
+          const err = await r.text();
+          return repondre({ erreur: 'Groq erreur ' + r.status + ' : ' + err }, 500);
+        }
+
+        const json = await r.json();
+        const brut = (json.choices?.[0]?.message?.content || '').trim();
+        const match = brut.match(/\[[\s\S]*?\]/);
+        if (!match) return repondre({ erreur: 'réponse IA illisible', brut }, 500);
+
+        let suggestions;
+        try { suggestions = JSON.parse(match[0]); }
+        catch { return repondre({ erreur: 'JSON IA invalide', brut }, 500); }
+
+        if (!Array.isArray(suggestions)) return repondre({ erreur: 'format IA inattendu' }, 500);
+
+        return repondre({
+          suggestions: suggestions
+            .filter(s => typeof s === 'string' && s.trim())
+            .map(s => s.trim())
+            .slice(0, 15)
+        });
+      } catch (e) {
+        return repondre({ erreur: 'erreur IA : ' + e.message }, 500);
+      }
+    }
+
     /* --- Diffusion globale (admin → tous les appareils) --- */
     if (action === 'broadcast') {
       if (!idToken) return repondre({ erreur: 'idToken requis' }, 400);
