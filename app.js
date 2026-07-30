@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v19.4e';
+const VERSION = 'v20.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1462,6 +1462,11 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v20.1', titre: 'Suggestions IA', points: [
+    'Bouton ✨ Suggérer dans chaque liste pour compléter automatiquement',
+    'Décris ta liste en texte libre et l\'IA la génère pour toi',
+    'Propulsé par Llama 3.1 — open source et gratuit'
+  ] },
   { version: 'v19.4', titre: 'Onboarding et analytics', points: [
     'Questionnaire de bienvenue au premier lancement pour personnaliser ton expérience',
     'Panneau analytics admin : visites par jour/semaine/mois/an et préférences des utilisateurs'
