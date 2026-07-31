@@ -838,7 +838,8 @@ function renderItemHtml(item, list) {
   const emojiPfx = item.emoji ? `<span aria-hidden="true">${item.emoji} </span>` : '';
   const subParts = [];
   if (seule) subParts.push(esc(seule.name));
-  if (item.rayon && !state.trierParRayon) subParts.push(esc(item.rayon));
+  const lieu = item.ou || (!state.trierParRayon && item.rayon) || '';
+  if (lieu) subParts.push(esc(lieu));
   const subHtml = subParts.length ? `<span class="row-sub">${subParts.join(' · ')}</span>` : '';
 
   let deadlineHtml = '';
@@ -1190,6 +1191,7 @@ $('form-add-item').addEventListener('submit', e => {
   const item = { id: uid(), text, qty: 1, done: false, variants: [] };
   if (pendingSuggestion?.rayon) item.rayon = pendingSuggestion.rayon;
   if (pendingSuggestion?.emoji) item.emoji = pendingSuggestion.emoji;
+  if (pendingSuggestion?.ou) item.ou = pendingSuggestion.ou;
   pendingSuggestion = null;
   getList(currentListId).items.push(item);
   save();
@@ -1198,22 +1200,66 @@ $('form-add-item').addEventListener('submit', e => {
   input.focus();
 });
 
-/* ---------- Autocomplete produits ---------- */
+/* ---------- Autocomplete produits + IA ---------- */
+
+let _iaAcTimer = null;
 
 $('input-item').addEventListener('input', () => {
-  const val = $('input-item').value;
+  const val = $('input-item').value.trim();
   const acList = $('autocomplete-list');
+  clearTimeout(_iaAcTimer);
+
   const suggs = typeof chercherProduit === 'function' ? chercherProduit(val, 5) : [];
-  if (!suggs.length) { acList.hidden = true; return; }
-  acList.innerHTML = suggs.map(p => `
-    <div class="autocomplete-item" data-nom="${esc(p.nom)}" data-rayon="${esc(p.rayon || '')}" data-emoji="${esc(p.emoji || '')}">
+  const baseHtml = suggs.map(p => `
+    <div class="autocomplete-item" data-nom="${esc(p.nom)}" data-rayon="${esc(p.rayon || '')}" data-emoji="${esc(p.emoji || '')}" data-ou="">
       <span class="ac-emoji">${p.emoji || ''}</span>
       <span class="ac-info">
         <span class="ac-nom">${esc(p.nom)}</span>
         ${p.rayon ? `<span class="ac-rayon">${esc(p.rayon)}</span>` : ''}
       </span>
     </div>`).join('');
+
+  if (val.length < 2) { acList.hidden = true; return; }
+
+  if (!Sync.user || suggs.length >= 4 || val.length < 3) {
+    acList.innerHTML = baseHtml;
+    acList.hidden = !suggs.length;
+    return;
+  }
+
+  // Moins de 4 résultats produits → IA en complément (debounce 400 ms)
+  acList.innerHTML = baseHtml +
+    '<div class="autocomplete-item ac-ia-loading" aria-hidden="true">✨ Recherche…</div>';
   acList.hidden = false;
+
+  _iaAcTimer = setTimeout(async () => {
+    const list = getList(currentListId);
+    if (!list || $('input-item').value.trim() !== val) return;
+    try {
+      const idToken = await fb.auth.currentUser.getIdToken();
+      const r = await fetch(WORKER_NOTIFS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, action: 'ia', mode: 'suggerer', saisie: val, typeListe: list.type || 'normale' })
+      });
+      const data = await r.json();
+      if ($('input-item').value.trim() !== val) return;
+      const iaSuggs = (data.suggestions || []).filter(s => s?.nom);
+      const iaHtml = iaSuggs.map(s => `
+        <div class="autocomplete-item ac-ia" data-nom="${esc(s.nom)}" data-ou="${esc(s.ou || '')}" data-rayon="" data-emoji="">
+          <span class="ac-emoji ac-ia-star">✨</span>
+          <span class="ac-info">
+            <span class="ac-nom">${esc(s.nom)}</span>
+            ${s.ou ? `<span class="ac-rayon">${esc(s.ou)}</span>` : ''}
+          </span>
+        </div>`).join('');
+      acList.innerHTML = baseHtml + iaHtml;
+      acList.hidden = !(suggs.length + iaSuggs.length);
+    } catch {
+      acList.innerHTML = baseHtml;
+      acList.hidden = !suggs.length;
+    }
+  }, 400);
 });
 
 $('input-item').addEventListener('keydown', e => {
@@ -1222,10 +1268,10 @@ $('input-item').addEventListener('keydown', e => {
 
 function selectionnerSuggestion(e) {
   const item = e.target.closest('[data-nom]');
-  if (!item) return;
+  if (!item || item.classList.contains('ac-ia-loading')) return;
   e.preventDefault();
   $('input-item').value = item.dataset.nom;
-  pendingSuggestion = { rayon: item.dataset.rayon, emoji: item.dataset.emoji };
+  pendingSuggestion = { rayon: item.dataset.rayon || '', emoji: item.dataset.emoji || '', ou: item.dataset.ou || '' };
   $('autocomplete-list').hidden = true;
 }
 $('autocomplete-list').addEventListener('touchstart', selectionnerSuggestion, { passive: false });
@@ -4223,7 +4269,10 @@ function afficherSuggestionsIA(suggestions, list) {
     if (!btn || btn.disabled) return;
     const s = nouveaux[+btn.dataset.ia];
     const nom = typeof s === 'object' ? s.nom : s;
-    getList(currentListId).items.push({ id: uid(), text: nom, qty: 1, done: false, variants: [] });
+    const ou  = typeof s === 'object' ? (s.ou || '') : '';
+    const newItem = { id: uid(), text: nom, qty: 1, done: false, variants: [] };
+    if (ou) newItem.ou = ou;
+    getList(currentListId).items.push(newItem);
     save();
     renderItems();
     btn.classList.add('ia-ajoute');

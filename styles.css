@@ -2594,3 +2594,7 @@ html[data-theme="dark"].theme-photo .row-text {
   flex-shrink: 0;
 }
 
+
+/* IA autocomplete (v20.5) */
+.ac-ia-loading { opacity: 0.5; pointer-events: none; font-style: italic; }
+.ac-ia-star { font-size: 14px; }
