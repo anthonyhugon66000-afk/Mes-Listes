@@ -4111,6 +4111,7 @@ function renderSuggestionsFavoris() {
   `).join('');
 
   $('fav-sugg-empty').hidden = suggestions.length > 0;
+  $('fav-sugg-header').hidden = !suggestions.length;
 }
 
 function ouvrirChoixListePourFavori(text) {
