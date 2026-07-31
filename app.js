@@ -4078,6 +4078,7 @@ function renderFavoris() {
 
   const hasContent = items.length > 0 || listes.length > 0;
   $('fav-empty').hidden = hasContent;
+  $('fav-items-header').hidden = !hasContent;
 }
 
 function renderSuggestionsFavoris() {
@@ -4216,6 +4217,12 @@ $('fav-sugg-list').addEventListener('click', e => {
   renderFavoris();
   renderSuggestionsFavoris();
   toast(`★ ${text} ajouté aux favoris`);
+});
+$('btn-clear-fav').addEventListener('click', () => {
+  state.favoris.items = [];
+  state.favoris.listes = [];
+  save();
+  renderFavoris();
 });
 $('btn-clear-sugg').addEventListener('click', () => {
   const items = [...$('fav-sugg-list').querySelectorAll('[data-sugg-text]')];
