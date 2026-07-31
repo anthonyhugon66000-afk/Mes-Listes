@@ -1647,7 +1647,8 @@ const NOUVEAUTES = [
     'Écran Favoris : articles seuls ou groupés en listes nommées',
     'Ajoute un favori dans n\'importe quelle liste en un tap',
     'Suggestions : tes articles fréquents te sont proposés en favoris',
-    'Supprime un rappel directement depuis la ligne de l\'article'
+    'Supprime un rappel directement depuis la ligne de l\'article',
+    'Favoris synchronisés entre tous tes appareils'
   ] },
   { version: 'v20.4', titre: 'Collaboration temps réel', points: [
     'Vois qui est en train de consulter la même liste que toi',

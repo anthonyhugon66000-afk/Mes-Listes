@@ -1118,7 +1118,7 @@ Sync.refuser = async function (inv) {
    violet choisi sur le téléphone resterait introuvable sur l'ordinateur. */
 
 const signatureReglages = () =>
-  JSON.stringify([state.theme || 'auto', state.accent || null, state.pseudo || '']);
+  JSON.stringify([state.theme || 'auto', state.accent || null, state.pseudo || '', state.favoris]);
 
 /* Le nom sous lequel on apparaît aux autres. Sans pseudo, on retombe sur le
    début de l'adresse — mieux que rien, et moins indiscret que l'adresse entière. */
@@ -1136,6 +1136,12 @@ function ecouterReglages() {
       state.pseudo = distant.pseudo || '';
       state.pseudoReserve = distant.pseudoReserve || '';
       if (distant.code) state.code = distant.code;
+      if (distant.favoris && typeof distant.favoris === 'object') {
+        state.favoris = {
+          items: Array.isArray(distant.favoris.items) ? distant.favoris.items : [],
+          listes: Array.isArray(distant.favoris.listes) ? distant.favoris.listes : []
+        };
+      }
       envoyeReglages = signatureReglages();
       // Rendre le nom public lisible par les autres (avatars est public).
       // pousserReglages() ne passe pas ici (signature déjà à jour), donc on écrit directement.
@@ -1163,7 +1169,8 @@ function pousserReglages() {
     pseudo: state.pseudo || '',
     // L'adresse sert au Worker à retrouver qui prévenir quand on invite
     // quelqu'un : à ce moment-là, on ne connaît que son adresse.
-    email: normaliser(Sync.user.email)
+    email: normaliser(Sync.user.email),
+    favoris: state.favoris || { items: [], listes: [] }
   }, { merge: true }
   ).catch(e => signalerErreur(e, 'reglages'));
   // Rendre le nom affiché lisible par les autres (avatars est public).
