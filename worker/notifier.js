@@ -233,12 +233,12 @@ export default {
 
       let instruction;
       if (mode === 'creer' && texte.trim()) {
-        instruction = `Génère une liste d'articles pour : "${texte.trim()}". Réponds UNIQUEMENT avec un tableau JSON de chaînes en français, max 12 articles. Exemple : ["pain","lait","œufs"]`;
+        instruction = `Génère une liste d'articles pour : "${texte.trim()}". Pour chaque article indique où le trouver (rayon de supermarché, type de boutique ou section). Réponds UNIQUEMENT avec un tableau JSON d'objets en français, max 12 articles. Exemple : [{"nom":"pain","ou":"Boulangerie / rayon pain"},{"nom":"lait","ou":"Rayon frais — produits laitiers"}]`;
       } else {
         const ctx = articles.length
           ? `Articles déjà présents : ${articles.slice(0, 20).join(', ')}.`
           : 'La liste est encore vide.';
-        instruction = `Type : ${typeDesc}. ${ctx} Suggère 6 à 10 articles manquants pertinents. Réponds UNIQUEMENT avec un tableau JSON de chaînes en français. Exemple : ["article1","article2"]`;
+        instruction = `Type : ${typeDesc}. ${ctx} Suggère 6 à 10 articles manquants pertinents. Pour chaque article indique où le trouver (rayon de supermarché, type de boutique ou section). Réponds UNIQUEMENT avec un tableau JSON d'objets en français. Exemple : [{"nom":"beurre","ou":"Rayon frais — produits laitiers"},{"nom":"farine","ou":"Épicerie — pâtisserie"}]`;
       }
 
       try {
@@ -251,10 +251,10 @@ export default {
           body: JSON.stringify({
             model: 'llama-3.1-8b-instant',
             messages: [
-              { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide de chaînes, sans aucun texte autour.' },
+              { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide d\'objets {nom, ou}, sans aucun texte autour.' },
               { role: 'user', content: instruction }
             ],
-            max_tokens: 300,
+            max_tokens: 500,
             temperature: 0.7
           })
         });
@@ -277,8 +277,8 @@ export default {
 
         return repondre({
           suggestions: suggestions
-            .filter(s => typeof s === 'string' && s.trim())
-            .map(s => s.trim())
+            .filter(s => s && typeof s === 'object' && typeof s.nom === 'string' && s.nom.trim())
+            .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim() }))
             .slice(0, 15)
         });
       } catch (e) {

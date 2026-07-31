@@ -2325,8 +2325,11 @@ html[data-theme="dark"].theme-photo .row-text {
   margin: 0;
 }
 .ia-chargement { opacity: .6; font-style: italic; }
-.ia-sugg { transition: opacity .15s; }
-.ia-ajoute { opacity: .45; text-decoration: line-through; }
+.ia-sugg { transition: opacity .15s; flex-direction: column; align-items: flex-start; gap: 1px; }
+.ia-sugg-nom { font-weight: 600; }
+.ia-sugg-ou { font-size: 12px; color: var(--text-dim); font-weight: 400; }
+.ia-ajoute { opacity: .45; }
+.ia-ajoute .ia-sugg-nom { text-decoration: line-through; }
 
 /* ===== v20.4 : Présence en temps réel ===== */
 .presence-viewers {

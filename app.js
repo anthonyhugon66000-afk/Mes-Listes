@@ -3972,7 +3972,10 @@ async function demanderIA(mode, options = {}) {
 
 function afficherSuggestionsIA(suggestions, list) {
   const existants = new Set(list.items.filter(i => !i._section).map(i => i.text.toLowerCase()));
-  const nouveaux = suggestions.filter(s => !existants.has(s.toLowerCase()));
+  const nouveaux = suggestions.filter(s => {
+    const nom = typeof s === 'object' ? s.nom : s;
+    return !existants.has((nom || '').toLowerCase());
+  });
 
   if (!nouveaux.length) {
     sheetBody.innerHTML = '<p class="ia-msg">Ta liste semble déjà bien complète !</p>';
@@ -3982,18 +3985,27 @@ function afficherSuggestionsIA(suggestions, list) {
 
   sheetBody.innerHTML = `
     <p class="ia-msg">Appuie pour ajouter :</p>
-    ${nouveaux.map((s, i) => `<button class="sheet-action ia-sugg" data-ia="${i}">${esc(s)}</button>`).join('')}
+    ${nouveaux.map((s, i) => {
+      const nom = typeof s === 'object' ? s.nom : s;
+      const ou  = typeof s === 'object' ? s.ou  : '';
+      return `<button class="sheet-action ia-sugg" data-ia="${i}">
+        <span class="ia-sugg-nom">${esc(nom)}</span>
+        ${ou ? `<span class="ia-sugg-ou">${esc(ou)}</span>` : ''}
+      </button>`;
+    }).join('')}
   `;
   sheetBody.onclick = e => {
     const btn = e.target.closest('[data-ia]');
     if (!btn || btn.disabled) return;
-    const nom = nouveaux[+btn.dataset.ia];
+    const s = nouveaux[+btn.dataset.ia];
+    const nom = typeof s === 'object' ? s.nom : s;
     getList(currentListId).items.push({ id: uid(), text: nom, qty: 1, done: false, variants: [] });
     save();
     renderItems();
     btn.classList.add('ia-ajoute');
     btn.disabled = true;
-    btn.textContent = '✓ ' + nom;
+    btn.querySelector('.ia-sugg-nom').textContent = '✓ ' + nom;
+    btn.querySelector('.ia-sugg-ou')?.remove();
   };
 }
 
