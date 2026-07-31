@@ -2598,3 +2598,8 @@ html[data-theme="dark"].theme-photo .row-text {
 /* IA autocomplete (v20.5) */
 .ac-ia-loading { opacity: 0.5; pointer-events: none; font-style: italic; }
 .ac-ia-star { font-size: 14px; }
+
+/* Suggestions favoris — header avec bouton retirer (v20.5) */
+.fav-sugg-header { display: flex; align-items: center; justify-content: space-between; padding-right: 12px; }
+.fav-sugg-header .fav-sugg-intro { padding-right: 0; margin: 0; }
+.fav-sugg-clear { font-size: 13px; color: var(--text-dim); flex-shrink: 0; }

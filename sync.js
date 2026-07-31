@@ -1139,7 +1139,8 @@ function ecouterReglages() {
       if (distant.favoris && typeof distant.favoris === 'object') {
         state.favoris = {
           items: Array.isArray(distant.favoris.items) ? distant.favoris.items : [],
-          listes: Array.isArray(distant.favoris.listes) ? distant.favoris.listes : []
+          listes: Array.isArray(distant.favoris.listes) ? distant.favoris.listes : [],
+          suggIgnores: Array.isArray(distant.favoris.suggIgnores) ? distant.favoris.suggIgnores : []
         };
       }
       envoyeReglages = signatureReglages();
@@ -1170,7 +1171,7 @@ function pousserReglages() {
     // L'adresse sert au Worker à retrouver qui prévenir quand on invite
     // quelqu'un : à ce moment-là, on ne connaît que son adresse.
     email: normaliser(Sync.user.email),
-    favoris: state.favoris || { items: [], listes: [] }
+    favoris: state.favoris || { items: [], listes: [], suggIgnores: [] }
   }, { merge: true }
   ).catch(e => signalerErreur(e, 'reglages'));
   // Rendre le nom affiché lisible par les autres (avatars est public).

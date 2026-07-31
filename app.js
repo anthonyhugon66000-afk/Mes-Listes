@@ -226,9 +226,10 @@ function migrate(data) {
   if (!data.lastActive) data.lastActive = null;
   if (!Array.isArray(data.joursActifs)) data.joursActifs = [];
   if (data.trierParRayon === undefined) data.trierParRayon = false;
-  if (!data.favoris || typeof data.favoris !== 'object') data.favoris = { items: [], listes: [] };
+  if (!data.favoris || typeof data.favoris !== 'object') data.favoris = { items: [], listes: [], suggIgnores: [] };
   if (!Array.isArray(data.favoris.items)) data.favoris.items = [];
   if (!Array.isArray(data.favoris.listes)) data.favoris.listes = [];
+  if (!Array.isArray(data.favoris.suggIgnores)) data.favoris.suggIgnores = [];
   return data;
 }
 
@@ -4093,9 +4094,10 @@ function renderSuggestionsFavoris() {
     ...state.favoris.items.map(f => f.text.toLowerCase()),
     ...state.favoris.listes.flatMap(l => l.items.map(i => i.text.toLowerCase()))
   ]);
+  const ignores = new Set((state.favoris.suggIgnores || []).map(t => t.toLowerCase()));
 
   const suggestions = [...frequence.values()]
-    .filter(s => s.count >= 2 && !dejaFav.has(s.text.toLowerCase()))
+    .filter(s => s.count >= 2 && !dejaFav.has(s.text.toLowerCase()) && !ignores.has(s.text.toLowerCase()))
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
 
@@ -4214,6 +4216,17 @@ $('fav-sugg-list').addEventListener('click', e => {
   renderFavoris();
   renderSuggestionsFavoris();
   toast(`★ ${text} ajouté aux favoris`);
+});
+$('btn-clear-sugg').addEventListener('click', () => {
+  const items = [...$('fav-sugg-list').querySelectorAll('[data-sugg-text]')];
+  if (!items.length) return;
+  items.forEach(li => {
+    const t = li.dataset.suggText.toLowerCase();
+    if (!state.favoris.suggIgnores.map(x => x.toLowerCase()).includes(t))
+      state.favoris.suggIgnores.push(li.dataset.suggText);
+  });
+  save();
+  renderSuggestionsFavoris();
 });
 
 /* ============================================================
