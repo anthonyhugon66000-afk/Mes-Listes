@@ -749,6 +749,7 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .seg-btn[aria-checked="true"] {
   background: var(--surface);
   font-weight: 600;
+  color: var(--accent);
   box-shadow: 0 1px 3px rgba(0,0,0,.12);
 }
 
