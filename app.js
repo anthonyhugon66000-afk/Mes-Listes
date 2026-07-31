@@ -4094,7 +4094,7 @@ function favClickHandler(e) {
     }
     save();
     renderFavoris();
-    renderItems();
+    if (currentListId) renderItems();
     return;
   }
   if (e.target.closest('[data-add-to-list]')) {
@@ -4133,7 +4133,7 @@ $('btn-add-fav-item').addEventListener('click', () => {
     state.favoris.items.push({ id: uid(), text });
     save();
     renderFavoris();
-    renderItems();
+    if (currentListId) renderItems();
   });
 });
 $('btn-new-fav-list').addEventListener('click', () => {
