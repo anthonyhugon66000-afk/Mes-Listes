@@ -2586,10 +2586,12 @@ function themePicker() {
                 aria-checked="${curTheme === valeur}">${libelle}</button>`).join('')}
     </div>
     <p class="sheet-note">Couleur des boutons</p>
-    <div class="accent-picker-wrap">
-      <input type="color" id="accent-color-input" value="${curAccent}" class="accent-color-input">
-      <span class="accent-picker-label">Appuie pour choisir ta couleur</span>
-      ${state.accent ? `<button id="accent-reset" class="link-btn accent-reset-btn">↺ Défaut</button>` : ''}
+    <div class="accent-wheel-wrap">
+      <canvas id="color-wheel" width="220" height="220" class="color-wheel-canvas"></canvas>
+      <div class="accent-wheel-side">
+        <div class="accent-preview" id="accent-preview" style="background:${curAccent}"></div>
+        ${state.accent ? `<button id="accent-reset" class="link-btn accent-reset-btn">↺ Défaut</button>` : ''}
+      </div>
     </div>
     ${curTheme === 'photo' ? `
       <p class="sheet-note">Fond d'écran</p>
@@ -2639,13 +2641,60 @@ function themePicker() {
     }
   });
 
-  // L'input[type=color] déclenche 'input', pas 'click' — on le branche après le rendu
   requestAnimationFrame(() => {
-    const inp = document.getElementById('accent-color-input');
-    if (inp) inp.addEventListener('input', e => {
-      state.accent = e.target.value;
+    const canvas = document.getElementById('color-wheel');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const size = canvas.width;
+    const cx = size / 2, cy = size / 2, r = size / 2;
+
+    // Dessin pixel par pixel : hue = angle, saturation = distance au centre
+    const hslToRgb = (h, s, l) => {
+      s /= 100; l /= 100;
+      const k = n => (n + h / 30) % 12;
+      const a = s * Math.min(l, 1 - l);
+      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+    };
+    const img = ctx.createImageData(size, size);
+    const d = img.data;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = x - cx, dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > r) continue;
+        const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+        const sat = dist / r * 100;
+        const [rr, gg, bb] = hslToRgb(hue, sat, 50);
+        const i = (y * size + x) * 4;
+        d[i] = rr; d[i + 1] = gg; d[i + 2] = bb; d[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    const pick = e => {
+      const rect = canvas.getBoundingClientRect();
+      const pt = e.touches ? e.touches[0] : e;
+      const x = Math.round((pt.clientX - rect.left) * (size / rect.width));
+      const y = Math.round((pt.clientY - rect.top) * (size / rect.height));
+      if (x < 0 || x >= size || y < 0 || y >= size) return;
+      const px = ctx.getImageData(x, y, 1, 1).data;
+      if (!px[3]) return;
+      const hex = '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+      state.accent = hex;
       save();
       applyTheme();
+      const prev = document.getElementById('accent-preview');
+      if (prev) prev.style.background = hex;
+    };
+
+    canvas.addEventListener('click', pick);
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); pick(e); }, { passive: false });
+    canvas.addEventListener('touchend', pick);
+
+    const resetBtn = document.getElementById('accent-reset');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      state.accent = null; save(); applyTheme(); themePicker();
     });
   });
 }
