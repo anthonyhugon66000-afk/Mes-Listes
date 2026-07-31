@@ -2577,12 +2577,19 @@ function themePicker() {
 
   const curTheme = state.theme || 'auto';
   const curBg = localStorage.getItem('meslistes.themebg');
+  const curAccent = state.accent || '#007aff';
 
   const html = `
     <div class="seg">
       ${MODES.map(([valeur, libelle]) => `
         <button class="seg-btn" data-mode="${valeur}"
                 aria-checked="${curTheme === valeur}">${libelle}</button>`).join('')}
+    </div>
+    <p class="sheet-note">Couleur des boutons</p>
+    <div class="accent-picker-wrap">
+      <input type="color" id="accent-color-input" value="${curAccent}" class="accent-color-input">
+      <span class="accent-picker-label">Appuie pour choisir ta couleur</span>
+      ${state.accent ? `<button id="accent-reset" class="link-btn accent-reset-btn">↺ Défaut</button>` : ''}
     </div>
     ${curTheme === 'photo' ? `
       <p class="sheet-note">Fond d'écran</p>
@@ -2600,6 +2607,13 @@ function themePicker() {
       const mode = e.target.closest('[data-mode]');
       const accent = e.target.closest('[data-accent]');
 
+      if (e.target.id === 'accent-reset') {
+        state.accent = null;
+        save();
+        applyTheme();
+        themePicker();
+        return;
+      }
       if (e.target.id === 'choisir-fond') {
         const inp = document.createElement('input');
         inp.type = 'file'; inp.accept = 'image/*';
@@ -2620,12 +2634,19 @@ function themePicker() {
         return;
       }
       if (!mode && !accent) return;
-      if (mode) state.theme = mode.dataset.mode;
-      if (accent) state.accent = accent.dataset.accent;
+      if (mode) { state.theme = mode.dataset.mode; save(); applyTheme(); themePicker(); return; }
+      if (accent) { state.accent = accent.dataset.accent; save(); applyTheme(); themePicker(); return; }
+    }
+  });
+
+  // L'input[type=color] déclenche 'input', pas 'click' — on le branche après le rendu
+  requestAnimationFrame(() => {
+    const inp = document.getElementById('accent-color-input');
+    if (inp) inp.addEventListener('input', e => {
+      state.accent = e.target.value;
       save();
       applyTheme();
-      themePicker();
-    }
+    });
   });
 }
 
