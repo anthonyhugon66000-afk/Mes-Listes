@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v20.2">
+<link rel="stylesheet" href="styles.css?v20.3">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -51,6 +51,9 @@
       <span class="streak-star">⭐</span><span class="streak-count">0</span>
     </span>
     <div class="topbar-actions">
+      <button class="icon-btn" id="btn-search" aria-label="Rechercher">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
       <button class="icon-btn" id="btn-avenir" aria-label="À venir">
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       </button>
@@ -59,6 +62,12 @@
       </button>
     </div>
   </header>
+
+  <div class="search-bar" id="search-bar" hidden>
+    <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="search-input" placeholder="Rechercher listes et articles…" autocomplete="off" autocorrect="off">
+    <button class="icon-btn" id="search-close" aria-label="Annuler">×</button>
+  </div>
 
   <!-- Annonce non bloquante : un avis posé par un admin. L'overlay bloquant, lui,
        est en fin de page pour couvrir tout l'écran. -->
@@ -739,9 +748,9 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="produits.js?v20.2"></script>
+<script src="produits.js?v20.3"></script>
 <script src="firebase-config.js?v17.9"></script>
-<script src="sync.js?v20.2"></script>
-<script src="app.js?v20.2"></script>
+<script src="sync.js?v20.3"></script>
+<script src="app.js?v20.3"></script>
 </body>
 </html>

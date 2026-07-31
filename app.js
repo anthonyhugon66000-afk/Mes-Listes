@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.2';
+const VERSION = 'v20.3';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -330,6 +330,63 @@ elLists.addEventListener('click', e => {
   if (!row) return;
   if (e.target.closest('[data-open]')) openList(row.dataset.id);
   else if (e.target.closest('[data-menu]')) listMenu(row.dataset.id);
+});
+
+/* ---------- Recherche ---------- */
+
+function ouvrirRecherche() {
+  $('search-bar').hidden = false;
+  $('search-input').focus();
+}
+
+function fermerRecherche() {
+  $('search-bar').hidden = true;
+  $('search-input').value = '';
+  renderHome();
+}
+
+function renderRecherche(q) {
+  const ql = q.toLowerCase();
+  const resultats = [];
+  const cover = list => list.photo
+    ? `<span class="list-photo">${list.photo}</span>`
+    : `<span class="color-bar" style="background:${list.color}"></span>`;
+
+  state.lists.forEach(list => {
+    if (list.name.toLowerCase().includes(ql)) {
+      resultats.push({ list, item: null });
+    }
+    list.items.filter(i => !i._section && i.text.toLowerCase().includes(ql)).forEach(item => {
+      resultats.push({ list, item });
+    });
+  });
+
+  $('empty-lists').classList.remove('is-visible');
+
+  if (!resultats.length) {
+    elLists.innerHTML = `<li class="search-no-result">Aucun résultat pour « ${esc(q)} »</li>`;
+    return;
+  }
+
+  elLists.innerHTML = resultats.map(({ list, item }) => `
+    <li class="row" data-id="${list.id}">
+      ${cover(list)}
+      <button class="row-main" data-open>
+        <span class="row-text">
+          <span class="row-title">${esc(item ? item.text : list.name)}</span>
+          <span class="row-sub">${item ? esc(list.name) : 'Liste'}</span>
+        </span>
+        <span class="chevron">${ICON.chevron}</span>
+      </button>
+    </li>`).join('');
+}
+
+$('btn-search').addEventListener('click', ouvrirRecherche);
+$('search-close').addEventListener('click', fermerRecherche);
+$('search-input').addEventListener('input', () => {
+  const q = $('search-input').value.trim();
+  if (!q) { renderHome(); return; }
+  renderRecherche(q);
 });
 
 $('btn-new-list').addEventListener('click', () => {
@@ -1409,6 +1466,7 @@ $('btn-settings').addEventListener('click', () => {
     { label: Sync.user ? 'Compte et synchronisation' : 'Se connecter', icon: '☁️', run: accountModal },
     { label: `Notifications — ${notifs}`, icon: '🔔', run: notifsModal },
     { label: 'Apparence', icon: '🎨', run: themePicker },
+    { label: 'Mon activité', icon: '📊', run: statsModal },
     { label: `Nouveautés de ${VERSION}`, icon: '✨', run: newsModal },
     { label: 'Sauvegarder mes listes', icon: '⬇️', run: exportData },
     { label: 'Restaurer une sauvegarde', icon: '⬆️', run: importData }
@@ -1503,9 +1561,41 @@ async function activerNotifs() {
   catch (e) { toast(messageErreur(e?.code || String(e))); }
 }
 
+/* ---------- Stats personnelles ---------- */
+
+function statsModal() {
+  const allItems = state.lists.flatMap(l => l.items.filter(i => !i._section));
+  const total = allItems.length;
+  const coche = allItems.filter(itemDone).length;
+  const listes = state.lists.length;
+  const streak = state.streak || 0;
+  const mois = new Date().toISOString().slice(0, 7);
+  const joursActifsMois = (state.joursActifs || []).filter(d => d.startsWith(mois)).length;
+  const plusFournie = state.lists.slice().sort((a, b) =>
+    b.items.filter(i => !i._section).length - a.items.filter(i => !i._section).length
+  )[0];
+  const montrerPlus = plusFournie && plusFournie.items.filter(i => !i._section).length > 0;
+
+  openSheet('📊 Mon activité', [], {
+    html: `<div class="stats-grid">
+      <div class="stat-card"><div class="stat-val">${listes}</div><div class="stat-lbl">liste${listes !== 1 ? 's' : ''}</div></div>
+      <div class="stat-card"><div class="stat-val">${total}</div><div class="stat-lbl">article${total !== 1 ? 's' : ''}</div></div>
+      <div class="stat-card"><div class="stat-val">${coche}</div><div class="stat-lbl">cochés</div></div>
+      <div class="stat-card"><div class="stat-val">${streak} j.</div><div class="stat-lbl">streak</div></div>
+      ${joursActifsMois ? `<div class="stat-card"><div class="stat-val">${joursActifsMois}</div><div class="stat-lbl">jours actifs ce mois</div></div>` : ''}
+      ${montrerPlus ? `<div class="stat-card ${joursActifsMois ? 'stat-wide' : ''}"><div class="stat-val" style="font-size:18px">${esc(plusFournie.name)}</div><div class="stat-lbl">liste la plus fournie</div></div>` : ''}
+    </div>`
+  });
+}
+
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v20.3', titre: 'Recherche & statistiques', points: [
+    'Cherche dans tes listes et articles depuis l\'accueil',
+    'Résultats en temps réel sur les titres et le contenu',
+    'Voir tes stats : listes, articles, streak, jours actifs'
+  ] },
   { version: 'v20.2', titre: 'Rappels & deadlines', points: [
     'Ajoute une date de rappel sur n\'importe quel article',
     'Affichage coloré : rouge si dépassé, orange si dans moins de 24h',
