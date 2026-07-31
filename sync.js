@@ -301,6 +301,7 @@ async function demarrerEcoute() {
     majEtat(instantane.metadata);
     // Ce qu'on affichait juste avant, pour repérer ce qu'un autre a changé.
     const avant = new Map(state.lists.map(l => [l.id, signature(l, 0)]));
+    const avantItems = new Map(state.lists.map(l => [l.id, l.items]));
     const premierPassage = envoye.size === 0;
 
     state.lists = instantane.docs
@@ -309,7 +310,9 @@ async function demarrerEcoute() {
         return { id: d.id, name: v.name, color: v.color, items: v.items || [], ordre: v.ordre,
                  type: v.type || 'normale', linkedLists: v.linkedLists || [],
                  owner: v.owner, members: v.members || [], memberEmails: v.memberEmails || [],
-                 majPar: v.majPar, majParNom: v.majParNom };
+                 majPar: v.majPar, majParNom: v.majParNom,
+                 majLe: v.majLe?.toMillis ? v.majLe.toMillis() : (v.majLe?.seconds ? v.majLe.seconds * 1000 : null),
+                 presence: v.presence || {} };
       })
       .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
 
@@ -320,7 +323,22 @@ async function demarrerEcoute() {
         const connue = avant.has(l.id);
         const change = connue && avant.get(l.id) !== signature(l, 0);
         if (change && l.majPar && l.majPar !== Sync.user.uid) {
-          Sync.modifs.push({ liste: l.name, qui: l.majParNom || 'quelqu\'un' });
+          const ancItems = (avantItems.get(l.id) || []).filter(i => !i._section);
+          const nouvItems = l.items.filter(i => !i._section);
+          const ancMap = new Map(ancItems.map(i => [i.id, i]));
+          const nouvMap = new Map(nouvItems.map(i => [i.id, i]));
+          const done = i => i.variants?.length ? i.variants.every(v => v.done) : i.done;
+          const ajouts  = nouvItems.filter(i => !ancMap.has(i.id));
+          const coches  = nouvItems.filter(i => ancMap.has(i.id) && !done(ancMap.get(i.id)) && done(i));
+          const retraits = ancItems.filter(i => !nouvMap.has(i.id));
+          let detail =
+            ajouts.length === 1  ? `a ajouté « ${ajouts[0].text} »` :
+            ajouts.length > 1   ? `a ajouté ${ajouts.length} articles` :
+            coches.length === 1  ? `a coché « ${coches[0].text} »` :
+            coches.length > 1   ? `a coché ${coches.length} articles` :
+            retraits.length === 1 ? `a retiré « ${retraits[0].text} »` :
+            'a modifié la liste';
+          Sync.modifs.push({ liste: l.name, qui: l.majParNom || 'quelqu\'un', detail });
         }
       });
     }
@@ -1211,6 +1229,33 @@ Sync.push = function () {
     envoye.delete(id);
     s.deleteDoc(s.doc(collectionListes(), id)).catch(() => {});
   });
+};
+
+/* ===== Présence en temps réel =====
+
+   On écrit un sous-champ `presence.{uid}` dans le document de la liste via
+   setDoc+merge : les autres champs (membres, contenu) ne sont jamais touchés.
+   Sync.push utilise lui aussi merge: true, donc la présence des autres survive
+   à une écriture locale. La signature n'inclut pas `presence`, donc ces mises
+   à jour ne déclenchent pas de toast "quelqu'un a modifié". */
+
+Sync.ecrirePresence = function (listId) {
+  if (!Sync.user || !fb) return;
+  clearTimeout(Sync._presenceTimer);
+  const { s } = fb;
+  const ref = s.doc(collectionListes(), listId);
+  s.setDoc(ref, {
+    presence: { [Sync.user.uid]: { nom: Sync.nomAffiche(), ts: s.serverTimestamp() } }
+  }, { merge: true }).catch(() => {});
+  Sync._presenceTimer = setTimeout(() => Sync.ecrirePresence(listId), 55000);
+};
+
+Sync.quitterPresence = function (listId) {
+  if (!Sync.user || !fb || !listId) return;
+  clearTimeout(Sync._presenceTimer);
+  const { s } = fb;
+  const ref = s.doc(collectionListes(), listId);
+  s.updateDoc(ref, { [`presence.${Sync.user.uid}`]: s.deleteField() }).catch(() => {});
 };
 
 /* ===== Analytics ===== */

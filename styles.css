@@ -2328,6 +2328,39 @@ html[data-theme="dark"].theme-photo .row-text {
 .ia-sugg { transition: opacity .15s; }
 .ia-ajoute { opacity: .45; text-decoration: line-through; }
 
+/* ===== v20.4 : Présence en temps réel ===== */
+.presence-viewers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: flex-end;
+  padding-right: 8px;
+  overflow: hidden;
+}
+.presence-bubble {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 2px solid var(--bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
+.presence-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
 /* ===== v20.3 : Recherche ===== */
 .search-bar {
   display: flex;

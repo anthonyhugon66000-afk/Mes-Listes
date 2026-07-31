@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.3';
+const VERSION = 'v20.4';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -31,6 +31,7 @@ const PHOTOS_EMOJI = [
 ];
 
 const PALIERS_STREAK = [
+  { jours:    7, emoji:'🔥', label:'Lancé',           couleur:'#ff9f0a' },
   { jours:   10, emoji:'🌟', label:'Débutant',       couleur:'#8e8e93' },
   { jours:   25, emoji:'⭐', label:'Régulier',        couleur:'#ffd700' },
   { jours:   50, emoji:'💫', label:'Assidu',          couleur:'#ff9500' },
@@ -294,7 +295,13 @@ function renderHome() {
     const articleText = list.type === 'collection'
       ? (total === 0 ? 'Vide' : `${total} article${total > 1 ? 's' : ''}`)
       : (total === 0 ? 'Vide' : `${done} sur ${total} ${total > 1 ? 'articles' : 'article'}`);
-    const sub = typePrefix + articleText + subSuffix;
+    let modifInfo = '';
+    if (partagee(list) && list.majParNom && list.majPar !== Sync.user?.uid && list.majLe) {
+      const mins = Math.round((Date.now() - list.majLe) / 60000);
+      const quand = mins < 1 ? 'à l\'instant' : mins < 60 ? `il y a ${mins} min` : mins < 1440 ? `il y a ${Math.round(mins / 60)} h` : '';
+      if (quand) modifInfo = ` · ✏️ ${list.majParNom} ${quand}`;
+    }
+    const sub = typePrefix + articleText + subSuffix + modifInfo;
 
     const coverHtml = list.photo
       ? `<span class="list-photo">${list.photo}</span>`
@@ -632,6 +639,8 @@ function mettreAJourStreak() {
     state.joursActifs = state.joursActifs.filter(d => new Date(d) > cutoff);
   }
   save();
+  const palier = PALIERS_STREAK.find(p => p.jours === state.streak);
+  if (palier) setTimeout(() => toast(`${palier.emoji} Palier atteint — ${palier.label} ! ${palier.jours} jours de suite 🎉`), 800);
 }
 
 function renderStreak() {
@@ -736,6 +745,7 @@ function lancerConfetti(zone) {
    ============================================================ */
 
 function openList(id) {
+  if (currentListId && currentListId !== id) Sync.quitterPresence?.(currentListId);
   currentListId = id;
   const list = getList(id);
   $('list-title').textContent = list.name;
@@ -743,13 +753,37 @@ function openList(id) {
   screenList.classList.add('is-active');
   renderItems();
   renderListesLiees(id);
+  renderPresence(id);
+  if (partagee(list)) Sync.ecrirePresence?.(id);
 }
 
 function goHome() {
+  Sync.quitterPresence?.(currentListId);
   currentListId = null;
   screenList.classList.remove('is-active');
   screenHome.classList.add('is-active');
   renderHome();
+}
+
+function renderPresence(listId) {
+  const el = $('presence-viewers');
+  if (!el) return;
+  const list = listId ? getList(listId) : null;
+  if (!list || !partagee(list)) { el.hidden = true; return; }
+
+  const maintenant = Date.now();
+  const viewers = Object.entries(list.presence || {})
+    .filter(([uid, v]) => uid !== Sync.user?.uid && v?.ts)
+    .filter(([, v]) => {
+      const ts = v.ts?.toMillis ? v.ts.toMillis() : (v.ts?.seconds ? v.ts.seconds * 1000 : 0);
+      return maintenant - ts < 120000;
+    });
+
+  if (!viewers.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = viewers.map(([uid, v]) =>
+    `<span class="presence-bubble" title="${esc(v.nom || uid)}">${(v.nom || '?')[0].toUpperCase()}</span>`
+  ).join('') + `<span class="presence-label">${viewers.length === 1 ? viewers[0][1].nom || 'quelqu\'un' : `${viewers.length} personnes`} est là</span>`;
 }
 
 const partagee = list => (list.members || []).length > 1;
@@ -1591,6 +1625,12 @@ function statsModal() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v20.4', titre: 'Collaboration temps réel', points: [
+    'Vois qui est en train de consulter la même liste que toi',
+    'Toast précis : "Jean a ajouté Lait" au lieu d\'un message générique',
+    'Indicateur "Modifié par X il y a N min" sur les listes partagées',
+    'Palier streak à 7 jours — 🔥 Lancé !'
+  ] },
   { version: 'v20.3', titre: 'Recherche & statistiques', points: [
     'Cherche dans tes listes et articles depuis l\'accueil',
     'Résultats en temps réel sur les titres et le contenu',
@@ -3513,8 +3553,12 @@ Sync.onChange = () => {
     const listes = [...new Set(modifs.map(m => m.liste))];
     const gens = [...new Set(modifs.map(m => m.qui))];
     const titre = listes.length === 1 ? `« ${listes[0]} » a changé` : `${listes.length} listes ont changé`;
-    notifier(titre, `${gens.join(' et ')} vient de faire une modification.`, 'modif');
+    const corps = modifs.length === 1 && modifs[0].detail
+      ? `${modifs[0].qui} ${modifs[0].detail}.`
+      : `${gens.join(' et ')} vient de faire une modification.`;
+    notifier(titre, corps, 'modif');
   }
+  if (currentListId) renderPresence(currentListId);
 
   renderEtatSync();
 
