@@ -4062,7 +4062,13 @@ const sousTest = location.search.includes('tests=1');
 
 if ('serviceWorker' in navigator && !sousTest) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // Forcer la vérification de mise à jour dès que l'app revient au premier plan
+      // (onglet réactivé, retour depuis le fond sur mobile).
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+    }).catch(() => {});
   });
 
   // Quand un service worker plus récent prend le relais, on recharge une fois
