@@ -1198,6 +1198,7 @@ $('form-add-item').addEventListener('submit', e => {
   input.value = '';
   renderItems();
   input.focus();
+  if (!item.ou && !item.rayon) enrichirItemSilencieux(item.id, item.text, currentListId);
 });
 
 /* ---------- Autocomplete produits + IA ---------- */
@@ -1312,6 +1313,7 @@ $('btn-list-menu').addEventListener('click', () => {
         if (state.trierParDeadline) state.trierParRayon = false;
         sauverLocalement(); renderItems();
       } },
+    { label: 'Localiser les articles', icon: '🗺️', run: () => localiserItems(currentListId) },
     { label: 'Lier à une liste', icon: '🔗', run: () => lierListeModal(currentListId) },
     { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
@@ -4218,6 +4220,57 @@ $('fav-sugg-list').addEventListener('click', e => {
 /* ============================================================
    IA — Suggestions d'articles (v20.1)
    ============================================================ */
+
+async function enrichirItemSilencieux(itemId, text, listId) {
+  if (!Sync.user) return;
+  try {
+    const idToken = await fb.auth.currentUser.getIdToken();
+    const list = getList(listId);
+    if (!list) return;
+    const r = await fetch(WORKER_NOTIFS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, action: 'ia', mode: 'localiser', articles: [text], typeListe: list.type || 'normale' })
+    });
+    const data = await r.json();
+    const s = (data.suggestions || [])[0];
+    if (!s?.ou) return;
+    const item = getList(listId)?.items.find(i => i.id === itemId);
+    if (!item) return;
+    item.ou = s.ou;
+    save();
+    if (currentListId === listId) renderItems();
+  } catch {}
+}
+
+async function localiserItems(listId) {
+  const list = getList(listId);
+  if (!list || !Sync.user) { if (!Sync.user) messageCompte('La localisation nécessite un compte connecté.'); return; }
+  const aEnrichir = list.items.filter(i => !i._section && i.text && !i.ou);
+  if (!aEnrichir.length) { toast('Tous les articles ont déjà une localisation.'); return; }
+  closeSheet();
+  toast('Localisation en cours…');
+  try {
+    const idToken = await fb.auth.currentUser.getIdToken();
+    const r = await fetch(WORKER_NOTIFS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, action: 'ia', mode: 'localiser', articles: aEnrichir.map(i => i.text), typeListe: list.type || 'normale' })
+    });
+    const data = await r.json();
+    if (data.erreur) throw new Error(data.erreur);
+    let updated = 0;
+    (data.suggestions || []).forEach(s => {
+      if (!s?.ou || !s?.nom) return;
+      const item = aEnrichir.find(i => i.text.toLowerCase() === s.nom.toLowerCase());
+      if (item) { item.ou = s.ou; updated++; }
+    });
+    if (updated) { save(); renderItems(); toast(`✅ ${updated} article${updated > 1 ? 's' : ''} localisé${updated > 1 ? 's' : ''}`); }
+    else toast('Aucune localisation trouvée.');
+  } catch (e) {
+    toast('Erreur localisation : ' + e.message);
+  }
+}
 
 async function demanderIA(mode, options = {}) {
   if (!Sync.user) {

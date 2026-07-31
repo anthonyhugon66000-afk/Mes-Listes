@@ -236,6 +236,9 @@ export default {
         instruction = `Génère une liste d'articles pour : "${texte.trim()}". Pour chaque article indique où le trouver (rayon de supermarché, type de boutique ou section). Réponds UNIQUEMENT avec un tableau JSON d'objets en français, max 12 articles. Exemple : [{"nom":"pain","ou":"Boulangerie / rayon pain"},{"nom":"lait","ou":"Rayon frais — produits laitiers"}]`;
       } else if (mode === 'suggerer' && saisie.trim()) {
         instruction = `L'utilisateur tape "${saisie.trim()}" dans une ${typeDesc}. Propose 2 ou 3 articles en français qui correspondent à cette saisie avec où les trouver en magasin (rayon ou type de boutique). Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou}, max 3 éléments. Exemple : [{"nom":"Nutella","ou":"Épicerie — pâtes à tartiner"},{"nom":"Nutella bio","ou":"Rayon bio"}]`;
+      } else if (mode === 'localiser' && articles.length) {
+        const liste = articles.slice(0, 30);
+        instruction = `Voici des articles d'une ${typeDesc}. Pour chacun, indique précisément où le trouver : type de magasin (supermarché, pharmacie, boulangerie, etc.) et rayon. Conserve exactement les mêmes noms d'articles. Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou}. Articles : ${JSON.stringify(liste)}`;
       } else {
         const ctx = articles.length
           ? `Articles déjà présents : ${articles.slice(0, 20).join(', ')}.`
@@ -256,7 +259,7 @@ export default {
               { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide d\'objets {nom, ou}, sans aucun texte autour.' },
               { role: 'user', content: instruction }
             ],
-            max_tokens: mode === 'suggerer' ? 150 : 500,
+            max_tokens: mode === 'suggerer' ? 150 : mode === 'localiser' ? 1000 : 500,
             temperature: mode === 'suggerer' ? 0.3 : 0.7
           })
         });
