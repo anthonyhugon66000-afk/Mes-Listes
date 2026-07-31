@@ -1313,7 +1313,6 @@ $('btn-list-menu').addEventListener('click', () => {
         if (state.trierParDeadline) state.trierParRayon = false;
         sauverLocalement(); renderItems();
       } },
-    { label: 'Localiser les articles', icon: '🗺️', run: () => localiserItems(currentListId) },
     { label: 'Lier à une liste', icon: '🔗', run: () => lierListeModal(currentListId) },
     { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
@@ -4381,6 +4380,7 @@ async function ouvrirIA() {
 }
 
 $('btn-ia').addEventListener('click', ouvrirIA);
+$('btn-localiser').addEventListener('click', () => localiserItems(currentListId));
 
 /* `tests.html` charge l'app avec ce paramètre. Le rechargement automatique
    ci-dessous viderait alors le cadre en pleine séance : c'est exactement ce qui
