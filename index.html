@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v20.4b">
+<link rel="stylesheet" href="styles.css?v20.5">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -51,6 +51,9 @@
       <span class="streak-star">⭐</span><span class="streak-count">0</span>
     </span>
     <div class="topbar-actions">
+      <button class="icon-btn" id="btn-favoris" aria-label="Favoris">
+        <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      </button>
       <button class="icon-btn" id="btn-search" aria-label="Rechercher">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       </button>
@@ -204,6 +207,40 @@
       Aucun rappel programmé.<br>
       Ouvre un article et ajoute-lui une date.
     </p>
+  </main>
+</section>
+
+<!-- ========== ÉCRAN : FAVORIS ========== -->
+<section id="screen-favoris" class="screen">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-back-favoris" aria-label="Retour">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h1>Favoris</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-add-fav-item" aria-label="Ajouter un article">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-new-fav-list" aria-label="Nouvelle liste de favoris">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17 17h4M19 15v4"/></svg>
+      </button>
+    </div>
+  </header>
+  <div class="fav-tabs">
+    <button class="fav-tab is-active" id="tab-fav-items">⭐ Mes favoris</button>
+    <button class="fav-tab" id="tab-fav-sugg">✨ Suggestions</button>
+  </div>
+  <main class="scroll">
+    <div id="panel-fav-items">
+      <ul id="fav-standalone" class="fav-list"></ul>
+      <div id="fav-listes"></div>
+      <p id="fav-empty" class="empty" hidden>Aucun favori pour l'instant.<br>Appuie sur ★ dans une liste pour en ajouter.</p>
+    </div>
+    <div id="panel-fav-sugg" hidden>
+      <p class="fav-sugg-intro">Articles souvent utilisés dans tes listes :</p>
+      <ul id="fav-sugg-list" class="fav-list"></ul>
+      <p id="fav-sugg-empty" class="empty" hidden>Pas encore assez de données.<br>Utilise l'app quelques jours !</p>
+    </div>
   </main>
 </section>
 
@@ -749,9 +786,9 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="produits.js?v20.4b"></script>
+<script src="produits.js?v20.5"></script>
 <script src="firebase-config.js?v17.9"></script>
-<script src="sync.js?v20.4b"></script>
-<script src="app.js?v20.4b"></script>
+<script src="sync.js?v20.5"></script>
+<script src="app.js?v20.5"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.4';
+const VERSION = 'v20.5';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -193,7 +193,7 @@ function load() {
   } catch (e) {
     console.warn('Données illisibles, réinitialisation.', e);
   }
-  return { lists: [], hideDone: false, streak: 0, lastActive: null, joursActifs: [], trierParRayon: false };
+  return { lists: [], hideDone: false, streak: 0, lastActive: null, joursActifs: [], trierParRayon: false, favoris: { items: [], listes: [] } };
 }
 
 /* Les données d'avant les quantités n'ont ni `qty` ni `variants`, et rangent la
@@ -226,6 +226,9 @@ function migrate(data) {
   if (!data.lastActive) data.lastActive = null;
   if (!Array.isArray(data.joursActifs)) data.joursActifs = [];
   if (data.trierParRayon === undefined) data.trierParRayon = false;
+  if (!data.favoris || typeof data.favoris !== 'object') data.favoris = { items: [], listes: [] };
+  if (!Array.isArray(data.favoris.items)) data.favoris.items = [];
+  if (!Array.isArray(data.favoris.listes)) data.favoris.listes = [];
   return data;
 }
 
@@ -250,6 +253,7 @@ const $ = id => document.getElementById(id);
 const screenHome = $('screen-home');
 const screenList = $('screen-list');
 const screenMessages = $('screen-messages');
+const screenFavoris = $('screen-favoris');
 const elLists = $('lists');
 const elItems = $('items');
 
@@ -850,7 +854,7 @@ function renderItemHtml(item, list) {
     if (isToday)    label = `Aujourd'hui ${heure}`;
     else if (isTomorrow) label = `Demain ${heure}`;
     else label = d.toLocaleDateString('fr', { day: 'numeric', month: 'short' }) + (d.getHours() || d.getMinutes() ? ` ${heure}` : '');
-    deadlineHtml = `<span class="row-deadline ${cls}">⏰ ${label}</span>`;
+    deadlineHtml = `<div class="item-deadline-row"><span class="row-deadline ${cls}">⏰ ${label}</span><button class="dl-del" data-dldel aria-label="Supprimer le rappel">×</button></div>`;
   }
 
   const checkHtml = isCollection ? '' : `
@@ -866,14 +870,16 @@ function renderItemHtml(item, list) {
       <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
         <span class="row-text">
           <span class="row-title">${emojiPfx}${esc(item.text)}</span>
-          ${subHtml}${deadlineHtml}
+          ${subHtml}
         </span>
       </button>
       ${done && !isCollection ? parQui(item.doneBy, list, item.doneByUid) : ''}
       ${total > 1 ? `<span class="qty">×${total}</span>` : ''}
+      <button class="row-btn fav-btn${isFavori(item.text) ? ' fav-active' : ''}" data-star aria-label="${isFavori(item.text) ? 'Retirer des favoris' : 'Ajouter aux favoris'}">★</button>
       <button class="row-btn danger" data-del aria-label="Supprimer">${ICON.trash}</button>
       <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
     </div>
+    ${deadlineHtml}
     ${item.variants.length > 1 ? `
     <ul class="variants">
       ${item.variants.map(v => `
@@ -981,6 +987,17 @@ elItems.addEventListener('click', e => {
       save();
       renderItems();
     }
+    return;
+  }
+
+  if (e.target.closest('[data-star]')) {
+    toggleFavori(item.text);
+    return;
+  }
+  if (e.target.closest('[data-dldel]')) {
+    delete item.deadline;
+    save();
+    renderItems();
     return;
   }
 
@@ -1625,6 +1642,13 @@ function statsModal() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v20.5', titre: 'Favoris & rappels', points: [
+    'Ajoute n\'importe quel article en favori depuis son ★',
+    'Écran Favoris : articles seuls ou groupés en listes nommées',
+    'Ajoute un favori dans n\'importe quelle liste en un tap',
+    'Suggestions : tes articles fréquents te sont proposés en favoris',
+    'Supprime un rappel directement depuis la ligne de l\'article'
+  ] },
   { version: 'v20.4', titre: 'Collaboration temps réel', points: [
     'Vois qui est en train de consulter la même liste que toi',
     'Toast précis : "Jean a ajouté Lait" au lieu d\'un message générique',
@@ -3943,6 +3967,205 @@ $('btn-avenir').addEventListener('click', goAvenir);
 $('btn-back-avenir').addEventListener('click', () => {
   screenAvenir.classList.remove('is-active');
   screenHome.classList.add('is-active');
+});
+
+/* ============================================================
+   Favoris (v20.5)
+   ============================================================ */
+
+const isFavori = text => {
+  const t = text.toLowerCase();
+  return state.favoris.items.some(f => f.text.toLowerCase() === t) ||
+    state.favoris.listes.some(l => l.items.some(i => i.text.toLowerCase() === t));
+};
+
+function toggleFavori(text) {
+  const idx = state.favoris.items.findIndex(f => f.text.toLowerCase() === text.toLowerCase());
+  if (idx >= 0) {
+    state.favoris.items.splice(idx, 1);
+    toast('Retiré des favoris');
+  } else {
+    state.favoris.items.push({ id: uid(), text });
+    toast('★ Ajouté aux favoris');
+  }
+  save();
+  renderItems();
+}
+
+function goFavoris() {
+  screenHome.classList.remove('is-active');
+  screenFavoris.classList.add('is-active');
+  renderFavoris();
+}
+
+function renderFavorisItem(f, listeId = null) {
+  const dataLid = listeId ? ` data-lid="${listeId}"` : '';
+  return `<li class="fav-item" data-fid="${f.id}" data-ftext="${esc(f.text)}"${dataLid}>
+    <span class="fav-item-text">${esc(f.text)}</span>
+    <div class="fav-item-actions">
+      <button class="fav-add-btn" data-add-to-list aria-label="Ajouter à une liste">+</button>
+      <button class="fav-del-btn" data-del-fav aria-label="Retirer des favoris">×</button>
+    </div>
+  </li>`;
+}
+
+function renderFavoris() {
+  const { items, listes } = state.favoris;
+
+  $('fav-standalone').innerHTML = items.map(f => renderFavorisItem(f)).join('');
+
+  $('fav-listes').innerHTML = listes.map(l => `
+    <div class="fav-liste-section">
+      <div class="fav-liste-header">
+        <span class="fav-liste-name">${esc(l.name)}</span>
+        <button class="icon-btn fav-del-liste-btn" data-del-liste="${l.id}" aria-label="Supprimer la liste">×</button>
+      </div>
+      <ul class="fav-list">
+        ${l.items.map(f => renderFavorisItem(f, l.id)).join('')}
+      </ul>
+      <button class="fav-add-in-liste" data-add-in-liste="${l.id}">+ Ajouter un article</button>
+    </div>
+  `).join('');
+
+  const hasContent = items.length > 0 || listes.length > 0;
+  $('fav-empty').hidden = hasContent;
+}
+
+function renderSuggestionsFavoris() {
+  const frequence = new Map();
+  state.lists.forEach(list => {
+    list.items.filter(i => !i._section && i.text).forEach(i => {
+      const k = i.text.toLowerCase();
+      if (!frequence.has(k)) frequence.set(k, { text: i.text, count: 0 });
+      frequence.get(k).count++;
+    });
+  });
+
+  const dejaFav = new Set([
+    ...state.favoris.items.map(f => f.text.toLowerCase()),
+    ...state.favoris.listes.flatMap(l => l.items.map(i => i.text.toLowerCase()))
+  ]);
+
+  const suggestions = [...frequence.values()]
+    .filter(s => s.count >= 2 && !dejaFav.has(s.text.toLowerCase()))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20);
+
+  $('fav-sugg-list').innerHTML = suggestions.map(s => `
+    <li class="fav-item fav-sugg-item" data-sugg-text="${esc(s.text)}">
+      <span class="fav-item-text">${esc(s.text)}</span>
+      <span class="fav-sugg-count">${s.count}×</span>
+      <button class="fav-add-btn" data-add-sugg aria-label="Ajouter aux favoris">★</button>
+    </li>
+  `).join('');
+
+  $('fav-sugg-empty').hidden = suggestions.length > 0;
+}
+
+function ouvrirChoixListePourFavori(text) {
+  if (!state.lists.length) return toast('Crée d\'abord une liste');
+  openSheet(`Ajouter « ${text} » à`, state.lists.map(l => ({
+    label: `${l.photo || '📝'} ${l.name}`,
+    run() {
+      const list = getList(l.id);
+      if (!list) return;
+      if (list.items.some(i => !i._section && i.text.toLowerCase() === text.toLowerCase())) {
+        return toast('Déjà dans cette liste');
+      }
+      list.items.push({ id: uid(), text, qty: 1, done: false, variants: [] });
+      save();
+      toast(`Ajouté dans « ${l.name} »`);
+    }
+  })));
+}
+
+function favClickHandler(e) {
+  if (e.target.closest('[data-del-fav]')) {
+    const li = e.target.closest('[data-fid]');
+    if (!li) return;
+    const fid = li.dataset.fid;
+    const lid = li.dataset.lid;
+    if (lid) {
+      const l = state.favoris.listes.find(l => l.id === lid);
+      if (l) l.items = l.items.filter(i => i.id !== fid);
+    } else {
+      state.favoris.items = state.favoris.items.filter(f => f.id !== fid);
+    }
+    save();
+    renderFavoris();
+    renderItems();
+    return;
+  }
+  if (e.target.closest('[data-add-to-list]')) {
+    const li = e.target.closest('[data-fid]');
+    if (!li) return;
+    ouvrirChoixListePourFavori(li.dataset.ftext);
+    return;
+  }
+  const delListeBtn = e.target.closest('[data-del-liste]');
+  if (delListeBtn) {
+    state.favoris.listes = state.favoris.listes.filter(l => l.id !== delListeBtn.dataset.delListe);
+    save();
+    renderFavoris();
+    return;
+  }
+  const addInListeBtn = e.target.closest('[data-add-in-liste]');
+  if (addInListeBtn) {
+    const lid = addInListeBtn.dataset.addInListe;
+    askText('Ajouter un article', '', text => {
+      if (!text) return;
+      const l = state.favoris.listes.find(l => l.id === lid);
+      if (l) { l.items.push({ id: uid(), text }); save(); renderFavoris(); }
+    });
+  }
+}
+
+$('btn-favoris').addEventListener('click', goFavoris);
+$('btn-back-favoris').addEventListener('click', () => {
+  screenFavoris.classList.remove('is-active');
+  screenHome.classList.add('is-active');
+});
+$('btn-add-fav-item').addEventListener('click', () => {
+  askText('Nouvel article favori', '', text => {
+    if (!text) return;
+    if (isFavori(text)) return toast('Déjà dans les favoris');
+    state.favoris.items.push({ id: uid(), text });
+    save();
+    renderFavoris();
+    renderItems();
+  });
+});
+$('btn-new-fav-list').addEventListener('click', () => {
+  askText('Nom de la liste de favoris', '', name => {
+    if (!name) return;
+    state.favoris.listes.push({ id: uid(), name, items: [] });
+    save();
+    renderFavoris();
+  });
+});
+$('tab-fav-items').addEventListener('click', () => {
+  $('tab-fav-items').classList.add('is-active');
+  $('tab-fav-sugg').classList.remove('is-active');
+  $('panel-fav-items').hidden = false;
+  $('panel-fav-sugg').hidden = true;
+});
+$('tab-fav-sugg').addEventListener('click', () => {
+  $('tab-fav-sugg').classList.add('is-active');
+  $('tab-fav-items').classList.remove('is-active');
+  $('panel-fav-items').hidden = true;
+  $('panel-fav-sugg').hidden = false;
+  renderSuggestionsFavoris();
+});
+$('panel-fav-items').addEventListener('click', favClickHandler);
+$('fav-sugg-list').addEventListener('click', e => {
+  const li = e.target.closest('[data-sugg-text]');
+  if (!li || !e.target.closest('[data-add-sugg]')) return;
+  const text = li.dataset.suggText;
+  state.favoris.items.push({ id: uid(), text });
+  save();
+  renderFavoris();
+  renderSuggestionsFavoris();
+  toast(`★ ${text} ajouté aux favoris`);
 });
 
 /* ============================================================

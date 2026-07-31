@@ -2434,3 +2434,163 @@ html[data-theme="dark"].theme-photo .row-text {
   letter-spacing: .5px;
 }
 
+/* ===== v20.5 : Favoris ===== */
+
+/* Bouton étoile dans les items */
+.fav-btn {
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.55;
+  transition: opacity .15s, color .15s;
+}
+.fav-btn:hover { opacity: 1; }
+.fav-btn.fav-active {
+  color: #ff9500;
+  opacity: 1;
+}
+
+/* Rappel avec bouton × en dessous de l'item */
+.item-deadline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px 5px 44px;
+}
+.dl-del {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  padding: 1px 5px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: color .15s;
+}
+.dl-del:hover { color: var(--danger); }
+
+/* Onglets de l'écran Favoris */
+.fav-tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--separator);
+  flex-shrink: 0;
+}
+.fav-tab {
+  flex: 1;
+  padding: 12px 8px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.fav-tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Liste de favoris */
+.fav-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.fav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--separator);
+}
+.fav-list .fav-item:first-child { border-radius: 12px 12px 0 0; }
+.fav-list .fav-item:last-child  { border-radius: 0 0 12px 12px; border-bottom: none; }
+.fav-list .fav-item:only-child  { border-radius: 12px; border-bottom: none; }
+.fav-item-text {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+}
+.fav-item-actions {
+  display: flex;
+  gap: 2px;
+}
+.fav-add-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 9px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.fav-add-btn:active { background: var(--surface-2); }
+.fav-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 19px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.fav-del-btn:active { color: var(--danger); }
+
+/* Listes nommées dans les favoris */
+.fav-liste-section { margin: 16px 0; }
+.fav-liste-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px 6px;
+}
+.fav-liste-name {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-dim);
+}
+.fav-del-liste-btn {
+  color: var(--text-dim);
+  font-size: 18px;
+}
+.fav-add-in-liste {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: none;
+  border-top: 1px solid var(--separator);
+  font-size: 14px;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+  border-radius: 0 0 12px 12px;
+}
+.fav-add-in-liste:active { background: var(--surface-2); }
+
+/* Onglet Suggestions */
+.fav-sugg-intro {
+  padding: 14px 16px 6px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.fav-sugg-item { gap: 6px; }
+.fav-sugg-count {
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
