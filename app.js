@@ -592,24 +592,79 @@ function deleteList(id) {
   toast(`« ${list.name} » supprimée`, true);
 }
 
+function _drawColorWheel(canvas) {
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const cx = size / 2, cy = size / 2, r = size / 2;
+  const hslToRgb = (h, s, l) => {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+  };
+  const img = ctx.createImageData(size, size);
+  const d = img.data;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > r) continue;
+      const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const sat = dist / r * 100;
+      const [rr, gg, bb] = hslToRgb(hue, sat, 50);
+      const i = (y * size + x) * 4;
+      d[i] = rr; d[i + 1] = gg; d[i + 2] = bb; d[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function _addWheelListeners(canvas, onPick) {
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const pick = e => {
+    const rect = canvas.getBoundingClientRect();
+    const pt = e.touches ? e.touches[0] : e;
+    const x = Math.round((pt.clientX - rect.left) * (size / rect.width));
+    const y = Math.round((pt.clientY - rect.top) * (size / rect.height));
+    if (x < 0 || x >= size || y < 0 || y >= size) return;
+    const px = ctx.getImageData(x, y, 1, 1).data;
+    if (!px[3]) return;
+    onPick('#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join(''));
+  };
+  canvas.addEventListener('click', pick);
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); pick(e); }, { passive: false });
+  canvas.addEventListener('touchend', pick);
+}
+
 function colorPicker(id) {
   const list = getList(id);
-  const html = `<div class="swatches">` + COLORS.map(c =>
-    `<button class="swatch" style="--c:${c}" data-color="${c}"
-             aria-checked="${c === list.color}" aria-label="Couleur ${c}"></button>`
-  ).join('') + `</div>`;
+  const curColor = list.color || '#007aff';
 
   openSheet('Couleur de la liste', [], {
-    html,
-    onClick: e => {
-      const sw = e.target.closest('[data-color]');
-      if (!sw) return;
-      list.color = sw.dataset.color;
+    html: `
+      <div class="accent-wheel-wrap">
+        <canvas id="list-color-wheel" width="220" height="220" class="color-wheel-canvas"></canvas>
+        <div class="accent-wheel-side">
+          <div class="accent-preview" id="list-color-preview" style="background:${curColor}"></div>
+        </div>
+      </div>`,
+    onClick: () => {}
+  });
+
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById('list-color-wheel');
+    if (!canvas) return;
+    _drawColorWheel(canvas);
+    _addWheelListeners(canvas, hex => {
+      list.color = hex;
       save();
       renderHome();
       if (currentListId === id) renderItems();
-      closeSheet();
-    }
+      const prev = document.getElementById('list-color-preview');
+      if (prev) prev.style.background = hex;
+    });
   });
 }
 
@@ -2644,54 +2699,14 @@ function themePicker() {
   requestAnimationFrame(() => {
     const canvas = document.getElementById('color-wheel');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const size = canvas.width;
-    const cx = size / 2, cy = size / 2, r = size / 2;
-
-    // Dessin pixel par pixel : hue = angle, saturation = distance au centre
-    const hslToRgb = (h, s, l) => {
-      s /= 100; l /= 100;
-      const k = n => (n + h / 30) % 12;
-      const a = s * Math.min(l, 1 - l);
-      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-      return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
-    };
-    const img = ctx.createImageData(size, size);
-    const d = img.data;
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = x - cx, dy = y - cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > r) continue;
-        const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
-        const sat = dist / r * 100;
-        const [rr, gg, bb] = hslToRgb(hue, sat, 50);
-        const i = (y * size + x) * 4;
-        d[i] = rr; d[i + 1] = gg; d[i + 2] = bb; d[i + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
-
-    const pick = e => {
-      const rect = canvas.getBoundingClientRect();
-      const pt = e.touches ? e.touches[0] : e;
-      const x = Math.round((pt.clientX - rect.left) * (size / rect.width));
-      const y = Math.round((pt.clientY - rect.top) * (size / rect.height));
-      if (x < 0 || x >= size || y < 0 || y >= size) return;
-      const px = ctx.getImageData(x, y, 1, 1).data;
-      if (!px[3]) return;
-      const hex = '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+    _drawColorWheel(canvas);
+    _addWheelListeners(canvas, hex => {
       state.accent = hex;
       save();
       applyTheme();
       const prev = document.getElementById('accent-preview');
       if (prev) prev.style.background = hex;
-    };
-
-    canvas.addEventListener('click', pick);
-    canvas.addEventListener('touchmove', e => { e.preventDefault(); pick(e); }, { passive: false });
-    canvas.addEventListener('touchend', pick);
-
+    });
     const resetBtn = document.getElementById('accent-reset');
     if (resetBtn) resetBtn.addEventListener('click', () => {
       state.accent = null; save(); applyTheme(); themePicker();
