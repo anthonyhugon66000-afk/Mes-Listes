@@ -1,6 +1,6 @@
 /* Service worker : rend l'application utilisable hors connexion. */
 
-const CACHE = 'meslistes-v20.4b';
+const CACHE = 'meslistes-v20.4c';
 
 /* Les adresses portent le même numéro de version que dans `index.html` : c'est
    ce qui garantit qu'une page et ses scripts vont par paire. */
@@ -21,9 +21,11 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
+  // `allSettled` au lieu de `addAll` : un seul asset inaccessible ne fait plus
+  // échouer tout l'install — le fetch handler rattrapera au premier accès.
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(ASSETS))
+      .then(c => Promise.allSettled(ASSETS.map(a => c.add(a))))
       .then(() => self.skipWaiting())
   );
 });
