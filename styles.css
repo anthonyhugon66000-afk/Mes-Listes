@@ -2297,6 +2297,26 @@ html[data-theme="dark"].theme-photo .row-text {
   margin-left: auto;
 }
 
+/* Deadlines (v20.2) */
+.row-deadline {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-top: 3px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.deadline-past  { background: #fde8e8; color: #c0392b; }
+.deadline-soon  { background: #fef3e2; color: #e67e22; }
+.deadline-ok    { background: #e8f5e9; color: #27ae60; }
+@media (prefers-color-scheme: dark) {
+  .deadline-past  { background: #4a1515; color: #f1948a; }
+  .deadline-soon  { background: #4a3000; color: #f0b27a; }
+  .deadline-ok    { background: #1a3a1a; color: #82e0aa; }
+}
+.avenir-row { cursor: pointer; }
+
 /* IA — Suggestions */
 .ia-msg {
   padding: 10px 16px;

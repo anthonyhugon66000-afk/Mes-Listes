@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.1';
+const VERSION = 'v20.2';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -746,6 +746,22 @@ function renderItemHtml(item, list) {
   if (item.rayon && !state.trierParRayon) subParts.push(esc(item.rayon));
   const subHtml = subParts.length ? `<span class="row-sub">${subParts.join(' · ')}</span>` : '';
 
+  let deadlineHtml = '';
+  if (item.deadline) {
+    const d = new Date(item.deadline);
+    const now = new Date();
+    const diff = d - now;
+    const cls = diff < 0 ? 'deadline-past' : diff < 86400000 ? 'deadline-soon' : 'deadline-ok';
+    const isToday = d.toDateString() === now.toDateString();
+    const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === d.toDateString();
+    const heure = d.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+    let label;
+    if (isToday)    label = `Aujourd'hui ${heure}`;
+    else if (isTomorrow) label = `Demain ${heure}`;
+    else label = d.toLocaleDateString('fr', { day: 'numeric', month: 'short' }) + (d.getHours() || d.getMinutes() ? ` ${heure}` : '');
+    deadlineHtml = `<span class="row-deadline ${cls}">⏰ ${label}</span>`;
+  }
+
   const checkHtml = isCollection ? '' : `
       <button class="check-hit" data-toggle
               aria-label="${done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
@@ -759,7 +775,7 @@ function renderItemHtml(item, list) {
       <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
         <span class="row-text">
           <span class="row-title">${emojiPfx}${esc(item.text)}</span>
-          ${subHtml}
+          ${subHtml}${deadlineHtml}
         </span>
       </button>
       ${done && !isCollection ? parQui(item.doneBy, list, item.doneByUid) : ''}
@@ -807,7 +823,15 @@ function renderItems() {
     ? list.items
     : (state.hideDone ? list.items.filter(i => !itemDone(i)) : list.items);
 
-  if (!isCollection && state.trierParRayon) {
+  if (!isCollection && state.trierParDeadline) {
+    const avecDate = visible.filter(i => i._section || i.deadline);
+    const sansDates = visible.filter(i => !i._section && !i.deadline);
+    const tries = [...avecDate].sort((a, b) => {
+      if (a._section || b._section) return 0;
+      return new Date(a.deadline) - new Date(b.deadline);
+    });
+    elItems.innerHTML = [...tries, ...sansDates].map(i => renderItemHtml(i, list)).join('');
+  } else if (!isCollection && state.trierParRayon) {
     const groups = new Map();
     visible.forEach(item => {
       const k = item.rayon || '';
@@ -827,6 +851,7 @@ function renderItems() {
   }
 
   elItems.classList.toggle('rayon-mode', !isCollection && !!state.trierParRayon);
+  elItems.classList.toggle('deadline-mode', !isCollection && !!state.trierParDeadline);
 
   const realItems = list.items.filter(i => !i._section);
   const done = realItems.filter(itemDone).length;
@@ -925,7 +950,8 @@ function editItem(item) {
     text: item.text,
     qty: item.qty,
     baseDone: itemDone(item),
-    variants: item.variants.map(v => ({ ...v }))
+    variants: item.variants.map(v => ({ ...v })),
+    deadline: item.deadline || ''
   };
 
   draftApply = d => {
@@ -933,11 +959,15 @@ function editItem(item) {
     item.qty = d.qty;
     item.variants = d.variants;
     if (d.variants.length) item.done = d.variants.every(v => v.done);
+    if (d.deadline) item.deadline = d.deadline;
+    else delete item.deadline;
     save();
     renderItems();
   };
 
   $('item-name').value = draft.text;
+  $('item-deadline').value = draft.deadline;
+  $('item-deadline-clear').hidden = !draft.deadline;
   renderDraft();
   itemBackdrop.hidden = false;
   setTimeout(() => { $('item-name').focus(); $('item-name').select(); }, 50);
@@ -976,6 +1006,7 @@ function renderDraft() {
 function syncDraft() {
   draft.text = $('item-name').value;
   draft.qty = clampQty($('item-qty').value);
+  draft.deadline = $('item-deadline').value;
   elVariantsEdit.querySelectorAll('[data-vid]').forEach(li => {
     const v = draft.variants.find(x => x.id === li.dataset.vid);
     if (!v) return;
@@ -1031,6 +1062,14 @@ $('item-ok').addEventListener('click', () => {
 $('item-cancel').addEventListener('click', closeItemEditor);
 itemBackdrop.addEventListener('click', e => { if (e.target === itemBackdrop) closeItemEditor(); });
 $('item-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('item-ok').click(); });
+
+$('item-deadline').addEventListener('input', () => {
+  $('item-deadline-clear').hidden = !$('item-deadline').value;
+});
+$('item-deadline-clear').addEventListener('click', () => {
+  $('item-deadline').value = '';
+  $('item-deadline-clear').hidden = true;
+});
 
 let pendingSuggestion = null;
 
@@ -1114,6 +1153,11 @@ $('btn-list-menu').addEventListener('click', () => {
     { label: 'Renommer la liste', icon: '✏️', run: () => renameList(currentListId) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(currentListId) },
     { label: `Type : ${typeInfo.icon} ${typeInfo.label}`, icon: '', run: () => changerTypeListe(currentListId) },
+    { label: state.trierParDeadline ? 'Annuler le tri par rappel' : 'Trier par rappel', icon: '⏰', run: () => {
+        state.trierParDeadline = !state.trierParDeadline;
+        if (state.trierParDeadline) state.trierParRayon = false;
+        sauverLocalement(); renderItems();
+      } },
     { label: 'Lier à une liste', icon: '🔗', run: () => lierListeModal(currentListId) },
     { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
@@ -1462,6 +1506,12 @@ async function activerNotifs() {
 /* ---------- Nouveautés ---------- */
 
 const NOUVEAUTES = [
+  { version: 'v20.2', titre: 'Rappels & deadlines', points: [
+    'Ajoute une date de rappel sur n\'importe quel article',
+    'Affichage coloré : rouge si dépassé, orange si dans moins de 24h',
+    'Vue "À venir" pour voir tous tes rappels d\'un coup',
+    'Tri par rappel dans le menu de la liste'
+  ] },
   { version: 'v20.1', titre: 'Suggestions IA', points: [
     'Bouton ✨ Suggérer dans chaque liste pour compléter automatiquement',
     'Décris ta liste en texte libre et l\'IA la génère pour toi',
@@ -3690,6 +3740,75 @@ $('avatar-genere-btn').addEventListener('click', () => {
   const { photo, ...rest } = avatarEdite;
   avatarEdite = Object.assign({}, AVATAR_DEFAUT, rest, { type: 'genere' });
   renderBuilderAvatar();
+});
+
+/* ============================================================
+   À venir — articles avec deadline (v20.2)
+   ============================================================ */
+
+const screenAvenir = $('screen-avenir');
+
+function goAvenir() {
+  screenHome.classList.remove('is-active');
+  screenAvenir.classList.add('is-active');
+  renderAVenir();
+}
+
+function renderAVenir() {
+  const now = new Date();
+  const items = [];
+  state.lists.forEach(list => {
+    list.items.forEach(item => {
+      if (!item._section && item.deadline) items.push({ item, list });
+    });
+  });
+  items.sort((a, b) => new Date(a.item.deadline) - new Date(b.item.deadline));
+
+  const el = $('avenir-list');
+  const empty = $('empty-avenir');
+  if (!items.length) { el.innerHTML = ''; empty.hidden = false; return; }
+  empty.hidden = true;
+
+  el.innerHTML = items.map(({ item, list }) => {
+    const d = new Date(item.deadline);
+    const diff = d - now;
+    const cls = diff < 0 ? 'deadline-past' : diff < 86400000 ? 'deadline-soon' : 'deadline-ok';
+    const isToday = d.toDateString() === now.toDateString();
+    const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === d.toDateString();
+    const heure = d.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+    let quand;
+    if (isToday)    quand = `Aujourd'hui ${heure}`;
+    else if (isTomorrow) quand = `Demain ${heure}`;
+    else quand = d.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short' }) + ` ${heure}`;
+
+    return `<li class="row item avenir-row" data-lid="${list.id}" data-iid="${item.id}">
+      <button class="row-main" style="flex:1">
+        <span class="row-text">
+          <span class="row-title">${esc(item.text)}</span>
+          <span class="row-sub">${esc(list.name)}</span>
+        </span>
+      </button>
+      <span class="row-deadline ${cls}">⏰ ${quand}</span>
+    </li>`;
+  }).join('');
+
+  el.onclick = e => {
+    const row = e.target.closest('[data-lid]');
+    if (!row) return;
+    screenAvenir.classList.remove('is-active');
+    screenHome.classList.add('is-active');
+    openSheet(state.lists.find(l => l.id === row.dataset.lid)?.name || '', [], {});
+    setTimeout(() => {
+      const list = getList(row.dataset.lid);
+      if (list) { currentListId = row.dataset.lid; screenHome.classList.remove('is-active'); screenList.classList.add('is-active'); renderItems(); }
+    }, 50);
+  };
+}
+
+$('btn-avenir').addEventListener('click', goAvenir);
+$('btn-back-avenir').addEventListener('click', () => {
+  screenAvenir.classList.remove('is-active');
+  screenHome.classList.add('is-active');
 });
 
 /* ============================================================
