@@ -4245,6 +4245,7 @@ async function ouvrirIA() {
         $('sheet-title').textContent = '✨ Analyse…';
         sheetBody.innerHTML = '<p class="ia-msg ia-chargement">L\'IA analyse ta liste…</p>';
         sheetBody.onclick = null;
+        sheetBackdrop.hidden = false;
 
         const articles = list.items.filter(i => !i._section && i.text).map(i => i.text);
         const suggestions = await demanderIA('completer', { articles, typeListe: list.type || 'normale' });
