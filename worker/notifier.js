@@ -238,7 +238,7 @@ export default {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+              model: 'qwen/qwen3.6-27b',
               messages: [{
                 role: 'user',
                 content: [
@@ -290,7 +290,7 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'openai/gpt-oss-20b',
             messages: [
               { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide d\'objets {nom, ou}, sans aucun texte autour.' },
               { role: 'user', content: instruction }
