@@ -312,7 +312,8 @@ async function demarrerEcoute() {
                  owner: v.owner, members: v.members || [], memberEmails: v.memberEmails || [],
                  majPar: v.majPar, majParNom: v.majParNom,
                  majLe: v.majLe?.toMillis ? v.majLe.toMillis() : (v.majLe?.seconds ? v.majLe.seconds * 1000 : null),
-                 presence: v.presence || {} };
+                 presence: v.presence || {},
+                 activite: v.activite || {} };
       })
       .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
 
@@ -1256,6 +1257,17 @@ Sync.ecrirePresence = function (listId) {
     presence: { [Sync.user.uid]: { nom: Sync.nomAffiche(), ts: s.serverTimestamp() } }
   }, { merge: true }).catch(() => {});
   Sync._presenceTimer = setTimeout(() => Sync.ecrirePresence(listId), 55000);
+};
+
+/* Signale qu'on est en train de cocher un article — auto-effacé après 4 s. */
+Sync.signalerActivite = function (listId, itemId) {
+  if (!Sync.user || !fb) return;
+  const { s } = fb;
+  const ref = s.doc(collectionListes(), listId);
+  s.setDoc(ref, { activite: { [itemId]: { uid: Sync.user.uid, nom: Sync.nomAffiche() } } }, { merge: true }).catch(() => {});
+  setTimeout(() => {
+    s.setDoc(ref, { activite: { [itemId]: s.deleteField() } }, { merge: true }).catch(() => {});
+  }, 4000);
 };
 
 Sync.quitterPresence = function (listId) {

@@ -2636,6 +2636,58 @@ html[data-theme="dark"].theme-photo .row-text {
 }
 .accent-reset-btn { font-size: 13px; color: var(--text-dim); }
 
+/* Activité en direct */
+.activite-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  padding: 2px 7px 2px 3px;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+  animation: activite-in .2s ease;
+  flex: none;
+  pointer-events: none;
+}
+@keyframes activite-in { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+.activite-nom { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activite-dot {
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: dot-pulse 1s infinite;
+  flex: none;
+}
+@keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.avatar-activite { border-radius: 50%; }
+
+/* Réactions */
+.reactions-bar {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0 4px 48px;
+}
+.reaction-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 2px 9px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  line-height: 1.3;
+}
+.reaction-pill:hover { border-color: var(--accent); }
+.reaction-pill.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.reaction-count { font-size: 11px; font-weight: 600; color: var(--text-dim); }
+.reaction-pill.active .reaction-count { color: var(--accent); }
+
 /* Amis rapides dans le share modal */
 .share-amis-chips {
   display: flex;

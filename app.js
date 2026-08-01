@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.8';
+const VERSION = 'v20.9';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -970,6 +970,28 @@ function renderItemHtml(item, list) {
     deadlineHtml = `<div class="item-deadline-row"><span class="row-deadline ${cls}">⏰ ${label}</span><button class="dl-del" data-dldel aria-label="Supprimer le rappel">×</button></div>`;
   }
 
+  // Activité d'un autre membre sur cet article
+  const act = (list.activite || {})[item.id];
+  const autreActif = act && act.uid !== Sync.user?.uid;
+  const activiteBadge = autreActif ? `<span class="activite-badge" aria-live="polite">
+    ${avatarImg(Sync.cacheAvatars.get(act.uid) || null, 18, 'avatar-activite')}
+    <span class="activite-nom">${esc(act.nom || '…')}</span>
+    <span class="activite-dot"></span>
+  </span>` : '';
+
+  // Réactions
+  const REACTIONS = ['👍', '❓'];
+  const myUid = Sync.user?.uid || '';
+  const reactionsHtml = partagee(list) || item.reactions ? `<div class="reactions-bar">${
+    REACTIONS.map(emoji => {
+      const uids = item.reactions?.[emoji] || [];
+      const moi = uids.includes(myUid);
+      return `<button class="reaction-pill${moi ? ' active' : ''}" data-react="${esc(emoji)}" title="${emoji === '👍' ? 'J\'ai trouvé !' : 'Introuvable'}">
+        ${emoji}${uids.length ? `<span class="reaction-count">${uids.length}</span>` : ''}
+      </button>`;
+    }).join('')
+  }</div>` : '';
+
   const checkHtml = isCollection ? '' : `
       <button class="check-hit" data-toggle
               aria-label="${done ? 'Décocher' : 'Cocher'} ${esc(item.text)}">
@@ -982,6 +1004,7 @@ function renderItemHtml(item, list) {
     <div class="swipe-content">
     <div class="item-head">
       ${checkHtml}
+      ${activiteBadge}
       <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
         <span class="row-text">
           <span class="row-title">${emojiPfx}${esc(item.text)}</span>
@@ -995,6 +1018,7 @@ function renderItemHtml(item, list) {
       <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
     </div>
     ${deadlineHtml}
+    ${reactionsHtml}
     ${item.variants.length > 1 ? `
     <ul class="variants">
       ${item.variants.map(v => `
@@ -1136,9 +1160,28 @@ elItems.addEventListener('click', e => {
       signer(v, v.done);
       item.done = item.variants.every(x => x.done);
       signer(item, item.done);
+      Sync.signalerActivite?.(currentListId, item.id);
       save();
       renderItems();
     }
+    return;
+  }
+
+  if (e.target.closest('[data-react]')) {
+    const emoji = e.target.closest('[data-react]').dataset.react;
+    if (!Sync.user) return;
+    const uid = Sync.user.uid;
+    if (!item.reactions) item.reactions = {};
+    const arr = item.reactions[emoji] || [];
+    if (arr.includes(uid)) {
+      item.reactions[emoji] = arr.filter(u => u !== uid);
+      if (!item.reactions[emoji].length) delete item.reactions[emoji];
+    } else {
+      item.reactions[emoji] = [...arr, uid];
+    }
+    if (!Object.keys(item.reactions).length) delete item.reactions;
+    save();
+    renderItems();
     return;
   }
 
@@ -1148,6 +1191,7 @@ elItems.addEventListener('click', e => {
     item.done = etat;
     signer(item, etat);
     item.variants.forEach(v => { v.done = etat; signer(v, etat); });
+    Sync.signalerActivite?.(currentListId, item.id);
     save();
     renderItems();
   } else if (e.target.closest('[data-edit]')) {
