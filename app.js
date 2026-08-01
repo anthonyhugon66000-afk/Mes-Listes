@@ -4463,6 +4463,31 @@ async function ouvrirIA() {
       }
     },
     {
+      icon: '📷',
+      label: 'Depuis une photo…',
+      run: () => {
+        closeSheet();
+        const inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = 'image/*';
+        inp.onchange = async () => {
+          const file = inp.files?.[0];
+          if (!file) return;
+          sheetBackdrop.hidden = false;
+          $('sheet-title').textContent = '📷 Lecture…';
+          sheetBody.innerHTML = '<p class="ia-msg ia-chargement">L\'IA lit la photo…</p>';
+          sheetBody.onclick = null;
+          const dataUrl = await compresserPhoto(file);
+          const base64 = dataUrl.split(',')[1];
+          const suggestions = await demanderIA('photo', { imageBase64: base64 });
+          if (!suggestions) { closeSheet(); return; }
+          $('sheet-title').textContent = '📷 Articles détectés';
+          afficherSuggestionsIA(suggestions, list);
+        };
+        inp.click();
+      }
+    },
+    {
       icon: '✍️',
       label: 'Depuis un texte…',
       run: () => {

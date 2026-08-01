@@ -227,9 +227,45 @@ export default {
 
       if (!env.GROQ_API_KEY) return repondre({ erreur: 'GROQ_API_KEY absent — ajoute-le dans les Secrets du Worker' }, 500);
 
-      const { mode = 'completer', articles = [], typeListe = 'normale', texte = '', saisie = '' } = corpsRequete;
+      const { mode = 'completer', articles = [], typeListe = 'normale', texte = '', saisie = '', imageBase64 = '' } = corpsRequete;
 
       const typeDesc = { normale: 'liste générale', courses: 'liste de courses', collection: 'collection d\'objets', visite: 'lieux à visiter' }[typeListe] || 'liste';
+
+      /* --- Mode vision : extraction d'articles depuis une photo --- */
+      if (mode === 'photo' && imageBase64) {
+        try {
+          const rv = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'llama-3.2-11b-vision-instruct',
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
+                  { type: 'text', text: 'Liste tous les articles, produits ou ingrédients visibles ou mentionnés sur cette image (liste manuscrite, recette, étiquette, photo de rayon, etc.). Pour chaque article, indique où le trouver en magasin (rayon ou type de boutique). Réponds UNIQUEMENT avec un tableau JSON d\'objets {nom, ou} en français.' }
+                ]
+              }],
+              max_tokens: 1000,
+              temperature: 0.3
+            })
+          });
+          if (!rv.ok) { const err = await rv.text(); return repondre({ erreur: 'vision ' + rv.status + ' : ' + err }, 500); }
+          const json = await rv.json();
+          const brut = (json.choices?.[0]?.message?.content || '').trim();
+          const match = brut.match(/\[[\s\S]*?\]/);
+          if (!match) return repondre({ erreur: 'réponse vision illisible' }, 500);
+          let suggestions;
+          try { suggestions = JSON.parse(match[0]); }
+          catch { return repondre({ erreur: 'JSON vision invalide' }, 500); }
+          if (!Array.isArray(suggestions)) return repondre({ erreur: 'format vision inattendu' }, 500);
+          return repondre({
+            suggestions: suggestions
+              .filter(s => s && typeof s === 'object' && typeof s.nom === 'string' && s.nom.trim())
+              .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim() }))
+          });
+        } catch (e) { return repondre({ erreur: 'erreur vision : ' + e.message }, 500); }
+      }
 
       let instruction;
       if (mode === 'creer' && texte.trim()) {
