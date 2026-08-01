@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.9';
+const VERSION = 'v21.0';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -3832,6 +3832,15 @@ function closeMessages() {
   screenHome.classList.add('is-active');
 }
 
+function formatLastSeen(ts) {
+  if (!ts) return null;
+  const diff = Date.now() - ts;
+  if (diff < 2 * 60 * 1000) return 'En ligne';
+  if (diff < 60 * 60 * 1000) return `Vu il y a ${Math.floor(diff / 60000)} min`;
+  if (diff < 24 * 60 * 60 * 1000) return `Vu il y a ${Math.floor(diff / 3600000)} h`;
+  return `Vu le ${new Date(ts).toLocaleDateString('fr', { day: 'numeric', month: 'short' })}`;
+}
+
 async function openConversation(otherUid) {
   let convId;
   try { convId = await Sync.ouvrirConversation(otherUid); }
@@ -3839,12 +3848,19 @@ async function openConversation(otherUid) {
   convActive = { id: convId, otherUid };
   $('conv-title').innerHTML = esc(nomPour(otherUid)) + badgeMarque(otherUid);
   $('conv-header-avatar').innerHTML = avatarImg(Sync.cacheAvatars.get(otherUid) || null, 32, 'avatar-membre');
+  const sub = $('conv-subtitle');
+  if (sub) { sub.textContent = ''; sub.hidden = true; }
   showMsgPanel('msg-conv-view');
   arreterMessages?.();
   arreterMessages = Sync.ecouterMessages(convId, msgs => {
     renderBubbles(msgs);
     Sync.marquerLu(convId);
   });
+  // Charger lastSeen en arrière-plan
+  Sync.lireLastSeenDe?.(otherUid).then(ts => {
+    const label = formatLastSeen(ts);
+    if (sub && label) { sub.textContent = label; sub.hidden = false; }
+  }).catch(() => {});
 }
 
 $('btn-msgs').addEventListener('click', openMessages);
@@ -3934,6 +3950,9 @@ Sync.onChange = () => {
     Sync.enregistrerJeton().catch(() => { jetonEnregistre = false; });
   }
   if (!Sync.user) jetonEnregistre = false;
+
+  // Marquer la dernière activité à la connexion.
+  if (Sync.user && !etaitConnecte) Sync.mettreAJourLastSeen?.();
 
   // Listener badge "Mes retours" : actif quand connecté, arrêté à la déconnexion.
   if (Sync.user) {

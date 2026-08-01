@@ -2029,6 +2029,21 @@ html[data-theme="dark"].theme-photo .row-text {
   text-align: center;
 }
 
+/* ===== En-tête conversation ouverte ===== */
+.conv-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.conv-subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ===== Subbar gauche (type + progress empilés) ===== */
 .subbar-left {
   display: flex;
