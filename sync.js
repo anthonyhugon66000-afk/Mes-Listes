@@ -1267,26 +1267,6 @@ Sync.ecrirePresence = function (listId) {
   Sync._presenceTimer = setTimeout(() => Sync.ecrirePresence(listId), 55000);
 };
 
-/* Met à jour le timestamp de dernière activité dans le profil public. */
-Sync.mettreAJourLastSeen = function () {
-  if (!Sync.user || !fb) return;
-  const { s } = fb;
-  s.setDoc(s.doc(collectionAvatars(), Sync.user.uid), { lastSeen: s.serverTimestamp() }, { merge: true }).catch(() => {});
-};
-
-/* Lit le lastSeen d'un utilisateur — toujours depuis Firestore (pas le cache). */
-Sync.lireLastSeenDe = async function (uid) {
-  if (!uid || !fb) return null;
-  try {
-    const { s } = fb;
-    const snap = await s.getDoc(s.doc(collectionAvatars(), uid));
-    if (!snap.exists()) return null;
-    const d = snap.data();
-    Sync.cacheAvatars.set(uid, d); // rafraîchit le cache au passage
-    const ts = d.lastSeen;
-    return ts?.toMillis?.() || (ts?.seconds ? ts.seconds * 1000 : null);
-  } catch { return null; }
-};
 
 /* Signale qu'on est en train de cocher un article — auto-effacé après 4 s. */
 Sync.signalerActivite = function (listId, itemId) {

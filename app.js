@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v21.0';
+const VERSION = 'v21.1';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -3558,8 +3558,7 @@ $('notif-envoyer').addEventListener('click', async () => {
 const CLE_RETOURS_VUS = 'meslistes.retours_vus';
 let arreterConversations = null;
 let arreterMessages     = null;
-let _lastSeenTimer      = null;
-let _convSubtitleTimer  = null;
+
 let arreterDemandes     = null;
 let convActive          = null;   // { id, otherUid }
 let arreterMesRetoursGlobal = null;   // badge temps réel
@@ -3834,14 +3833,6 @@ function closeMessages() {
   screenHome.classList.add('is-active');
 }
 
-function formatLastSeen(ts) {
-  if (!ts) return null;
-  const diff = Date.now() - ts;
-  if (diff < 2 * 60 * 1000) return 'En ligne';
-  if (diff < 60 * 60 * 1000) return `Vu il y a ${Math.floor(diff / 60000)} min`;
-  if (diff < 24 * 60 * 60 * 1000) return `Vu il y a ${Math.floor(diff / 3600000)} h`;
-  return `Vu le ${new Date(ts).toLocaleDateString('fr', { day: 'numeric', month: 'short' })}`;
-}
 
 async function openConversation(otherUid) {
   let convId;
@@ -3850,28 +3841,12 @@ async function openConversation(otherUid) {
   convActive = { id: convId, otherUid };
   $('conv-title').innerHTML = esc(nomPour(otherUid)) + badgeMarque(otherUid);
   $('conv-header-avatar').innerHTML = avatarImg(Sync.cacheAvatars.get(otherUid) || null, 32, 'avatar-membre');
-  const sub = $('conv-subtitle');
-  if (sub) { sub.textContent = ''; sub.hidden = true; }
   showMsgPanel('msg-conv-view');
   arreterMessages?.();
   arreterMessages = Sync.ecouterMessages(convId, msgs => {
     renderBubbles(msgs);
     Sync.marquerLu(convId);
   });
-  // Charger lastSeen puis rafraîchir l'affichage chaque seconde.
-  clearInterval(_convSubtitleTimer);
-  _convSubtitleTimer = null;
-  Sync.lireLastSeenDe?.(otherUid).then(ts => {
-    if (!ts) return;
-    const maj = () => {
-      if (!sub) return;
-      const label = formatLastSeen(ts);
-      sub.textContent = label || '';
-      sub.hidden = !label;
-    };
-    maj();
-    _convSubtitleTimer = setInterval(maj, 1000);
-  }).catch(() => {});
 }
 
 $('btn-msgs').addEventListener('click', openMessages);
@@ -3888,8 +3863,6 @@ $('btn-back-conv').addEventListener('click', () => {
   arreterMessages?.();
   arreterMessages = null;
   convActive = null;
-  clearInterval(_convSubtitleTimer);
-  _convSubtitleTimer = null;
   showMsgPanel('msg-list-view');
 });
 
@@ -3964,14 +3937,6 @@ Sync.onChange = () => {
   }
   if (!Sync.user) jetonEnregistre = false;
 
-  // Marquer la dernière activité à la connexion puis toutes les 90 s.
-  if (Sync.user && !etaitConnecte) {
-    Sync.mettreAJourLastSeen?.();
-    if (!_lastSeenTimer) {
-      _lastSeenTimer = setInterval(() => { if (Sync.user) Sync.mettreAJourLastSeen?.(); }, 90_000);
-    }
-  }
-  if (!Sync.user && _lastSeenTimer) { clearInterval(_lastSeenTimer); _lastSeenTimer = null; }
 
   // Listener badge "Mes retours" : actif quand connecté, arrêté à la déconnexion.
   if (Sync.user) {
@@ -4133,10 +4098,6 @@ if (!localStorage.getItem('meslistes.compte')) {
   afficherMurAuth();
 }
 
-// Rafraîchir lastSeen quand l'onglet redevient visible (retour depuis une autre app).
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && Sync.user) Sync.mettreAJourLastSeen?.();
-});
 
 /* Retour depuis un lien de connexion : on termine l'ouverture de session avant
    toute chose, l'app apparaîtra directement connectée. */
