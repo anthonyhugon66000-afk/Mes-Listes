@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.6';
+const VERSION = 'v20.7';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -314,6 +314,8 @@ function renderHome() {
 
     return `
       <li class="row" data-id="${list.id}">
+        <div class="swipe-bg" aria-hidden="true">${ICON.trash}</div>
+        <div class="swipe-content">
         ${coverHtml}
         <button class="row-main" data-open>
           <span class="row-text">
@@ -326,6 +328,7 @@ function renderHome() {
           <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
         </button>
         <span class="handle" data-handle aria-label="Déplacer">${ICON.handle}</span>
+        </div>
       </li>`;
   }).join('');
 
@@ -342,6 +345,57 @@ elLists.addEventListener('click', e => {
   if (!row) return;
   if (e.target.closest('[data-open]')) openList(row.dataset.id);
   else if (e.target.closest('[data-menu]')) listMenu(row.dataset.id);
+});
+
+function _initSwipe(container, onDelete) {
+  let st = null;
+  container.addEventListener('touchstart', e => {
+    if (e.target.closest('[data-handle]')) return;
+    const row = e.target.closest('.row[data-id]');
+    if (!row) return;
+    const content = row.querySelector('.swipe-content');
+    if (!content) return;
+    st = { row, content, x0: e.touches[0].clientX, y0: e.touches[0].clientY, live: false };
+  }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!st) return;
+    const dx = e.touches[0].clientX - st.x0;
+    const dy = e.touches[0].clientY - st.y0;
+    if (!st.live) {
+      if (Math.abs(dy) > Math.abs(dx) + 5) { st = null; return; }
+      if (Math.abs(dx) < 8) return;
+      st.live = true;
+    }
+    if (dx > 0) return;
+    e.preventDefault();
+    const offset = Math.max(dx, -120);
+    st.content.style.cssText = `transition:none;transform:translateX(${offset}px)`;
+  }, { passive: false });
+  const snapBack = () => {
+    if (!st) return;
+    st.content.style.cssText = 'transition:transform .25s;transform:translateX(0)';
+    st = null;
+  };
+  container.addEventListener('touchend', e => {
+    if (!st || !st.live) { st = null; return; }
+    const dx = e.changedTouches[0].clientX - st.x0;
+    const { row, content } = st;
+    st = null;
+    if (dx < -80) {
+      content.style.cssText = 'transition:transform .2s;transform:translateX(-110%)';
+      setTimeout(() => onDelete(row.dataset.id), 200);
+    } else {
+      content.style.cssText = 'transition:transform .25s;transform:translateX(0)';
+    }
+  });
+  container.addEventListener('touchcancel', snapBack);
+}
+
+_initSwipe(elLists, listId => {
+  const list = getList(listId);
+  if (!list) return;
+  if (partagee(list) && !estProprietaire(list)) quitterListe(listId);
+  else deleteList(listId);
 });
 
 /* ---------- Recherche ---------- */
@@ -924,6 +978,8 @@ function renderItemHtml(item, list) {
 
   return `
   <li class="row item ${done && !isCollection ? 'done' : ''}" data-id="${item.id}">
+    <div class="swipe-bg" aria-hidden="true">${ICON.trash}</div>
+    <div class="swipe-content">
     <div class="item-head">
       ${checkHtml}
       <button class="row-main" data-edit aria-label="Modifier ${esc(item.text)}">
@@ -952,6 +1008,7 @@ function renderItemHtml(item, list) {
         ${v.qty > 1 ? `<span class="qty">×${v.qty}</span>` : ''}
       </li>`).join('')}
     </ul>` : ''}
+    </div>
   </li>`;
 }
 
@@ -1102,6 +1159,17 @@ elItems.addEventListener('click', e => {
     renderItems();
     toast(`« ${item.text} » supprimé`, true);
   }
+});
+
+_initSwipe(elItems, itemId => {
+  const list = getList(currentListId);
+  if (!list) return;
+  const item = list.items.find(i => i.id === itemId);
+  snapshot();
+  list.items = list.items.filter(i => i.id !== itemId);
+  save();
+  renderItems();
+  if (item) toast(`« ${item.text} » supprimé`, true);
 });
 
 /* ============================================================

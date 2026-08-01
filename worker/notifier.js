@@ -43,6 +43,23 @@ const repondre = (donnees, statut = 200) =>
     headers: { 'Content-Type': 'application/json', ...cors }
   });
 
+/* Extrait le premier tableau JSON équilibré d'un texte (gère strings, echappements, imbrication). */
+function extraireTableauJson(texte) {
+  const start = texte.indexOf('[');
+  if (start === -1) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < texte.length; i++) {
+    const ch = texte[i];
+    if (esc) { esc = false; continue; }
+    if (ch === '\\' && inStr) { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '[') depth++;
+    if (ch === ']') { depth--; if (depth === 0) return texte.slice(start, i + 1); }
+  }
+  return null;
+}
+
 /* ---------- Vérification de l'identité de l'appelant ---------- */
 
 async function clesDeGoogle() {
@@ -253,10 +270,11 @@ export default {
           if (!rv.ok) { const err = await rv.text(); return repondre({ erreur: 'vision ' + rv.status + ' : ' + err }, 500); }
           const json = await rv.json();
           const brut = (json.choices?.[0]?.message?.content || '').trim();
-          const match = brut.match(/\[[\s\S]*?\]/);
-          if (!match) return repondre({ erreur: 'réponse vision illisible' }, 500);
+          const cleaned = brut.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          const jsonStr = extraireTableauJson(cleaned);
+          if (!jsonStr) return repondre({ erreur: 'réponse vision illisible' }, 500);
           let suggestions;
-          try { suggestions = JSON.parse(match[0]); }
+          try { suggestions = JSON.parse(jsonStr); }
           catch { return repondre({ erreur: 'JSON vision invalide' }, 500); }
           if (!Array.isArray(suggestions)) return repondre({ erreur: 'format vision inattendu' }, 500);
           return repondre({
@@ -307,11 +325,13 @@ export default {
 
         const json = await r.json();
         const brut = (json.choices?.[0]?.message?.content || '').trim();
-        const match = brut.match(/\[[\s\S]*?\]/);
-        if (!match) return repondre({ erreur: 'réponse IA illisible', brut }, 500);
+        // Supprime les blocs <think>…</think> (modèles raisonneurs)
+        const cleaned = brut.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        const jsonStr = extraireTableauJson(cleaned);
+        if (!jsonStr) return repondre({ erreur: 'réponse IA illisible', brut }, 500);
 
         let suggestions;
-        try { suggestions = JSON.parse(match[0]); }
+        try { suggestions = JSON.parse(jsonStr); }
         catch { return repondre({ erreur: 'JSON IA invalide', brut }, 500); }
 
         if (!Array.isArray(suggestions)) return repondre({ erreur: 'format IA inattendu' }, 500);
