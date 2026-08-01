@@ -3558,6 +3558,7 @@ $('notif-envoyer').addEventListener('click', async () => {
 const CLE_RETOURS_VUS = 'meslistes.retours_vus';
 let arreterConversations = null;
 let arreterMessages     = null;
+let _lastSeenTimer      = null;
 let arreterDemandes     = null;
 let convActive          = null;   // { id, otherUid }
 let arreterMesRetoursGlobal = null;   // badge temps réel
@@ -3951,8 +3952,14 @@ Sync.onChange = () => {
   }
   if (!Sync.user) jetonEnregistre = false;
 
-  // Marquer la dernière activité à la connexion.
-  if (Sync.user && !etaitConnecte) Sync.mettreAJourLastSeen?.();
+  // Marquer la dernière activité à la connexion puis toutes les 90 s.
+  if (Sync.user && !etaitConnecte) {
+    Sync.mettreAJourLastSeen?.();
+    if (!_lastSeenTimer) {
+      _lastSeenTimer = setInterval(() => { if (Sync.user) Sync.mettreAJourLastSeen?.(); }, 90_000);
+    }
+  }
+  if (!Sync.user && _lastSeenTimer) { clearInterval(_lastSeenTimer); _lastSeenTimer = null; }
 
   // Listener badge "Mes retours" : actif quand connecté, arrêté à la déconnexion.
   if (Sync.user) {
@@ -4113,6 +4120,11 @@ afficherOnboarding();
 if (!localStorage.getItem('meslistes.compte')) {
   afficherMurAuth();
 }
+
+// Rafraîchir lastSeen quand l'onglet redevient visible (retour depuis une autre app).
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && Sync.user) Sync.mettreAJourLastSeen?.();
+});
 
 /* Retour depuis un lien de connexion : on termine l'ouverture de session avant
    toute chose, l'app apparaîtra directement connectée. */
