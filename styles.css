@@ -2636,6 +2636,31 @@ html[data-theme="dark"].theme-photo .row-text {
 }
 .accent-reset-btn { font-size: 13px; color: var(--text-dim); }
 
+/* Amis rapides dans le share modal */
+.share-amis-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ami-share-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px 5px 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  transition: border-color .15s, background .15s;
+}
+.ami-share-chip:hover { border-color: var(--accent); background: var(--accent-dim, color-mix(in srgb, var(--accent) 10%, transparent)); }
+.ami-share-chip:disabled { opacity: .5; cursor: default; }
+.ami-share-chip.ami-chip-invite { border-color: var(--accent); color: var(--accent); }
+.ami-chip-nom { font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Swipe-to-delete (v20.6) */
 .row { position: relative; }
 .swipe-bg {

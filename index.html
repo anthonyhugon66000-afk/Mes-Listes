@@ -19,7 +19,7 @@
      `app.js` encore en cache : les identifiants ne correspondaient plus, le
      script s'arrêtait sur la première référence introuvable, et l'app restait
      à moitié morte sans rien afficher. -->
-<link rel="stylesheet" href="styles.css?v20.7">
+<link rel="stylesheet" href="styles.css?v20.8">
 
 <!-- Le thème est posé avant le premier rendu : appliqué depuis app.js, l'écran
      apparaîtrait un instant dans les mauvaises couleurs. -->
@@ -525,6 +525,12 @@
     <h2 id="share-title">Partager la liste</h2>
 
     <div class="modal-scroll">
+      <div id="share-amis-section" hidden>
+        <label class="modal-label">Partager avec un ami</label>
+        <div id="share-amis-chips" class="share-amis-chips"></div>
+        <p class="sep"><span>ou</span></p>
+      </div>
+
       <label class="modal-label" for="share-code">Inviter par code ami</label>
       <input type="text" id="share-code" autocomplete="off" inputmode="numeric"
              placeholder="1234-5678" enterkeyhint="done">
@@ -800,9 +806,9 @@
 
 <!-- `sync.js` avant `app.js` : ce dernier lui accroche ses fonctions
      d'affichage dès son évaluation. -->
-<script src="produits.js?v20.7"></script>
+<script src="produits.js?v20.8"></script>
 <script src="firebase-config.js?v17.9"></script>
-<script src="sync.js?v20.7"></script>
-<script src="app.js?v20.7"></script>
+<script src="sync.js?v20.8"></script>
+<script src="app.js?v20.8"></script>
 </body>
 </html>

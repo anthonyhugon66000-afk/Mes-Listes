@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v20.7';
+const VERSION = 'v20.8';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -2079,7 +2079,34 @@ function shareModal(id) {
   if (uidsManquants.length) {
     Promise.all(uidsManquants.map(u => Sync.avatarDe(u))).then(() => renderPeople()).catch(() => {});
   }
+
+  // Charger les amis si pas encore fait, puis afficher les chips.
+  if (Sync.amis.length === 0 && Sync.user) {
+    Sync.chargerAmis().then(() => {
+      const manquants = Sync.amis.filter(a => !Sync.cacheAvatars.has(a.uid)).map(a => a.uid);
+      return manquants.length ? Promise.all(manquants.map(u => Sync.avatarDe(u))) : Promise.resolve();
+    }).then(() => renderShareAmis()).catch(() => {});
+  }
 }
+
+$('share-amis-chips').addEventListener('click', async e => {
+  const chip = e.target.closest('.ami-share-chip');
+  if (!chip) return;
+  const code = chip.dataset.amiCode;
+  const liste = getList(listePartagee);
+  if (!code || !liste) return;
+  chip.disabled = true;
+  messagePartage('Envoi…');
+  try {
+    await Sync.inviterParCode(listePartagee, code, liste.name);
+    chip.classList.add('ami-chip-invite');
+    messagePartage('Invitation envoyée !');
+    renderShareAmis();
+  } catch (err) {
+    chip.disabled = false;
+    messagePartage(messageErreur(err?.code || String(err)), 'erreur');
+  }
+});
 
 function closeShare() {
   shareBackdrop.hidden = true;
@@ -2099,8 +2126,32 @@ let invitationsEnAttente = [];
 
 /* Appelée sans argument quand seules les listes ont changé : les invitations
    viennent de leur propre écoute, il ne faut pas les effacer au passage. */
+function renderShareAmis() {
+  const section = $('share-amis-section');
+  const chips = $('share-amis-chips');
+  if (!section || !chips) return;
+  const liste = getList(listePartagee);
+  if (!liste) { section.hidden = true; return; }
+  if (!Sync.amis.length) { section.hidden = true; return; }
+
+  const dejaUids = new Set(liste.members || []);
+  const amisDispos = Sync.amis.filter(a => !dejaUids.has(a.uid));
+  if (!amisDispos.length) { section.hidden = true; return; }
+
+  section.hidden = false;
+  chips.innerHTML = amisDispos.map(({ uid, code }) => {
+    const av = Sync.cacheAvatars.get(uid) || null;
+    const nom = av?.nom || String(code).replace(/(\d{4})(\d{4})/, '$1-$2');
+    return `<button class="ami-share-chip" data-ami-code="${esc(String(code))}" data-ami-uid="${esc(uid)}" title="Inviter ${esc(nom)}">
+      ${avatarImg(av, 30, 'avatar-mini')}
+      <span class="ami-chip-nom">${esc(nom)}</span>
+    </button>`;
+  }).join('');
+}
+
 function renderPeople(enAttente) {
   if (enAttente) invitationsEnAttente = enAttente;
+  renderShareAmis();
   const liste = getList(listePartagee);
   if (!liste) return;
   const moi = Sync.user?.uid;
