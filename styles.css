@@ -2635,3 +2635,41 @@ html[data-theme="dark"].theme-photo .row-text {
   flex-shrink: 0;
 }
 .accent-reset-btn { font-size: 13px; color: var(--text-dim); }
+
+/* Quantité articles (v20.6) */
+.item-qty-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 12px; color: var(--text-dim); font-family: inherit;
+  line-height: 1;
+}
+.item-qty-btn.has-qty {
+  color: var(--accent);
+  font-weight: 500;
+}
+.qty-editor { padding: 4px 0 8px; }
+.qty-input {
+  width: 100%; box-sizing: border-box;
+  padding: 10px 14px; border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card); color: var(--text);
+  font-size: 17px; font-family: inherit;
+  margin-bottom: 14px;
+}
+.qty-input:focus { outline: none; border-color: var(--accent); }
+.qty-units {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 16px;
+}
+.qty-unit-chip {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card); color: var(--text-dim);
+  font-size: 14px; font-family: inherit; cursor: pointer;
+  transition: all .15s;
+}
+.qty-unit-chip.selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.ia-sugg-meta { font-size: 12px; color: var(--text-dim); display: block; margin-top: 2px; }

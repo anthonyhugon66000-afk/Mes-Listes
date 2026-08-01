@@ -896,7 +896,9 @@ function renderItemHtml(item, list) {
   if (seule) subParts.push(esc(seule.name));
   const lieu = item.ou || (!state.trierParRayon && item.rayon) || '';
   if (lieu) subParts.push(esc(lieu));
-  const subHtml = subParts.length ? `<span class="row-sub">${subParts.join(' · ')}</span>` : '';
+  const qtyLabel = item.quantite ? `${item.quantite}${item.unite ? ' ' + item.unite : ''}` : '';
+  subParts.push(`<button class="item-qty-btn${qtyLabel ? ' has-qty' : ''}" data-qty>${qtyLabel ? esc(qtyLabel) : '+ qté'}</button>`);
+  const subHtml = `<span class="row-sub">${subParts.join(' · ')}</span>`;
 
   let deadlineHtml = '';
   if (item.deadline) {
@@ -1049,6 +1051,10 @@ elItems.addEventListener('click', e => {
 
   if (e.target.closest('[data-star]')) {
     toggleFavori(item.text);
+    return;
+  }
+  if (e.target.closest('[data-qty]')) {
+    ouvrirEditorQuantite(item, list);
     return;
   }
   if (e.target.closest('[data-dldel]')) {
@@ -1248,6 +1254,8 @@ $('form-add-item').addEventListener('submit', e => {
   if (pendingSuggestion?.rayon) item.rayon = pendingSuggestion.rayon;
   if (pendingSuggestion?.emoji) item.emoji = pendingSuggestion.emoji;
   if (pendingSuggestion?.ou) item.ou = pendingSuggestion.ou;
+  if (pendingSuggestion?.quantite) item.quantite = pendingSuggestion.quantite;
+  if (pendingSuggestion?.unite) item.unite = pendingSuggestion.unite;
   pendingSuggestion = null;
   getList(currentListId).items.push(item);
   save();
@@ -1303,7 +1311,7 @@ $('input-item').addEventListener('input', () => {
       if ($('input-item').value.trim() !== val) return;
       const iaSuggs = (data.suggestions || []).filter(s => s?.nom);
       const iaHtml = iaSuggs.map(s => `
-        <div class="autocomplete-item ac-ia" data-nom="${esc(s.nom)}" data-ou="${esc(s.ou || '')}" data-rayon="" data-emoji="">
+        <div class="autocomplete-item ac-ia" data-nom="${esc(s.nom)}" data-ou="${esc(s.ou || '')}" data-quantite="${esc(s.quantite || '')}" data-unite="${esc(s.unite || '')}" data-rayon="" data-emoji="">
           <span class="ac-emoji ac-ia-star">✨</span>
           <span class="ac-info">
             <span class="ac-nom">${esc(s.nom)}</span>
@@ -1328,7 +1336,7 @@ function selectionnerSuggestion(e) {
   if (!item || item.classList.contains('ac-ia-loading')) return;
   e.preventDefault();
   $('input-item').value = item.dataset.nom;
-  pendingSuggestion = { rayon: item.dataset.rayon || '', emoji: item.dataset.emoji || '', ou: item.dataset.ou || '' };
+  pendingSuggestion = { rayon: item.dataset.rayon || '', emoji: item.dataset.emoji || '', ou: item.dataset.ou || '', quantite: item.dataset.quantite || '', unite: item.dataset.unite || '' };
   $('autocomplete-list').hidden = true;
 }
 $('autocomplete-list').addEventListener('touchstart', selectionnerSuggestion, { passive: false });
@@ -4339,10 +4347,11 @@ async function enrichirItemSilencieux(itemId, text, listId) {
     });
     const data = await r.json();
     const s = (data.suggestions || [])[0];
-    if (!s?.ou) return;
+    if (!s?.ou && !s?.unite) return;
     const item = getList(listId)?.items.find(i => i.id === itemId);
     if (!item) return;
-    item.ou = s.ou;
+    if (s.ou) item.ou = s.ou;
+    if (s.unite && !item.unite) item.unite = s.unite;
     save();
     if (currentListId === listId) renderItems();
   } catch {}
@@ -4368,13 +4377,53 @@ async function localiserItems(listId) {
     (data.suggestions || []).forEach(s => {
       if (!s?.ou || !s?.nom) return;
       const item = aEnrichir.find(i => i.text.toLowerCase() === s.nom.toLowerCase());
-      if (item) { item.ou = s.ou; updated++; }
+      if (item) { item.ou = s.ou; if (s.unite && !item.unite) item.unite = s.unite; updated++; }
     });
     if (updated) { save(); renderItems(); toast(`✅ ${updated} article${updated > 1 ? 's' : ''} localisé${updated > 1 ? 's' : ''}`); }
     else toast('Aucune localisation trouvée.');
   } catch (e) {
     toast('Erreur localisation : ' + e.message);
   }
+}
+
+const UNITES_QTE = ['g', 'kg', 'mg', 'mL', 'cL', 'L', 'pièce(s)', 'sachet(s)', 'boîte(s)', 'paquet(s)', 'tranche(s)', 'portion(s)', 'c. à soupe', 'c. à café'];
+
+function ouvrirEditorQuantite(item, list) {
+  const qte = item.quantite || '';
+  const unt = item.unite || '';
+  openSheet('Quantité', [], {
+    html: `
+      <div class="qty-editor">
+        <input class="qty-input" id="qty-val" type="number" min="0" step="any" placeholder="Ex : 500" value="${esc(qte)}">
+        <div class="qty-units">
+          <button class="qty-unit-chip${!unt ? ' selected' : ''}" data-unit="">aucune</button>
+          ${UNITES_QTE.map(u => `<button class="qty-unit-chip${u === unt ? ' selected' : ''}" data-unit="${esc(u)}">${esc(u)}</button>`).join('')}
+        </div>
+        <button class="sheet-action" id="qty-save">Enregistrer</button>
+        ${qte || unt ? `<button class="sheet-action danger" id="qty-clear">Supprimer la quantité</button>` : ''}
+      </div>`,
+    onClick: e => {
+      const chip = e.target.closest('[data-unit]');
+      if (chip) {
+        sheetBody.querySelectorAll('[data-unit]').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        return;
+      }
+      if (e.target.id === 'qty-save') {
+        const val = ($('qty-val')?.value || '').trim();
+        const unit = sheetBody.querySelector('[data-unit].selected')?.dataset.unit ?? '';
+        if (val) { item.quantite = val; item.unite = unit; }
+        else { delete item.quantite; delete item.unite; }
+        save(); renderItems(); closeSheet();
+        return;
+      }
+      if (e.target.id === 'qty-clear') {
+        delete item.quantite; delete item.unite;
+        save(); renderItems(); closeSheet();
+      }
+    }
+  });
+  setTimeout(() => $('qty-val')?.focus(), 50);
 }
 
 async function demanderIA(mode, options = {}) {
@@ -4414,11 +4463,14 @@ function afficherSuggestionsIA(suggestions, list) {
   sheetBody.innerHTML = `
     <p class="ia-msg">Appuie pour ajouter :</p>
     ${nouveaux.map((s, i) => {
-      const nom = typeof s === 'object' ? s.nom : s;
-      const ou  = typeof s === 'object' ? s.ou  : '';
+      const nom      = typeof s === 'object' ? s.nom      : s;
+      const ou       = typeof s === 'object' ? s.ou       : '';
+      const quantite = typeof s === 'object' ? (s.quantite || '') : '';
+      const unite    = typeof s === 'object' ? (s.unite    || '') : '';
+      const qtyLabel = quantite ? `${quantite}${unite ? ' ' + unite : ''}` : (unite || '');
       return `<button class="sheet-action ia-sugg" data-ia="${i}">
         <span class="ia-sugg-nom">${esc(nom)}</span>
-        ${ou ? `<span class="ia-sugg-ou">${esc(ou)}</span>` : ''}
+        <span class="ia-sugg-meta">${[ou, qtyLabel].filter(Boolean).map(esc).join(' · ')}</span>
       </button>`;
     }).join('')}
   `;
@@ -4426,10 +4478,14 @@ function afficherSuggestionsIA(suggestions, list) {
     const btn = e.target.closest('[data-ia]');
     if (!btn || btn.disabled) return;
     const s = nouveaux[+btn.dataset.ia];
-    const nom = typeof s === 'object' ? s.nom : s;
-    const ou  = typeof s === 'object' ? (s.ou || '') : '';
+    const nom      = typeof s === 'object' ? s.nom      : s;
+    const ou       = typeof s === 'object' ? (s.ou       || '') : '';
+    const quantite = typeof s === 'object' ? (s.quantite || '') : '';
+    const unite    = typeof s === 'object' ? (s.unite    || '') : '';
     const newItem = { id: uid(), text: nom, qty: 1, done: false, variants: [] };
-    if (ou) newItem.ou = ou;
+    if (ou)       newItem.ou       = ou;
+    if (quantite) newItem.quantite = quantite;
+    if (unite)    newItem.unite    = unite;
     getList(currentListId).items.push(newItem);
     save();
     renderItems();

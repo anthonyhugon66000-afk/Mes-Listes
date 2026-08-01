@@ -243,7 +243,7 @@ export default {
                 role: 'user',
                 content: [
                   { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
-                  { type: 'text', text: 'Liste tous les articles, produits ou ingrédients visibles ou mentionnés sur cette image (liste manuscrite, recette, étiquette, photo de rayon, etc.). Pour chaque article, indique où le trouver en magasin (rayon ou type de boutique). Réponds UNIQUEMENT avec un tableau JSON d\'objets {nom, ou} en français.' }
+                  { type: 'text', text: 'Liste tous les articles, produits ou ingrédients visibles ou mentionnés sur cette image (liste manuscrite, recette, étiquette, photo de rayon, etc.). Pour chaque article, extrait la quantité et l\'unité si présentes sur l\'image, et indique où le trouver en magasin. Réponds UNIQUEMENT avec un tableau JSON d\'objets {nom, ou, quantite, unite} en français. Si pas de quantité visible, laisse quantite vide. Exemples d\'unités : g, kg, mL, L, pièce(s), sachet(s). Exemple : [{"nom":"farine","ou":"Épicerie","quantite":"500","unite":"g"},{"nom":"lait","ou":"Rayon frais","quantite":"1","unite":"L"}]' }
                 ]
               }],
               max_tokens: 1000,
@@ -262,24 +262,24 @@ export default {
           return repondre({
             suggestions: suggestions
               .filter(s => s && typeof s === 'object' && typeof s.nom === 'string' && s.nom.trim())
-              .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim() }))
+              .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim(), quantite: (s.quantite || '').trim(), unite: (s.unite || '').trim() }))
           });
         } catch (e) { return repondre({ erreur: 'erreur vision : ' + e.message }, 500); }
       }
 
       let instruction;
       if (mode === 'creer' && texte.trim()) {
-        instruction = `Génère une liste d'articles pour : "${texte.trim()}". Pour chaque article indique où le trouver (rayon de supermarché, type de boutique ou section). Réponds UNIQUEMENT avec un tableau JSON d'objets en français, max 12 articles. Exemple : [{"nom":"pain","ou":"Boulangerie / rayon pain"},{"nom":"lait","ou":"Rayon frais — produits laitiers"}]`;
+        instruction = `Génère une liste d'articles pour : "${texte.trim()}". Pour chaque article indique où le trouver et l'unité typique (g, kg, mL, L, pièce(s), etc.). Réponds UNIQUEMENT avec un tableau JSON d'objets en français, max 12 articles. Exemple : [{"nom":"farine","ou":"Épicerie — pâtisserie","quantite":"","unite":"g"},{"nom":"lait","ou":"Rayon frais","quantite":"","unite":"L"}]`;
       } else if (mode === 'suggerer' && saisie.trim()) {
-        instruction = `L'utilisateur tape "${saisie.trim()}" dans une ${typeDesc}. Propose 2 ou 3 articles en français qui correspondent à cette saisie avec où les trouver en magasin (rayon ou type de boutique). Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou}, max 3 éléments. Exemple : [{"nom":"Nutella","ou":"Épicerie — pâtes à tartiner"},{"nom":"Nutella bio","ou":"Rayon bio"}]`;
+        instruction = `L'utilisateur tape "${saisie.trim()}" dans une ${typeDesc}. Propose 2 ou 3 articles en français correspondants avec où les trouver et l'unité typique. Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou, quantite, unite}, max 3 éléments. Exemple : [{"nom":"Nutella","ou":"Épicerie — pâtes à tartiner","quantite":"","unite":"g"}]`;
       } else if (mode === 'localiser' && articles.length) {
         const liste = articles.slice(0, 30);
-        instruction = `Voici des articles d'une ${typeDesc}. Pour chacun, indique précisément où le trouver : type de magasin (supermarché, pharmacie, boulangerie, etc.) et rayon. Conserve exactement les mêmes noms d'articles. Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou}. Articles : ${JSON.stringify(liste)}`;
+        instruction = `Voici des articles d'une ${typeDesc}. Pour chacun, indique où le trouver et l'unité de mesure typique (g, kg, mL, L, pièce(s), sachet(s), etc.). Conserve exactement les mêmes noms. Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou, quantite, unite}. Articles : ${JSON.stringify(liste)}`;
       } else {
         const ctx = articles.length
           ? `Articles déjà présents : ${articles.slice(0, 20).join(', ')}.`
           : 'La liste est encore vide.';
-        instruction = `Type : ${typeDesc}. ${ctx} Suggère 6 à 10 articles manquants pertinents. Pour chaque article indique où le trouver (rayon de supermarché, type de boutique ou section). Réponds UNIQUEMENT avec un tableau JSON d'objets en français. Exemple : [{"nom":"beurre","ou":"Rayon frais — produits laitiers"},{"nom":"farine","ou":"Épicerie — pâtisserie"}]`;
+        instruction = `Type : ${typeDesc}. ${ctx} Suggère 6 à 10 articles manquants pertinents. Pour chaque article indique où le trouver et l'unité typique (g, kg, mL, L, pièce(s), etc.). Réponds UNIQUEMENT avec un tableau JSON d'objets en français. Exemple : [{"nom":"beurre","ou":"Rayon frais","quantite":"","unite":"g"},{"nom":"eau","ou":"Épicerie","quantite":"","unite":"L"}]`;
       }
 
       try {
@@ -292,7 +292,7 @@ export default {
           body: JSON.stringify({
             model: 'openai/gpt-oss-20b',
             messages: [
-              { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide d\'objets {nom, ou}, sans aucun texte autour.' },
+              { role: 'system', content: 'Tu génères des listes en français. Tu réponds UNIQUEMENT avec un tableau JSON valide d\'objets {nom, ou, quantite, unite}, sans aucun texte autour. quantite est une chaîne vide si inconnue, unite est l\'unité typique du produit (g, kg, mL, L, pièce(s), sachet(s), boîte(s), etc.) ou vide.' },
               { role: 'user', content: instruction }
             ],
             max_tokens: mode === 'suggerer' ? 150 : mode === 'localiser' ? 1000 : 500,
@@ -319,7 +319,7 @@ export default {
         return repondre({
           suggestions: suggestions
             .filter(s => s && typeof s === 'object' && typeof s.nom === 'string' && s.nom.trim())
-            .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim() }))
+            .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim(), quantite: (s.quantite || '').trim(), unite: (s.unite || '').trim() }))
             .slice(0, 15)
         });
       } catch (e) {
