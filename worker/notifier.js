@@ -285,6 +285,56 @@ export default {
         } catch (e) { return repondre({ erreur: 'erreur vision : ' + e.message }, 500); }
       }
 
+      /* --- Mode recette : extraction d'ingrédients depuis une URL ou un texte --- */
+      if (mode === 'recette') {
+        const { url: recetteUrl = '', texte: recetteTexte = '' } = corpsRequete;
+        let contenu = recetteTexte;
+        if (recetteUrl) {
+          try {
+            const rep = await fetch(recetteUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+            const html = await rep.text();
+            contenu = html
+              .replace(/<script[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[\s\S]*?<\/style>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 8000);
+          } catch (e) { return repondre({ erreur: 'Impossible de charger la recette : ' + e.message }, 500); }
+        }
+        if (!contenu.trim()) return repondre({ erreur: 'Aucun contenu à analyser' }, 400);
+        try {
+          const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'openai/gpt-oss-20b',
+              messages: [
+                { role: 'system', content: 'Tu extrais des ingrédients de recettes. Réponds UNIQUEMENT avec un tableau JSON valide d\'objets {nom, ou, quantite, unite}, sans aucun texte autour. unite est l\'unité du produit (g, kg, mL, L, pièce(s), etc.) ou vide.' },
+                { role: 'user', content: `Extrait la liste des ingrédients de cette recette. Pour chaque ingrédient indique la quantité, l'unité et où le trouver en magasin. Réponds UNIQUEMENT avec un tableau JSON d'objets {nom, ou, quantite, unite} en français.\n\nRecette :\n${contenu}` }
+              ],
+              max_tokens: 1000,
+              temperature: 0.2
+            })
+          });
+          if (!r.ok) { const err = await r.text(); return repondre({ erreur: 'Groq recette ' + r.status + ' : ' + err }, 500); }
+          const json = await r.json();
+          const brut = (json.choices?.[0]?.message?.content || '').trim();
+          const cleaned = brut.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          const jsonStr = extraireTableauJson(cleaned);
+          if (!jsonStr) return repondre({ erreur: 'réponse recette illisible', brut }, 500);
+          let suggestions;
+          try { suggestions = JSON.parse(jsonStr); }
+          catch { return repondre({ erreur: 'JSON recette invalide', brut }, 500); }
+          if (!Array.isArray(suggestions)) return repondre({ erreur: 'format recette inattendu' }, 500);
+          return repondre({
+            suggestions: suggestions
+              .filter(s => s && typeof s === 'object' && typeof s.nom === 'string' && s.nom.trim())
+              .map(s => ({ nom: s.nom.trim(), ou: (s.ou || '').trim(), quantite: (s.quantite || '').trim(), unite: (s.unite || '').trim() }))
+          });
+        } catch (e) { return repondre({ erreur: 'erreur recette : ' + e.message }, 500); }
+      }
+
       let instruction;
       if (mode === 'creer' && texte.trim()) {
         instruction = `Génère une liste d'articles pour : "${texte.trim()}". Pour chaque article indique où le trouver et l'unité typique (g, kg, mL, L, pièce(s), etc.). Réponds UNIQUEMENT avec un tableau JSON d'objets en français, max 12 articles. Exemple : [{"nom":"farine","ou":"Épicerie — pâtisserie","quantite":"","unite":"g"},{"nom":"lait","ou":"Rayon frais","quantite":"","unite":"L"}]`;

@@ -11,7 +11,7 @@ const STORE_KEY = 'meslistes.v1';
    Majeur.mineur : le majeur monte pour une fonctionnalité ou une refonte, le
    mineur pour un correctif ou une retouche. À garder en phase avec le nom du
    cache et les `?v…` — voir le README. */
-const VERSION = 'v21.1';
+const VERSION = 'v22';
 
 const COLORS = [
   '#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be',
@@ -1516,6 +1516,12 @@ $('btn-list-menu').addEventListener('click', () => {
   const doneCount = list.items.filter(itemDone).length;
   const typeInfo = TYPES_LISTE[list.type || 'normale'] || TYPES_LISTE.normale;
 
+  const rappelKey = `meslistes.rappel.${currentListId}`;
+  const rappelTs  = localStorage.getItem(rappelKey);
+  const rappelLabel = rappelTs
+    ? `Annuler le rappel (${new Date(rappelTs).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })})`
+    : 'Programmer un rappel';
+
   openSheet(list.name, [
     { label: 'Renommer la liste', icon: '✏️', run: () => renameList(currentListId) },
     { label: 'Changer la couleur', icon: '🎨', run: () => colorPicker(currentListId) },
@@ -1525,6 +1531,7 @@ $('btn-list-menu').addEventListener('click', () => {
         if (state.trierParDeadline) state.trierParRayon = false;
         sauverLocalement(); renderItems();
       } },
+    { label: rappelLabel, icon: '⏰', run: () => programmerRappel(currentListId) },
     { label: 'Lier à une liste', icon: '🔗', run: () => lierListeModal(currentListId) },
     { label: 'Partager la liste', icon: '👥', run: () => shareModal(currentListId) },
     { label: 'Tout décocher', icon: '↩️', run: () => {
@@ -4781,11 +4788,105 @@ async function ouvrirIA() {
           afficherSuggestionsIA(suggestions, list);
         });
       }
+    },
+    {
+      icon: '🍳',
+      label: 'Depuis une recette…',
+      run: () => {
+        closeSheet();
+        sheetBackdrop.hidden = false;
+        $('sheet-title').textContent = '🍳 Recette';
+        sheetBody.innerHTML = `
+          <p class="ia-msg">Colle une URL ou le texte d'une recette :</p>
+          <textarea id="recette-input" class="recette-textarea" placeholder="https://… ou texte de la recette…" rows="5"></textarea>
+          <button class="sheet-action" id="recette-submit">Extraire les ingrédients ✨</button>
+        `;
+        sheetBody.onclick = null;
+        setTimeout(() => $('recette-input')?.focus(), 50);
+        $('recette-submit').addEventListener('click', async () => {
+          const val = ($('recette-input')?.value || '').trim();
+          if (!val) return;
+          const isUrl = /^https?:\/\//i.test(val);
+          $('sheet-title').textContent = '🍳 Extraction…';
+          sheetBody.innerHTML = '<p class="ia-msg ia-chargement">L\'IA lit la recette…</p>';
+          sheetBody.onclick = null;
+          const suggestions = await demanderIA('recette', isUrl ? { url: val } : { texte: val });
+          if (!suggestions) { closeSheet(); return; }
+          $('sheet-title').textContent = '🍳 Ingrédients détectés';
+          afficherSuggestionsIA(suggestions, list);
+        });
+      }
     }
   ]);
 }
 
 $('btn-ia').addEventListener('click', ouvrirIA);
+
+/* ============================================================
+   Rappels de liste (v22)
+   ============================================================ */
+
+function verifierRappels() {
+  const now = Date.now();
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith('meslistes.rappel.')) continue;
+    const ts = localStorage.getItem(key);
+    if (!ts || new Date(ts).getTime() > now) continue;
+    const listId = key.slice('meslistes.rappel.'.length);
+    const nom = getList(listId)?.name || 'liste';
+    localStorage.removeItem(key);
+    navigator.serviceWorker?.ready.then(reg =>
+      reg.showNotification(`⏰ ${nom}`, {
+        body: 'Tu as un rappel pour cette liste.',
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-badge.png',
+        tag: 'rappel-' + listId,
+        data: { listeId: listId }
+      })
+    ).catch(() => {
+      if (Notification.permission === 'granted')
+        new Notification(`⏰ ${nom}`, { body: 'Tu as un rappel pour cette liste.', icon: './icons/icon-192.png' });
+    });
+    toast(`⏰ Rappel : ${nom}`);
+  }
+}
+
+function programmerRappel(listId) {
+  const list = getList(listId);
+  const rappelKey = `meslistes.rappel.${listId}`;
+  const actuel = localStorage.getItem(rappelKey);
+  const def = new Date(Date.now() + 3600000);
+  def.setMinutes(Math.ceil(def.getMinutes() / 15) * 15, 0, 0);
+  const defaultVal = def.toISOString().slice(0, 16);
+  openSheet('⏰ Rappel', [], {
+    html: `
+      <p class="ia-msg">Quand veux-tu être rappelé pour « ${esc(list?.name || '')} » ?</p>
+      <input type="datetime-local" id="rappel-dt" class="rappel-input"
+             value="${actuel ? new Date(actuel).toISOString().slice(0, 16) : defaultVal}">
+      <button class="sheet-action" id="rappel-save">Enregistrer</button>
+      ${actuel ? '<button class="sheet-action danger" id="rappel-del">Supprimer le rappel</button>' : ''}
+    `,
+    onClick: e => {
+      if (e.target.id === 'rappel-save') {
+        const val = $('rappel-dt')?.value;
+        if (!val) return;
+        localStorage.setItem(rappelKey, new Date(val).toISOString());
+        closeSheet();
+        toast(`⏰ Rappel à ${new Date(val).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}`);
+      }
+      if (e.target.id === 'rappel-del') {
+        localStorage.removeItem(rappelKey);
+        closeSheet();
+        toast('Rappel supprimé');
+      }
+    }
+  });
+  setTimeout(() => $('rappel-dt')?.focus(), 50);
+}
+
+verifierRappels();
+setInterval(verifierRappels, 30000);
 $('btn-localiser').addEventListener('click', () => localiserItems(currentListId));
 
 /* `tests.html` charge l'app avec ce paramètre. Le rechargement automatique
@@ -4799,7 +4900,7 @@ if ('serviceWorker' in navigator && !sousTest) {
       // Forcer la vérification de mise à jour dès que l'app revient au premier plan
       // (onglet réactivé, retour depuis le fond sur mobile).
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reg.update();
+        if (document.visibilityState === 'visible') { reg.update(); verifierRappels(); }
       });
     }).catch(() => {});
   });

@@ -729,6 +729,33 @@ svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width:
 .sheet-action.danger { color: var(--danger); }
 .sheet-cancel { justify-content: center; font-weight: 600; color: var(--accent); margin-top: 6px; }
 
+.recette-textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.rappel-input {
+  display: block;
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  font-size: 16px;
+  background: var(--surface);
+  color: var(--text);
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
 /* ===== Choix du thème ===== */
 .seg {
   display: flex;
