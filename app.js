@@ -1120,6 +1120,8 @@ function editItem(item) {
   draft = {
     text: item.text,
     qty: item.qty,
+    quantite: item.quantite || '',
+    unite: item.unite || '',
     baseDone: itemDone(item),
     variants: item.variants.map(v => ({ ...v })),
     deadline: item.deadline || ''
@@ -1128,6 +1130,8 @@ function editItem(item) {
   draftApply = d => {
     item.text = d.text;
     item.qty = d.qty;
+    if (d.quantite) { item.quantite = d.quantite; item.unite = d.unite; }
+    else { delete item.quantite; delete item.unite; }
     item.variants = d.variants;
     if (d.variants.length) item.done = d.variants.every(v => v.done);
     if (d.deadline) item.deadline = d.deadline;
@@ -1142,6 +1146,17 @@ function editItem(item) {
   renderDraft();
   itemBackdrop.hidden = false;
   setTimeout(() => { $('item-name').focus(); $('item-name').select(); }, 50);
+
+  if (!draft.unite && Sync.user) {
+    const hint = $('item-unite-hint');
+    if (hint) hint.textContent = '✨ IA…';
+    suggererUniteIA(draft.text, unite => {
+      if (!draft || draft.unite) return;
+      draft.unite = unite;
+      renderDraft();
+      if (hint) { hint.textContent = '✨ suggéré'; setTimeout(() => { if (hint) hint.textContent = ''; }, 2000); }
+    });
+  }
 }
 
 function stepper(cls, valeur) {
@@ -1159,6 +1174,15 @@ function renderDraft() {
   // afficher les deux réglages inviterait à se contredire.
   $('item-qty-block').hidden = draft.variants.length > 0;
   $('item-qty').value = draft.qty;
+
+  const mv = $('item-mesure-val');
+  if (mv) mv.value = draft.quantite || '';
+  const mu = $('item-mesure-units');
+  if (mu) {
+    mu.innerHTML =
+      `<button type="button" class="qty-unit-chip${!draft.unite ? ' selected' : ''}" data-dunit="">aucune</button>` +
+      UNITES_QTE.map(u => `<button type="button" class="qty-unit-chip${u === draft.unite ? ' selected' : ''}" data-dunit="${esc(u)}">${esc(u)}</button>`).join('');
+  }
 
   elVariantsEdit.innerHTML = draft.variants.map(v => `
     <li class="variant-edit" data-vid="${v.id}">
@@ -1178,6 +1202,10 @@ function syncDraft() {
   draft.text = $('item-name').value;
   draft.qty = clampQty($('item-qty').value);
   draft.deadline = $('item-deadline').value;
+  const mv = $('item-mesure-val');
+  if (mv) draft.quantite = mv.value.trim();
+  const selUnit = $('item-mesure-units')?.querySelector('[data-dunit].selected');
+  if (selUnit !== null && selUnit !== undefined) draft.unite = selUnit.dataset.dunit;
   elVariantsEdit.querySelectorAll('[data-vid]').forEach(li => {
     const v = draft.variants.find(x => x.id === li.dataset.vid);
     if (!v) return;
@@ -1187,6 +1215,14 @@ function syncDraft() {
 }
 
 $('item-editor').addEventListener('click', e => {
+  const unitChip = e.target.closest('[data-dunit]');
+  if (unitChip) {
+    $('item-mesure-units').querySelectorAll('[data-dunit]').forEach(c => c.classList.remove('selected'));
+    unitChip.classList.add('selected');
+    draft.unite = unitChip.dataset.dunit;
+    return;
+  }
+
   const pas = e.target.closest('[data-step]');
   if (pas) {
     const champ = pas.parentElement.querySelector('.step-value');
@@ -4387,6 +4423,22 @@ async function localiserItems(listId) {
 }
 
 const UNITES_QTE = ['g', 'kg', 'mg', 'mL', 'cL', 'L', 'pièce(s)', 'sachet(s)', 'boîte(s)', 'paquet(s)', 'tranche(s)', 'portion(s)', 'c. à soupe', 'c. à café'];
+
+async function suggererUniteIA(nomArticle, callback) {
+  if (!Sync.user || !nomArticle) return;
+  try {
+    const idToken = await fb.auth.currentUser.getIdToken();
+    const list = getList(currentListId);
+    const r = await fetch(WORKER_NOTIFS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, action: 'ia', mode: 'localiser', articles: [nomArticle], typeListe: list?.type || 'normale' })
+    });
+    const data = await r.json();
+    const unite = (data.suggestions || [])[0]?.unite;
+    if (unite) callback(unite);
+  } catch {}
+}
 
 function ouvrirEditorQuantite(item, list) {
   const qte = item.quantite || '';
