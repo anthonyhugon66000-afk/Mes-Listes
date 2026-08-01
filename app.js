@@ -3559,6 +3559,7 @@ const CLE_RETOURS_VUS = 'meslistes.retours_vus';
 let arreterConversations = null;
 let arreterMessages     = null;
 let _lastSeenTimer      = null;
+let _convSubtitleTimer  = null;
 let arreterDemandes     = null;
 let convActive          = null;   // { id, otherUid }
 let arreterMesRetoursGlobal = null;   // badge temps réel
@@ -3857,10 +3858,19 @@ async function openConversation(otherUid) {
     renderBubbles(msgs);
     Sync.marquerLu(convId);
   });
-  // Charger lastSeen en arrière-plan
+  // Charger lastSeen puis rafraîchir l'affichage chaque seconde.
+  clearInterval(_convSubtitleTimer);
+  _convSubtitleTimer = null;
   Sync.lireLastSeenDe?.(otherUid).then(ts => {
-    const label = formatLastSeen(ts);
-    if (sub && label) { sub.textContent = label; sub.hidden = false; }
+    if (!ts) return;
+    const maj = () => {
+      if (!sub) return;
+      const label = formatLastSeen(ts);
+      sub.textContent = label || '';
+      sub.hidden = !label;
+    };
+    maj();
+    _convSubtitleTimer = setInterval(maj, 1000);
   }).catch(() => {});
 }
 
@@ -3878,6 +3888,8 @@ $('btn-back-conv').addEventListener('click', () => {
   arreterMessages?.();
   arreterMessages = null;
   convActive = null;
+  clearInterval(_convSubtitleTimer);
+  _convSubtitleTimer = null;
   showMsgPanel('msg-list-view');
 });
 
