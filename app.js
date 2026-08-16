@@ -2580,6 +2580,8 @@ function accountModal() {
   modeAuth = 'connexion';    // rouvrir la fenêtre repart de l'écran d'accueil
   renderAuthMode();
   compteBackdrop.hidden = false;
+  if (!Sync.pret)
+  Sync.init().catch(() => {});
   if (Sync.user) {
     renderAmis();
     renderDemandes();
