@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'icons/icon-512.png'
+      - 'icon-source.png'
 
 jobs:
   resize:
@@ -19,15 +19,18 @@ jobs:
 
       - name: Générer les tailles d'icônes
         run: |
+          # 512x512 — taille de base pour le manifest PWA
+          convert icon-source.png -resize 512x512 icons/icon-512.png
+
           # 192x192 — icône standard PWA et favicon
-          convert icons/icon-512.png -resize 192x192 icons/icon-192.png
+          convert icon-source.png -resize 192x192 icons/icon-192.png
 
-          # 180x180 — Apple Touch Icon (iOS)
-          convert icons/icon-512.png -resize 180x180 icons/icon-180.png
+          # 180x180 — Apple Touch Icon (iOS / iPhone)
+          convert icon-source.png -resize 180x180 icons/icon-180.png
 
-          # 512x512 maskable — le contenu est réduit à 80 % avec le fond de l'app,
+          # 512x512 maskable — contenu réduit à 80 % avec le fond de l'app,
           # pour respecter la zone de sécurité Android (safe zone).
-          convert icons/icon-512.png -resize 410x410 \
+          convert icon-source.png -resize 410x410 \
             -gravity center -background "#f2f2f7" -extent 512x512 \
             icons/icon-512-maskable.png
 
@@ -49,6 +52,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add icons/icon-192.png icons/icon-180.png icons/icon-512-maskable.png sw.js
+          git add icons/icon-512.png icons/icon-192.png icons/icon-180.png icons/icon-512-maskable.png sw.js
           git diff --staged --quiet || git commit -m "chore : redimensionnement automatique des icônes PWA"
           git push
