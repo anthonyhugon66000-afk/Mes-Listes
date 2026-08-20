@@ -1,0 +1,57 @@
+name: Mise à jour des icônes PWA
+
+# Se déclenche quand icon-512.png est modifié sur main.
+# Génère automatiquement les autres tailles et force la PWA à se mettre à jour.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'icon-source.png'
+
+jobs:
+  resize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Générer les tailles d'icônes
+        run: |
+          # 512x512 — taille de base pour le manifest PWA
+          convert icon-source.png -resize 512x512 icons/icon-512.png
+
+          # 192x192 — icône standard PWA et favicon
+          convert icon-source.png -resize 192x192 icons/icon-192.png
+
+          # 180x180 — Apple Touch Icon (iOS / iPhone)
+          convert icon-source.png -resize 180x180 icons/icon-180.png
+
+          # 512x512 maskable — contenu réduit à 80 % avec le fond de l'app,
+          # pour respecter la zone de sécurité Android (safe zone).
+          convert icon-source.png -resize 410x410 \
+            -gravity center -background "#f2f2f7" -extent 512x512 \
+            icons/icon-512-maskable.png
+
+      - name: Forcer le rechargement de la PWA
+        # Ajoute/incrémente un suffixe .icN dans le nom du cache du service worker.
+        # Sans ça, la PWA continuerait à servir les anciennes icônes depuis son cache.
+        # Le suffixe est séparé du numéro de version principal (v22, v23…) pour
+        # ne pas interférer avec les mises à jour de code.
+        run: |
+          CURRENT=$(grep -oP "(?<=CACHE = ')[^']+" sw.js)
+          BASE=$(echo "$CURRENT" | sed 's/\.ic[0-9]*$//')
+          ICNUM=$(echo "$CURRENT" | grep -oP '\.ic\K[0-9]+' || echo "0")
+          NEWNUM=$((ICNUM + 1))
+          NEW="${BASE}.ic${NEWNUM}"
+          sed -i "s/const CACHE = '${CURRENT}'/const CACHE = '${NEW}'/" sw.js
+          echo "Cache : $CURRENT → $NEW"
+
+      - name: Commit et push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add icons/icon-512.png icons/icon-192.png icons/icon-180.png icons/icon-512-maskable.png sw.js
+          git diff --staged --quiet || git commit -m "chore : redimensionnement automatique des icônes PWA"
+          git push
